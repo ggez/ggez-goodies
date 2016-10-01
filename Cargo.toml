@@ -1,0 +1,12 @@
+[package]
+name = "ggez-goodies"
+description = "Various small useful add-ons for the ggez game framework"
+version = "0.1.0"
+repository = "https://github.com/icefoxen/ggez-goodies"
+documentation = "https://docs.rs/ggez-goodies"
+authors = ["Simon Heath <icefoxen@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+
+[dependencies]
