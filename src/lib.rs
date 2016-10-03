@@ -1,8 +1,8 @@
 
-mod resource;
-mod scene;
-mod sprite;
-mod particle;
+pub mod asset;
+pub mod scene;
+pub mod sprite;
+pub mod particle;
 
 
 #[cfg(test)]
