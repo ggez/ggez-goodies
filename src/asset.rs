@@ -69,8 +69,64 @@ impl<K,V> AssetCache<K,V>
     }
 }
 
+pub struct StatefulAssetCache<K,V,S>
+    where K: Ord + Clone {
+    contents: BTreeMap<K,Rc<V>>,
+    loader: fn(&K, &mut S) -> V,
+    state: S,
+}
+
+impl<K,V,S> StatefulAssetCache<K,V,S>
+    where K: Ord + Clone {
+    /// Creates a new `AssetCache` that loads assets
+    /// when necessary with the given loader function.
+    pub fn new(loaderfunc: fn(&K, &mut S) -> V, state: S) -> Self {
+        let map = BTreeMap::new();
+        StatefulAssetCache {
+            contents: map,
+            loader: loaderfunc,
+            state: state,
+        }
+    }
+
+    /// Gets the given asset, loading it if necessary.
+    pub fn get(&mut self, key: &K) -> Rc<V> {
+        let loader = self.loader;
+        let state = &mut self.state;
+        let f = || {
+            let item = loader(key, state);
+            Rc::new(item)
+        };
+        let entry = self.contents.entry(key.clone());
+        //let loader = self.loader;
+        entry.or_insert_with(f).clone()
+    }
+
+    /// Removes all assets from the cache
+    /// and frees any excess memory it uses.
+    pub fn clear(&mut self) {
+        let map = BTreeMap::new();
+        self.contents = map;
+    }
+
+    /// Returns true if the given asset is loaded.
+    pub fn loaded(&self, key: &K) -> bool {
+        self.contents.contains_key(key)
+    }
+
+    /// Takes a slice containing a list of keys,
+    /// and loads all the keys so that their objects
+    /// are immediately accessible.
+    pub fn preload(&mut self, keys: &[K]) {
+        for k in keys {
+            let _ = self.get(k);
+        }
+    }
+}
+
+
 mod tests {
-    use super::AssetCache;
+    use super::*;
 
     // It would be nice to get rid of the double references here somehow,
     // but then AssetCache ends up with a type of <str, String>
@@ -93,4 +149,23 @@ mod tests {
         assert_eq!(*s1, "FooBaz".to_owned());
         assert!(a.loaded(&"foo"));
     }
+
+    #[test]
+    fn test_stateful_assetcache() {
+        fn loader(s: &&str, loaderinfo: &mut u32) -> String {
+            *loaderinfo += 1;
+            match *s {
+                "foo" => "FooBaz".to_owned(),
+                "bar" => "BarBaz".to_owned(),
+                _ => "Something else".to_owned(),
+            }
+        }
+
+        let mut a = StatefulAssetCache::new(loader, 0);
+        assert!(!a.loaded(&"foo"));
+        let s1 = a.get(&"foo");
+        assert_eq!(*s1, "FooBaz".to_owned());
+        assert!(a.loaded(&"foo"));
+    }
+
 }
