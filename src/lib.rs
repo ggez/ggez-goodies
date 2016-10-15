@@ -1,3 +1,4 @@
+extern crate ggez;
 
 pub mod asset;
 pub mod scene;

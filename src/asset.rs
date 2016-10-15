@@ -162,9 +162,11 @@ mod tests {
         }
 
         let mut a = StatefulAssetCache::new(loader, 0);
+        assert_eq!(a.state, 0);
         assert!(!a.loaded(&"foo"));
         let s1 = a.get(&"foo");
         assert_eq!(*s1, "FooBaz".to_owned());
+        assert_eq!(a.state, 1);
         assert!(a.loaded(&"foo"));
     }
 
