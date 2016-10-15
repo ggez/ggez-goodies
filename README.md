@@ -16,6 +16,7 @@ Bupkis!  Hah!
 * Input indirection layer and state tracking
 * Sprites with ordering, animation, atlasing, tile mapping, 3x3 sprites...
 * GUI
+* Timers?
 * In-game debugger...
 
 # Useful goodies made by other people
