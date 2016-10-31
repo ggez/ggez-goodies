@@ -7,11 +7,10 @@ Or if it does rely on others, it will be in a strictly incremental fashion.
 
 # Modules that exist
 
-Bupkis!  Hah!
+* Resource loader/cache
 
 # Modules to create
 
-* Resource loader/cache
 * Scene stack
 * Particle system
 * Input indirection layer and state tracking
