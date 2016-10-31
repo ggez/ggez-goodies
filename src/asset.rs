@@ -11,40 +11,53 @@
 //! items can safely access (read-only) instances of the same asset.
 
 // TODO: This is not thread safe; should we offer one that it?
+// TODO: Check out calx-resource:
+// https://github.com/rsaarelm/calx/blob/master/calx-resource/src/lib.rs
+// It has a) nifty macros to build these automatically,
+// and b) an asset type that will serialize to a key, and then
+// deserialize the key to that asset.  Very neat!  But also
+// a bit labyrenthine.
+// It DOES also make thread-safety work through thread_local!().
 
 
 use std::collections::BTreeMap;
+use std::error::Error;
 use std::rc::Rc;
-use std::boxed::Box;
+
+pub trait Loadable<K,E> {
+    fn load(_key: &K) -> Result<Self,E>
+        where Self: Sized;
+}
 
 pub struct AssetCache<K,V>
     where K: Ord + Clone {
     contents: BTreeMap<K,Rc<V>>,
-    loader: Box<FnMut(&K) -> V>,
 }
 
 impl<K,V> AssetCache<K,V>
     where K: Ord + Clone {
     /// Creates a new `AssetCache` that loads assets
     /// when necessary with the given loader function.
-    pub fn new(loaderfunc: Box<FnMut(&K) -> V>) -> Self {
+    pub fn new() -> Self {
         let map = BTreeMap::new();
         AssetCache {
             contents: map,
-            loader: loaderfunc,
         }
     }
 
     /// Gets the given asset, loading it if necessary.
-    pub fn get(&mut self, key: &K) -> Rc<V> {
-        let loader = &mut self.loader;
-        let f = || {
-            let item = loader(key);
-            Rc::new(item)
+    // Oh my goodness getting the E type param to the
+    // right place was amazingly difficult.
+    pub fn get<E>(&mut self, key: &K) -> Result<Rc<V>,E>
+        where V: Loadable<K,E> {
+        if let Some(v) = self.contents.get(key) {
+            return Ok(v.clone())
         };
-        let entry = self.contents.entry(key.clone());
-        //let loader = self.loader;
-        entry.or_insert_with(f).clone()
+
+        let v = try!(V::load(key));
+        let v_rc = Rc::new(v);
+        self.contents.insert(key.clone(), v_rc.clone());
+        Ok(v_rc)
     }
 
     /// Removes all assets from the cache
@@ -62,13 +75,17 @@ impl<K,V> AssetCache<K,V>
     /// Takes a slice containing a list of keys,
     /// and loads all the keys so that their objects
     /// are immediately accessible.
-    pub fn preload(&mut self, keys: &[K]) {
+    pub fn preload<E>(&mut self, keys: &[K])
+        where V: Loadable<K,E> {
         for k in keys {
             let _ = self.get(k);
         }
     }
 }
 
+/// An AssetCache that owns some State
+/// object, which then gets passed to and
+/// updated by the Load function.
 pub struct StatefulAssetCache<K,V,S>
     where K: Ord + Clone {
     contents: BTreeMap<K,Rc<V>>,
@@ -128,26 +145,22 @@ impl<K,V,S> StatefulAssetCache<K,V,S>
 mod tests {
     use super::*;
 
+    impl Loadable<String,()> for String {
+        fn load(key:&String) -> Result<String, ()> {
+            Ok(key.to_string())
+        }
+    }
+
     // It would be nice to get rid of the double references here somehow,
     // but then AssetCache ends up with a type of <str, String>
     // and `str` is not sized so it always has to involve a reference.
     #[test]
     fn test_assetcache() {
-        //let mut loaderState = 0;
-        let loader = |s: &&str| {
-            //loaderState += 1;
-            match *s {
-                "foo" => "FooBaz".to_owned(),
-                "bar" => "BarBaz".to_owned(),
-                _ => "Something else".to_owned(),
-            }
-        };
-
-        let mut a = AssetCache::new(Box::new(loader));
-        assert!(!a.loaded(&"foo"));
-        let s1 = a.get(&"foo");
-        assert_eq!(*s1, "FooBaz".to_owned());
-        assert!(a.loaded(&"foo"));
+        let mut a = AssetCache::<String,String>::new();
+        assert!(!a.loaded(&("foo".to_string())));
+        let s1 = a.get(&"foo".to_string()).unwrap();
+        assert_eq!(*s1, "foo".to_string());
+        assert!(a.loaded(&("foo".to_string())));
     }
 
     #[test]

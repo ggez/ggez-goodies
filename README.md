@@ -3,6 +3,7 @@
 Useful modules for the ggez Rust game framework.
 
 Each module is meant to be pretty much self-contained without relying on the others.
+Or if it does rely on others, it will be in a strictly incremental fashion.
 
 # Modules that exist
 
@@ -14,8 +15,9 @@ Bupkis!  Hah!
 * Scene stack
 * Particle system
 * Input indirection layer and state tracking
-* Sprites with ordering, animation, atlasing, tile mapping, 3x3 sprites...
-* GUI
+* Sprites with ordering, animation, atlasing, tile mapping, 3x3 sprites... (look at
+https://docs.rs/piston2d-sprite/0.28.0/sprite/index.html)
+* GUI (conrod backend?)
 * Timers?
 * In-game debugger...
 
@@ -23,6 +25,6 @@ Bupkis!  Hah!
 
 * specs for entity-component system (alternatives: ecs or recs crates)
 * cgmath or vecmath for math operations?
-* physics/collision???
-
-
+* physics/collision???  ncollide.
+* https://github.com/rsaarelm/calx
+* https://github.com/Gekkio/imgui-rs
