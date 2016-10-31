@@ -145,8 +145,8 @@ impl<K,V,S> StatefulAssetCache<K,V,S>
 mod tests {
     use super::*;
 
-    impl Loadable<String,()> for String {
-        fn load(key:&String) -> Result<String, ()> {
+    impl<'a> Loadable<&'a str,()> for String {
+        fn load(key:&&str) -> Result<String, ()> {
             Ok(key.to_string())
         }
     }
@@ -156,11 +156,11 @@ mod tests {
     // and `str` is not sized so it always has to involve a reference.
     #[test]
     fn test_assetcache() {
-        let mut a = AssetCache::<String,String>::new();
-        assert!(!a.loaded(&("foo".to_string())));
-        let s1 = a.get(&"foo".to_string()).unwrap();
-        assert_eq!(*s1, "foo".to_string());
-        assert!(a.loaded(&("foo".to_string())));
+        let mut a = AssetCache::<&str,String>::new();
+        assert!(!a.loaded(&"foo"));
+        let s1 = a.get(&"foo").unwrap();
+        assert_eq!(*s1, "foo");
+        assert!(a.loaded(&"foo"));
     }
 
     #[test]
