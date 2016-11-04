@@ -7,7 +7,7 @@ Or if it does rely on others, it will be in a strictly incremental fashion.
 
 # Modules that exist
 
-* Resource loader/cache
+* Resource loader/cache (though it's a little janky)
 
 # Modules to create
 
@@ -16,7 +16,7 @@ Or if it does rely on others, it will be in a strictly incremental fashion.
 * Input indirection layer and state tracking
 * Sprites with ordering, animation, atlasing, tile mapping, 3x3 sprites... (look at
 https://docs.rs/piston2d-sprite/0.28.0/sprite/index.html)
-* GUI (conrod backend?)
+* GUI (conrod? imgui?)
 * Timers?
 * In-game debugger...
 
