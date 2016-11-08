@@ -9,7 +9,10 @@
 //! between keyboards, joysticks and game controllers
 //! (rather based on Unity3D),
 //! * Do some tweening of input axes and stuff just for
-//! funs.
+//! fun maybe.
+//!
+//! Right now ggez doesn't handle joysticks or controllers
+//! anyway, so.
 
 
 use ggez::event::*;
