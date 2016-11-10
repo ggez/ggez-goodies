@@ -10,7 +10,7 @@ readme = "README.md"
 
 
 [dependencies]
+#ggez = { path = "/home/icefox/src/ggez" }
 ggez = { git = "https://github.com/ggez/ggez", branch = "master" }
 rand = "0.3"
-sdl2 = "0.23"
-
+nalgebra = "0.10"

@@ -6,7 +6,7 @@
 //! hold on to them for a time (the course of a level for instance),
 //! and then potentially ditch the ones you don't need.
 //! This module offers cache-like functionality to do exactly this.
-//! 
+//!
 //! It will return an `Rc` containing the item loaded, so multiple
 //! items can safely access (read-only) instances of the same asset.
 
@@ -24,33 +24,32 @@ use std::collections::BTreeMap;
 use std::rc::Rc;
 
 pub trait Loadable<K,E> {
-    fn load(_key: &K) -> Result<Self,E>
-        where Self: Sized;
+    fn load(_key: &K) -> Result<Self, E> where Self: Sized;
 }
 
-pub struct AssetCache<K,V>
-    where K: Ord + Clone {
-    contents: BTreeMap<K,Rc<V>>,
+pub struct AssetCache<K, V>
+    where K: Ord + Clone
+{
+    contents: BTreeMap<K, Rc<V>>,
 }
 
-impl<K,V> AssetCache<K,V>
-    where K: Ord + Clone {
+impl<K, V> AssetCache<K, V> where K: Ord + Clone
+{
     /// Creates a new `AssetCache` that loads assets
     /// when necessary with the given loader function.
     pub fn new() -> Self {
         let map = BTreeMap::new();
-        AssetCache {
-            contents: map,
-        }
+        AssetCache { contents: map }
     }
 
     /// Gets the given asset, loading it if necessary.
     // Oh my goodness getting the E type param to the
     // right place was amazingly difficult.
-    pub fn get<E>(&mut self, key: &K) -> Result<Rc<V>,E>
-        where V: Loadable<K,E> {
+    pub fn get<E>(&mut self, key: &K) -> Result<Rc<V>, E>
+        where V: Loadable<K, E>
+    {
         if let Some(v) = self.contents.get(key) {
-            return Ok(v.clone())
+            return Ok(v.clone());
         };
 
         let v = try!(V::load(key));
@@ -75,47 +74,53 @@ impl<K,V> AssetCache<K,V>
     /// and loads all the keys so that their objects
     /// are immediately accessible.
     pub fn preload<E>(&mut self, keys: &[K])
-        where V: Loadable<K,E> {
+        where V: Loadable<K, E>
+    {
         for k in keys {
             let _ = self.get(k);
         }
     }
 }
 
+
+pub trait StateLoadable<K,E,S> {
+    fn load(_key: &K, &mut S) -> Result<Self, E> where Self: Sized;
+}
+
 /// An AssetCache that owns some State
 /// object, which then gets passed to and
 /// updated by the Load function.
-pub struct StatefulAssetCache<K,V,S>
-    where K: Ord + Clone {
-    contents: BTreeMap<K,Rc<V>>,
-    loader: fn(&K, &mut S) -> V,
+pub struct StatefulAssetCache<K, V, S>
+    where K: Ord + Clone
+{
+    contents: BTreeMap<K, Rc<V>>,
     state: S,
 }
 
-impl<K,V,S> StatefulAssetCache<K,V,S>
-    where K: Ord + Clone {
+impl<K, V, S> StatefulAssetCache<K, V, S> where K: Ord + Clone
+{
     /// Creates a new `AssetCache` that loads assets
     /// when necessary with the given loader function.
-    pub fn new(loaderfunc: fn(&K, &mut S) -> V, state: S) -> Self {
+    pub fn new(state: S) -> Self {
         let map = BTreeMap::new();
         StatefulAssetCache {
             contents: map,
-            loader: loaderfunc,
             state: state,
         }
     }
 
     /// Gets the given asset, loading it if necessary.
-    pub fn get(&mut self, key: &K) -> Rc<V> {
-        let loader = self.loader;
-        let state = &mut self.state;
-        let f = || {
-            let item = loader(key, state);
-            Rc::new(item)
+    pub fn get<E>(&mut self, key: &K) -> Result<Rc<V>, E>
+        where V: StateLoadable<K, E, S>
+    {
+        if let Some(v) = self.contents.get(key) {
+            return Ok(v.clone());
         };
-        let entry = self.contents.entry(key.clone());
-        //let loader = self.loader;
-        entry.or_insert_with(f).clone()
+
+        let v = try!(V::load(key, &mut self.state));
+        let v_rc = Rc::new(v);
+        self.contents.insert(key.clone(), v_rc.clone());
+        Ok(v_rc)
     }
 
     /// Removes all assets from the cache
@@ -133,7 +138,9 @@ impl<K,V,S> StatefulAssetCache<K,V,S>
     /// Takes a slice containing a list of keys,
     /// and loads all the keys so that their objects
     /// are immediately accessible.
-    pub fn preload(&mut self, keys: &[K]) {
+    pub fn preload<E>(&mut self, keys: &[K])
+        where V: StateLoadable<K, E, S>
+    {
         for k in keys {
             let _ = self.get(k);
         }
@@ -143,9 +150,9 @@ impl<K,V,S> StatefulAssetCache<K,V,S>
 
 mod tests {
     use super::*;
-    #[cfg(test)]
-    impl<'a> Loadable<&'a str,()> for String {
-        fn load(key:&&str) -> Result<String, ()> {
+    #[cfg(test)] 
+    impl<'a> Loadable<&'a str, ()> for String {
+        fn load(key: &&str) -> Result<String, ()> {
             Ok(key.to_string())
         }
     }
@@ -155,29 +162,28 @@ mod tests {
     // and `str` is not sized so it always has to involve a reference.
     #[test]
     fn test_assetcache() {
-        let mut a = AssetCache::<&str,String>::new();
+        let mut a = AssetCache::<&str, String>::new();
         assert!(!a.loaded(&"foo"));
         let s1 = a.get(&"foo").unwrap();
         assert_eq!(*s1, "foo");
         assert!(a.loaded(&"foo"));
     }
 
+
+    impl<'a> StateLoadable<&'a str, (), i32> for String {
+        fn load(key: &&str, state: &mut i32) -> Result<String, ()> {
+            *state += 1;
+            Ok(key.to_string())
+        }
+    }
+
     #[test]
     fn test_stateful_assetcache() {
-        fn loader(s: &&str, loaderinfo: &mut u32) -> String {
-            *loaderinfo += 1;
-            match *s {
-                "foo" => "FooBaz".to_owned(),
-                "bar" => "BarBaz".to_owned(),
-                _ => "Something else".to_owned(),
-            }
-        }
-
-        let mut a = StatefulAssetCache::new(loader, 0);
+        let mut a = StatefulAssetCache::<&str, String, i32>::new(0);
         assert_eq!(a.state, 0);
         assert!(!a.loaded(&"foo"));
-        let s1 = a.get(&"foo");
-        assert_eq!(*s1, "FooBaz".to_owned());
+        let s1 = a.get(&"foo").unwrap();
+        assert_eq!(*s1, "foo");
         assert_eq!(a.state, 1);
         assert!(a.loaded(&"foo"));
     }
