@@ -23,7 +23,7 @@ https://docs.rs/piston2d-sprite/0.28.0/sprite/index.html)
 
 # Useful goodies made by other people
 
-* specs for entity-component system (alternatives: ecs or recs crates)
+* specs for entity-component system (alternatives: ecs or recs or rustic-ecs crates)
 * cgmath or vecmath for math operations?
 * physics/collision???  ncollide.
 * https://github.com/rsaarelm/calx

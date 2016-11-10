@@ -21,7 +21,6 @@
 
 
 use std::collections::BTreeMap;
-use std::error::Error;
 use std::rc::Rc;
 
 pub trait Loadable<K,E> {
@@ -144,7 +143,7 @@ impl<K,V,S> StatefulAssetCache<K,V,S>
 
 mod tests {
     use super::*;
-
+    #[cfg(test)]
     impl<'a> Loadable<&'a str,()> for String {
         fn load(key:&&str) -> Result<String, ()> {
             Ok(key.to_string())
