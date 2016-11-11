@@ -52,7 +52,7 @@ impl<K, V> AssetCache<K, V> where K: Ord + Clone
             return Ok(v.clone());
         };
 
-        let v = try!(V::load(key));
+        let v = V::load(key)?;
         let v_rc = Rc::new(v);
         self.contents.insert(key.clone(), v_rc.clone());
         Ok(v_rc)
@@ -117,7 +117,7 @@ impl<K, V, S> StatefulAssetCache<K, V, S> where K: Ord + Clone
             return Ok(v.clone());
         };
 
-        let v = try!(V::load(key, &mut self.state));
+        let v = V::load(key, &mut self.state)?;
         let v_rc = Rc::new(v);
         self.contents.insert(key.clone(), v_rc.clone());
         Ok(v_rc)
