@@ -16,22 +16,31 @@ use ggez::timer;
 use std::time::Duration;
 use std::ops::{Add, AddAssign, Sub};
 
-struct MainState {
+extern crate ggez_goodies;
+use ggez_goodies::particle::*;
 
+struct MainState {
+    particles: ParticleSystem,
 }
 
 impl GameState for MainState {
     fn load(ctx: &mut Context, conf: &conf::Conf) -> GameResult<Self> {
-        let state = MainState {};
+        let system = ParticleSystem::new();
+        let state = MainState { particles: system };
         Ok(state)
     }
     fn update(&mut self, ctx: &mut Context, dt: Duration) -> GameResult<()> {
+        let seconds = timer::duration_to_f64(dt);
+        self.particles.emit();
+        self.particles.update(seconds);
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
-        
+
+        graphics::draw(ctx, &self.particles, None, None);
+
         graphics::present(ctx);
         timer::sleep_until_next_frame(ctx, 60);
         Ok(())

@@ -36,15 +36,14 @@ trait Interpable {
 /// Though we could fix that just by having or finding some kind of
 /// scaling factor... hmmmm.  Nah, that should be external to the
 /// transition.
-struct Transition<T:Interpable> {
-    breakpoints: Vec<(f64,T)>,
+struct Transition<T: Interpable> {
+    breakpoints: Vec<(f64, T)>,
 }
 
-impl<T:Interpable> Transition<T> {
+impl<T: Interpable> Transition<T> {
     /// Add a new breakpoint to the transition
     /// at time 0 < t < 1
-    fn add(&mut self, t: f64, val: T) {
-    }
+    fn add(&mut self, t: f64, val: T) {}
 }
 
 // Properties particles should have:
@@ -113,7 +112,7 @@ impl ParticleSystem {
 
     pub fn emit(&mut self) {
         let pos = Point2::new(0.0, 0.0);
-        let vec = Vector2::new(1.0, 1.0);
+        let vec = Vector2::new(10.0, 10.0);
         let newparticle = Particle::new(pos, vec);
         self.particles.push(newparticle);
     }
@@ -135,6 +134,10 @@ impl graphics::Drawable for ParticleSystem {
                flip_horizontal: bool,
                flip_vertical: bool)
                -> GameResult<()> {
+        for p in &self.particles {
+            let rect = graphics::Rect::new(p.pos.x as i32, p.pos.y as i32, 5, 5);
+            graphics::rectangle(context, graphics::DrawMode::Fill, rect);
+        }
         Ok(())
     }
 }
