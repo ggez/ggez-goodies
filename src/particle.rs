@@ -6,6 +6,9 @@
 // Cocos2d's plist file format
 // Oh, love2d's particle system parameters, derp.
 
+
+use std::f64;
+
 extern crate nalgebra as na;
 
 use ggez::{GameResult, Context};
@@ -108,25 +111,82 @@ impl Particle {
     }
 }
 
+// This probably isn't actually needed as a separate type, 
+// at least at this point,
+// but it makes things clearer for the moment...  Hmm.
+pub struct ParticleSystemBuilder {
+    system: ParticleSystem,
+}
+
+impl ParticleSystemBuilder {
+    pub fn new() -> Self {
+        let system = ParticleSystem::new();
+        ParticleSystemBuilder {
+            system: system
+        }
+    }
+    pub fn build(self) -> ParticleSystem {
+        self.system
+    }
+
+    /// Set maximum number of particles.
+    pub fn count(mut self, count: usize) -> Self {
+        self.system.max_particles = count;
+        self.system.particles.reserve_exact(count);
+        self
+    }
+
+    pub fn lifetime(mut self, time: f64) -> Self {
+        self.system.max_life = time;
+        self
+
+    }
+}
+
+
 pub struct ParticleSystem {
     particles: Vec<Particle>,
+    max_particles: usize,
+    max_life: f64,
 }
 
 impl ParticleSystem {
     pub fn new() -> Self {
-        ParticleSystem { particles: Vec::new() }
+        ParticleSystem { 
+            particles: Vec::new(), 
+            max_particles: 0 ,
+            max_life: f64::INFINITY,
+        }
     }
 
     pub fn emit(&mut self) {
         let pos = Point2::new(0.0, 0.0);
         let vec = Vector2::new(10.0, 10.0);
         let newparticle = Particle::new(pos, vec);
-        self.particles.push(newparticle);
+        self.add_particle(newparticle);
     }
 
     pub fn update(&mut self, dt: f64) {
         for mut p in self.particles.iter_mut() {
             p.pos += p.vel * dt;
+            p.age += dt;
+        }
+
+        // Gotta make borrowck happy by not referring
+        // to self in the same closure twice.
+        let max_life = self.max_life;
+        self.particles.retain(|p| p.age < max_life);
+    }
+
+    fn calc_particle_size(&self, idx: usize) -> u32 {
+        5
+    }
+
+    /// Adds a new particle to the system, if it would
+    /// not exceed the max number of particles in the system.
+    fn add_particle(&mut self, p: Particle) {
+        if self.particles.len() <= self.max_particles {
+            self.particles.push(p);
         }
     }
 }
@@ -148,12 +208,13 @@ impl graphics::Drawable for ParticleSystem {
         // expensive(ish).
         // Maybe we can make it an x and y scale?  Hmm.
         let dst_rect = dst.unwrap_or(graphics::Rect::new(0, 0, 0, 0));
-        for p in &self.particles {
+        for (i,p) in self.particles.iter().enumerate() {
+            let p_size = self.calc_particle_size(i);
             let rect = graphics::Rect::new(dst_rect.x() + p.pos.x as i32,
                                            dst_rect.y() + p.pos.y as i32,
-                                           5,
-                                           5);
-            graphics::rectangle(context, graphics::DrawMode::Fill, rect);
+                                           p_size,
+                                           p_size);
+            graphics::rectangle(context, graphics::DrawMode::Fill, rect)?;
         }
         Ok(())
     }

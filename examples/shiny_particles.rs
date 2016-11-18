@@ -28,7 +28,10 @@ const window_height: i32 = 480;
 
 impl GameState for MainState {
     fn load(ctx: &mut Context, conf: &conf::Conf) -> GameResult<Self> {
-        let system = ParticleSystem::new();
+        let system = ParticleSystemBuilder::new()
+            .count(50)
+            .lifetime(2.0)
+            .build();
         let state = MainState { particles: system };
         graphics::set_background_color(ctx, ggez::graphics::Color::RGBA(0, 0, 0, 0));
         Ok(state)
@@ -43,10 +46,8 @@ impl GameState for MainState {
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
 
-        graphics::draw(ctx,
-                       &self.particles,
-                       None,
-                       Some(ggez::graphics::Rect::new(window_width / 2, window_height / 2, 0, 0)));
+        let dest_rect = ggez::graphics::Rect::new(window_width / 2, window_height / 2, 0, 0);
+        graphics::draw(ctx, &self.particles, None, Some(dest_rect))?;
 
         graphics::present(ctx);
         timer::sleep_until_next_frame(ctx, 60);
