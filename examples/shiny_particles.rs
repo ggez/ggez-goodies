@@ -23,10 +23,14 @@ struct MainState {
     particles: ParticleSystem,
 }
 
+const window_width: i32 = 640;
+const window_height: i32 = 480;
+
 impl GameState for MainState {
     fn load(ctx: &mut Context, conf: &conf::Conf) -> GameResult<Self> {
         let system = ParticleSystem::new();
         let state = MainState { particles: system };
+        graphics::set_background_color(ctx, ggez::graphics::Color::RGBA(0, 0, 0, 0));
         Ok(state)
     }
     fn update(&mut self, ctx: &mut Context, dt: Duration) -> GameResult<()> {
@@ -39,7 +43,10 @@ impl GameState for MainState {
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
 
-        graphics::draw(ctx, &self.particles, None, None);
+        graphics::draw(ctx,
+                       &self.particles,
+                       None,
+                       Some(ggez::graphics::Rect::new(window_width / 2, window_height / 2, 0, 0)));
 
         graphics::present(ctx);
         timer::sleep_until_next_frame(ctx, 60);
@@ -50,8 +57,8 @@ impl GameState for MainState {
 pub fn main() {
     let mut c = conf::Conf::new();
     c.window_title = "Shiny particles".to_string();
-    c.window_width = 640;
-    c.window_height = 480;
+    c.window_width = window_width as u32;
+    c.window_height = window_height as u32;
     let game: GameResult<Game<MainState>> = Game::new("shinyparticles", c);
     match game {
         Err(e) => {

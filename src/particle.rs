@@ -17,6 +17,7 @@ type Vector2 = na::Vector2<f64>;
 struct Particle {
     pos: Point2,
     vel: Vector2,
+    age: f64,
 }
 
 /// A trait that defines a way to do some sort of
@@ -91,12 +92,18 @@ impl<T: Interpable> Transition<T> {
 // Honestly having general purpose "create" and "update" traits
 // would abstract out a lot of this, and then we just define
 // the basics.
+//
+// It would also be very nice to be able to have a particle system
+// calculate in is own relative coordinate space OR world absolute space.
+// Though if the user defines their own worldspace coordinate system
+// that could get a bit sticky.  :/
 
 impl Particle {
     fn new(pos: Point2, vel: Vector2) -> Self {
         Particle {
             pos: pos,
             vel: vel,
+            age: 0.0,
         }
     }
 }
@@ -134,8 +141,18 @@ impl graphics::Drawable for ParticleSystem {
                flip_horizontal: bool,
                flip_vertical: bool)
                -> GameResult<()> {
+        // BUGGO: Width and height here should be the max bounds of the
+        // particle system...?
+        // It'd be consistent with our drawing API, but would require
+        // finding the bounds of all particles on every tick, which is
+        // expensive(ish).
+        // Maybe we can make it an x and y scale?  Hmm.
+        let dst_rect = dst.unwrap_or(graphics::Rect::new(0, 0, 0, 0));
         for p in &self.particles {
-            let rect = graphics::Rect::new(p.pos.x as i32, p.pos.y as i32, 5, 5);
+            let rect = graphics::Rect::new(dst_rect.x() + p.pos.x as i32,
+                                           dst_rect.y() + p.pos.y as i32,
+                                           5,
+                                           5);
             graphics::rectangle(context, graphics::DrawMode::Fill, rect);
         }
         Ok(())
