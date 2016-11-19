@@ -27,8 +27,8 @@ struct MainState {
     particles: ParticleSystem,
 }
 
-const window_width: i32 = 640;
-const window_height: i32 = 480;
+const WINDOW_WIDTH: i32 = 640;
+const WINDOW_HEIGHT: i32 = 480;
 
 impl GameState for MainState {
     fn load(ctx: &mut Context, conf: &conf::Conf) -> GameResult<Self> {
@@ -51,7 +51,7 @@ impl GameState for MainState {
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
 
-        let dest_rect = ggez::graphics::Rect::new(window_width / 2, window_height / 2, 0, 0);
+        let dest_rect = ggez::graphics::Rect::new(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 0, 0);
         graphics::draw(ctx, &self.particles, None, Some(dest_rect))?;
 
         graphics::present(ctx);
@@ -63,8 +63,8 @@ impl GameState for MainState {
 pub fn main() {
     let mut c = conf::Conf::new();
     c.window_title = "Shiny particles".to_string();
-    c.window_width = window_width as u32;
-    c.window_height = window_height as u32;
+    c.window_width = WINDOW_WIDTH as u32;
+    c.window_height = WINDOW_HEIGHT as u32;
     let game: GameResult<Game<MainState>> = Game::new("shinyparticles", c);
     match game {
         Err(e) => {

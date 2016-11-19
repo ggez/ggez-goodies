@@ -6,11 +6,12 @@
 // Cocos2d's plist file format
 // Oh, love2d's particle system parameters, derp.
 
-
+use std::cmp::PartialOrd;
 use std::f64;
 
-extern crate rand;
-use self::rand::Rng;
+
+use rand;
+use rand::{Rand, Rng};
 extern crate nalgebra as na;
 
 use ggez::{GameResult, Context};
@@ -57,30 +58,31 @@ enum StartParam<T> {
     UniformRange(T, T),
 }
 
-use self::rand::distributions::Sample;
+// Am I the only one who finds the restrictions on implementing
+// arbitrary traits on arbitrary types rather onerous?
+trait MyRand: Rand {
+    fn rand<R: Rng>(rng: &mut R) -> Self;
 
-impl<T> Sample<f64> for StartParam<T> {
-    fn sample<R: Rng>(&mut self, rng: &mut R) -> f64 {
-        let rand::Open01(val) = rand::random::<rand::Open01<f64>>();
-        val
+}
+
+impl MyRand for Vector2 {
+    fn rand<R: Rng>(rng: &mut R) -> Self {
+        Vector2::new(0.0, 0.0)
     }
 }
 
-
-impl StartParam<f64> {
-    fn get_value(self) -> f64 {
+impl<T: MyRand> StartParam<T> {
+    fn get_value(self) -> T {
         match self {
             StartParam::Fixed(x) => x,
             StartParam::UniformRange(ref low, ref high) => {
-                //let mut rng = rand::thread_rng();
-                //rng.gen()
-                rand::random::<StartParam<f64>>()
+                rand::random()
             }
         }
     }
 }
 
-
+/*
 impl StartParam<f32> {
     fn get_value(self) -> f32 {
         match self {
@@ -92,6 +94,7 @@ impl StartParam<f32> {
         }
     }
 }
+*/
 
 
 
