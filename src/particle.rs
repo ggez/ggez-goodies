@@ -12,19 +12,15 @@ use std::f64;
 
 use rand;
 use rand::{Rand, Rng};
+use rand::distributions::range::SampleRange;
 extern crate nalgebra as na;
 
+use ggez;
 use ggez::{GameResult, Context};
 use ggez::graphics;
 
 type Point2 = na::Point2<f64>;
 type Vector2 = na::Vector2<f64>;
-
-struct Particle {
-    pos: Point2,
-    vel: Vector2,
-    age: f64,
-}
 
 /// A trait that defines a way to do some sort of
 /// lerp or easing function on a type.
@@ -53,48 +49,71 @@ impl<T: Interpable> Transition<T> {
     fn add(&mut self, t: f64, val: T) {}
 }
 
-enum StartParam<T> {
+pub enum StartParam<T> {
     Fixed(T),
     UniformRange(T, T),
 }
 
-// Am I the only one who finds the restrictions on implementing
-// arbitrary traits on arbitrary types rather onerous?
-trait MyRand: Rand {
-    fn rand<R: Rng>(rng: &mut R) -> Self;
-
-}
-
-impl MyRand for Vector2 {
-    fn rand<R: Rng>(rng: &mut R) -> Self {
-        Vector2::new(0.0, 0.0)
-    }
-}
-
-impl<T: MyRand> StartParam<T> {
-    fn get_value(self) -> T {
-        match self {
-            StartParam::Fixed(x) => x,
-            StartParam::UniformRange(ref low, ref high) => {
-                rand::random()
-            }
-        }
-    }
-}
-
-/*
-impl StartParam<f32> {
-    fn get_value(self) -> f32 {
-        match self {
+impl<T> StartParam<T> 
+where T: PartialOrd + SampleRange + Copy {
+    pub fn get_value(&self) -> T {
+        match *self {
             StartParam::Fixed(x) => x,
             StartParam::UniformRange(ref low, ref high) => {
                 let mut rng = rand::thread_rng();
-                rng.gen()
+                rng.gen_range(*low, *high)
             }
         }
     }
 }
-*/
+
+// Apparently implementing SampleRange for our own type
+// isn't something we should do, so we just define this by hand...
+impl StartParam<Vector2> {
+    fn get_value(&self) -> Vector2 {
+        match *self {
+            StartParam::Fixed(x) => x,
+            StartParam::UniformRange(low, high) => {
+                let mut rng = rand::thread_rng();
+                let x = rng.gen_range(low.x, high.x);
+                let y = rng.gen_range(low.y, high.y);
+                Vector2::new(x, y)
+            }
+        }
+    }
+}
+
+impl StartParam<Point2> {
+    fn get_value(&self) -> Point2 {
+        match *self {
+            StartParam::Fixed(x) => x,
+            StartParam::UniformRange(low, high) => {
+                let mut rng = rand::thread_rng();
+                let x = rng.gen_range(low.x, high.x);
+                let y = rng.gen_range(low.y, high.y);
+                Point2::new(x, y)
+            }
+        }
+    }
+}
+
+impl StartParam<graphics::Color> {
+    fn get_value(&self) -> graphics::Color {
+        match *self {
+            StartParam::Fixed(x) => x,
+            StartParam::UniformRange(low, high) => {
+                let mut rng = rand::thread_rng();
+                let (lowr, lowg, lowb) = low.rgb();
+                let (hir, hig, hib) = high.rgb();
+                let r = rng.gen_range(lowr, hir);
+                let g = rng.gen_range(lowg, hig);
+                let b = rng.gen_range(lowb, hib);
+                graphics::Color::RGB(r, g, b)
+            }
+        }
+    }
+}
+
 
 
 
@@ -149,15 +168,27 @@ impl StartParam<f32> {
 // Though if the user defines their own worldspace coordinate system
 // that could get a bit sticky.  :/
 
+
+struct Particle {
+    pos: Point2,
+    vel: Vector2,
+    age: f64,
+    color: graphics::Color,
+}
+
+
 impl Particle {
-    fn new(pos: Point2, vel: Vector2) -> Self {
+    fn new(pos: Point2, vel: Vector2, color: graphics::Color) -> Self {
         Particle {
             pos: pos,
             vel: vel,
             age: 0.0,
+            color: color,
         }
     }
 }
+
+
 
 // This probably isn't actually needed as a separate type, 
 // at least at this point,
@@ -187,7 +218,21 @@ impl ParticleSystemBuilder {
     pub fn lifetime(mut self, time: f64) -> Self {
         self.system.max_life = time;
         self
+    }
 
+    pub fn start_color(mut self, start: StartParam<graphics::Color>) -> Self {
+        self.system.start_color = start;
+        self
+    }
+
+    pub fn start_position(mut self, start: StartParam<Point2>) -> Self {
+        self.system.start_position = start;
+        self
+    }
+
+    pub fn start_velocity(mut self, start: StartParam<Vector2>) -> Self {
+        self.system.start_velocity = start;
+        self
     }
 
     pub fn acceleration(mut self, accel: Vector2) -> Self {
@@ -202,6 +247,9 @@ pub struct ParticleSystem {
     max_particles: usize,
     max_life: f64,
     acceleration: Vector2,
+    start_color: StartParam<graphics::Color>,
+    start_position: StartParam<Point2>,
+    start_velocity: StartParam<Vector2>,
 }
 
 impl ParticleSystem {
@@ -211,13 +259,17 @@ impl ParticleSystem {
             max_particles: 0 ,
             max_life: f64::INFINITY,
             acceleration: Vector2::new(0.0, 0.0),
+            start_color: StartParam::Fixed(graphics::Color::RGB(255,255,255)),
+            start_position: StartParam::Fixed(Point2::new(0.0, 0.0)),
+            start_velocity: StartParam::Fixed(Vector2::new(1.0, 1.0)),
         }
     }
 
     pub fn emit(&mut self) {
-        let pos = Point2::new(0.0, 0.0);
-        let vec = Vector2::new(10.0, 10.0);
-        let newparticle = Particle::new(pos, vec);
+        let pos = self.start_position.get_value();
+        let vec = self.start_velocity.get_value();
+        let col = self.start_color.get_value();
+        let newparticle = Particle::new(pos, vec, col);
         self.add_particle(newparticle);
     }
 
@@ -270,6 +322,7 @@ impl graphics::Drawable for ParticleSystem {
                                            dst_rect.y() + p.pos.y as i32,
                                            p_size,
                                            p_size);
+            graphics::set_color(context, p.color);
             graphics::rectangle(context, graphics::DrawMode::Fill, rect)?;
         }
         Ok(())
