@@ -239,6 +239,11 @@ impl ParticleSystemBuilder {
         self.system.acceleration = accel;
         self
     }
+
+    pub fn emission_rate(mut self, start: StartParam<f64>) -> Self {
+        self.system.emission_rate = start;
+        self
+    }
 }
 
 
@@ -247,9 +252,11 @@ pub struct ParticleSystem {
     max_particles: usize,
     max_life: f64,
     acceleration: Vector2,
+    emission_rate: StartParam<f64>,
     start_color: StartParam<graphics::Color>,
     start_position: StartParam<Point2>,
     start_velocity: StartParam<Vector2>,
+    residual_particle: f64
 }
 
 impl ParticleSystem {
@@ -262,18 +269,35 @@ impl ParticleSystem {
             start_color: StartParam::Fixed(graphics::Color::RGB(255,255,255)),
             start_position: StartParam::Fixed(Point2::new(0.0, 0.0)),
             start_velocity: StartParam::Fixed(Vector2::new(1.0, 1.0)),
+            emission_rate: StartParam::Fixed(1.0),
+            residual_particle: 0.0,
         }
     }
 
-    pub fn emit(&mut self) {
+    pub fn count(&self) -> usize {
+        return self.particles.len()
+    }
+
+    pub fn emit_one(&mut self) {
         let pos = self.start_position.get_value();
         let vec = self.start_velocity.get_value();
         let col = self.start_color.get_value();
         let newparticle = Particle::new(pos, vec, col);
-        self.add_particle(newparticle);
+        if self.particles.len() <= self.max_particles {
+            self.particles.push(newparticle);
+        }
     }
 
     pub fn update(&mut self, dt: f64) {
+        // This is tricky 'cause we have to keep the emission rate
+        // correct and constant.  So we "accumulate" particles over
+        // time until we have >1 of them and then emit it.
+        let num_to_emit = self.emission_rate.get_value() * dt + self.residual_particle;
+        let actual_num_to_emit = num_to_emit.trunc() as usize;
+        self.residual_particle = num_to_emit.fract();
+        for _ in 0..actual_num_to_emit {
+            self.emit_one()
+        }
         for mut p in self.particles.iter_mut() {
             p.vel += self.acceleration * dt;
             p.pos += p.vel * dt;
@@ -288,14 +312,6 @@ impl ParticleSystem {
 
     fn calc_particle_size(&self, idx: usize) -> u32 {
         5
-    }
-
-    /// Adds a new particle to the system, if it would
-    /// not exceed the max number of particles in the system.
-    fn add_particle(&mut self, p: Particle) {
-        if self.particles.len() <= self.max_particles {
-            self.particles.push(p);
-        }
     }
 }
 
