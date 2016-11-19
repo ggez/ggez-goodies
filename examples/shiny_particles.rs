@@ -16,6 +16,10 @@ use ggez::timer;
 use std::time::Duration;
 use std::ops::{Add, AddAssign, Sub};
 
+
+extern crate nalgebra as na;
+type Vector2 = na::Vector2<f64>;
+
 extern crate ggez_goodies;
 use ggez_goodies::particle::*;
 
@@ -31,6 +35,7 @@ impl GameState for MainState {
         let system = ParticleSystemBuilder::new()
             .count(50)
             .lifetime(2.0)
+            .acceleration(Vector2::new(0.0, -50.0))
             .build();
         let state = MainState { particles: system };
         graphics::set_background_color(ctx, ggez::graphics::Color::RGBA(0, 0, 0, 0));

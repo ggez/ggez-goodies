@@ -9,6 +9,8 @@
 
 use std::f64;
 
+extern crate rand;
+use self::rand::Rng;
 extern crate nalgebra as na;
 
 use ggez::{GameResult, Context};
@@ -50,6 +52,49 @@ impl<T: Interpable> Transition<T> {
     fn add(&mut self, t: f64, val: T) {}
 }
 
+enum StartParam<T> {
+    Fixed(T),
+    UniformRange(T, T),
+}
+
+use self::rand::distributions::Sample;
+
+impl<T> Sample<f64> for StartParam<T> {
+    fn sample<R: Rng>(&mut self, rng: &mut R) -> f64 {
+        let rand::Open01(val) = rand::random::<rand::Open01<f64>>();
+        val
+    }
+}
+
+
+impl StartParam<f64> {
+    fn get_value(self) -> f64 {
+        match self {
+            StartParam::Fixed(x) => x,
+            StartParam::UniformRange(ref low, ref high) => {
+                //let mut rng = rand::thread_rng();
+                //rng.gen()
+                rand::random::<StartParam<f64>>()
+            }
+        }
+    }
+}
+
+
+impl StartParam<f32> {
+    fn get_value(self) -> f32 {
+        match self {
+            StartParam::Fixed(x) => x,
+            StartParam::UniformRange(ref low, ref high) => {
+                let mut rng = rand::thread_rng();
+                rng.gen()
+            }
+        }
+    }
+}
+
+
+
 // Properties particles should have:
 // Age, position, velocity
 
@@ -70,16 +115,16 @@ impl<T: Interpable> Transition<T> {
 //
 // Per love2d, which appears to cover all the basics and more:
 // area spread (uniform, normal)
-// buffer size (number of particles)
+// * buffer size (number of particles)
+// * linear acceleration (general case of gravity)
 // color (of image)
 // colors (of non-image particle)
 // direction
-// emission rate
+// emission rate (constant, burst)
 // emitter lifetime
 // image
 // insert mode (where particles are inserted; top, bottom, random)
 // lifetime
-// linear acceleration (general case of gravity)
 // linear damping
 // particle lifetime (min, max)
 // position of emitter
@@ -141,6 +186,11 @@ impl ParticleSystemBuilder {
         self
 
     }
+
+    pub fn acceleration(mut self, accel: Vector2) -> Self {
+        self.system.acceleration = accel;
+        self
+    }
 }
 
 
@@ -148,6 +198,7 @@ pub struct ParticleSystem {
     particles: Vec<Particle>,
     max_particles: usize,
     max_life: f64,
+    acceleration: Vector2,
 }
 
 impl ParticleSystem {
@@ -156,6 +207,7 @@ impl ParticleSystem {
             particles: Vec::new(), 
             max_particles: 0 ,
             max_life: f64::INFINITY,
+            acceleration: Vector2::new(0.0, 0.0),
         }
     }
 
@@ -168,6 +220,7 @@ impl ParticleSystem {
 
     pub fn update(&mut self, dt: f64) {
         for mut p in self.particles.iter_mut() {
+            p.vel += self.acceleration * dt;
             p.pos += p.vel * dt;
             p.age += dt;
         }
