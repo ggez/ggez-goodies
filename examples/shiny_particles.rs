@@ -40,7 +40,7 @@ impl GameState for MainState {
             Vector2::new(-50.0, -200.0),
             Vector2::new( 50.0, 0.0)
             );
-        let system = ParticleSystemBuilder::new()
+        let system = ParticleSystemBuilder::new(ctx)
             .count(50000)
             .lifetime(15.0)
             .acceleration(Vector2::new(0.0, 50.0))

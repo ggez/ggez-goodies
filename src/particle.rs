@@ -28,6 +28,7 @@ type Vector2 = na::Vector2<f64>;
 pub enum StartParam<T> {
     Fixed(T),
     UniformRange(T, T),
+    // todo: stepped range, a list of discrete values of which one gets chosen.
 }
 
 impl<T> StartParam<T> 
@@ -189,9 +190,11 @@ impl<T: Interpable> Transition<T> {
 struct Particle {
     pos: Point2,
     vel: Vector2,
-    age: f64,
     color: graphics::Color,
     size: Vector2,
+    angle: f64,
+    rotation: f64,
+    age: f64,
 }
 
 
@@ -216,13 +219,15 @@ struct Particle {
 // requires these functions to be pure.
 
 impl Particle {
-    fn new(pos: Point2, vel: Vector2, color: graphics::Color, size: Vector2) -> Self {
+    fn new(pos: Point2, vel: Vector2, color: graphics::Color, size: Vector2, angle: f64) -> Self {
         Particle {
             pos: pos,
             vel: vel,
-            age: 0.0,
             color: color,
             size: size,
+            angle: angle,
+            rotation: 0.0,
+            age: 0.0,
         }
     }
 }
@@ -236,8 +241,8 @@ pub struct ParticleSystemBuilder {
 }
 
 impl ParticleSystemBuilder {
-    pub fn new() -> Self {
-        let system = ParticleSystem::new();
+    pub fn new(ctx: &mut Context) -> Self {
+        let system = ParticleSystem::new(ctx);
         ParticleSystemBuilder {
             system: system
         }
@@ -295,6 +300,7 @@ pub struct ParticleSystem {
     particles: Vec<Particle>,
     residual_particle: f64,
     max_particles: usize,
+    image: graphics::Image,
     
     // Parameters:
     // Emission parameters
@@ -303,24 +309,39 @@ pub struct ParticleSystem {
     start_color: StartParam<graphics::Color>,
     start_position: StartParam<Point2>,
     start_velocity: StartParam<Vector2>,
-
+    start_angle: StartParam<f64>,
+    start_rotation: StartParam<f64>,
     // Global state/update parameters
     acceleration: Vector2,
 }
 
 impl ParticleSystem {
-    pub fn new() -> Self {
+    pub fn new(ctx: &mut Context) -> Self {
         ParticleSystem { 
             particles: Vec::new(), 
-            max_particles: 0 ,
+            max_particles: 0,
+            image: ParticleSystem::make_image(ctx, 5),
             max_life: StartParam::Fixed(f64::INFINITY),
             acceleration: Vector2::new(0.0, 0.0),
             start_color: StartParam::Fixed(graphics::Color::RGB(255,255,255)),
             start_position: StartParam::Fixed(Point2::new(0.0, 0.0)),
             start_velocity: StartParam::Fixed(Vector2::new(1.0, 1.0)),
+            start_angle: StartParam::Fixed(0.0),
+            start_rotation: StartParam::Fixed(0.0),
             emission_rate: StartParam::Fixed(1.0),
             residual_particle: 0.0,
         }
+    }
+
+    /// Makes a basic square image to represent a particle
+    /// if we need one.  Just doing graphics::rectangle() isn't
+    /// good enough 'cause it can't do rotations.
+    /// ...buuuuuut we can't appear to conjure one up out of
+    /// raw data...
+    /// ...in fact, we need the Renderer to even *attempt* to do such a thing.
+    /// Bah!
+    fn make_image(ctx: &mut Context, size: u32) -> graphics::Image {
+        graphics::Image::solid(ctx, size, graphics::Color::RGBA(255,255,255,255)).unwrap()
     }
 
     pub fn count(&self) -> usize {
@@ -332,7 +353,8 @@ impl ParticleSystem {
         let vec = self.start_velocity.get_value();
         let col = self.start_color.get_value();
         let size = Vector2::new(5.0, 5.0);
-        let newparticle = Particle::new(pos, vec, col, size);
+        let angle = 0.0;
+        let newparticle = Particle::new(pos, vec, col, size, angle);
         if self.particles.len() <= self.max_particles {
             self.particles.push(newparticle);
         }
@@ -352,6 +374,7 @@ impl ParticleSystem {
             p.vel += self.acceleration * dt;
             p.pos += p.vel * dt;
             p.age += dt;
+            p.angle += p.rotation;
         }
 
         // Gotta make borrowck happy by not referring
@@ -389,8 +412,11 @@ impl graphics::Drawable for ParticleSystem {
                                            dst_rect.y() + p.pos.y as i32,
                                            p_size,
                                            p_size);
-            graphics::set_color(context, p.color);
-            graphics::rectangle(context, graphics::DrawMode::Fill, rect)?;
+            // BUGGO: AIEEEE this requires &mut self which the trait does not allow...
+            //self.image.set_color_mod(p.color);
+            try!(self.image.draw_ex(context, None, Some(rect), p.angle, None, false, false));
+            //graphics::set_color(context, p.color);
+            //graphics::rectangle(context, graphics::DrawMode::Fill, rect)?;
         }
         Ok(())
     }
