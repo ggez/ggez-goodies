@@ -278,6 +278,7 @@ impl ParticleSystemBuilder {
 
     prop!(start_color, start_color_range, graphics::Color);
     prop!(start_size, start_size_range, f64);
+    prop!(start_rotation, start_rotation_range, f64);
     // These two need some work, 'cause, shapes.
     prop!(start_position, start_position_range, Point2);
     prop!(start_velocity, start_velocity_range, Vector2);
@@ -411,7 +412,13 @@ impl graphics::Drawable for ParticleSystem {
                                            p.size as u32,
                                            p.size as u32);
             // BUGGO: AIEEEE this requires &mut self which the trait does not allow...
-            //self.image.set_color_mod(p.color);
+            // Apparently casting an immutable reference to a mutable one is
+            // beyond unsafe, and into undefined, so they don't make it easy
+            // for you...
+            unsafe {
+                let evil_mutable_self = &mut *(self as *const Self as *mut Self);
+                evil_mutable_self.image.set_color_mod(p.color);
+            }
             try!(self.image.draw_ex(context, None, Some(rect), p.angle, None, false, false));
             //graphics::set_color(context, p.color);
             //graphics::rectangle(context, graphics::DrawMode::Fill, rect)?;

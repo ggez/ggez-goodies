@@ -27,3 +27,10 @@ https://docs.rs/piston2d-sprite/0.28.0/sprite/index.html)
 * physics/collision???  ncollide.
 * https://github.com/rsaarelm/calx
 * https://github.com/Gekkio/imgui-rs
+
+# Random thoughts
+
+* Multithreading the particle system would be pretty cool!  split_at_mut seems the way.  (Nope,
+this is harder than it looks and doesn't work as well as you hope at least with Rayon.  I've
+been told to look into scoped threading crates for it.)
+
