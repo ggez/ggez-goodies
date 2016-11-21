@@ -191,10 +191,11 @@ struct Particle {
     pos: Point2,
     vel: Vector2,
     color: graphics::Color,
-    size: Vector2,
+    size: f64,
     angle: f64,
     rotation: f64,
     age: f64,
+    max_age: f64,
 }
 
 
@@ -219,7 +220,7 @@ struct Particle {
 // requires these functions to be pure.
 
 impl Particle {
-    fn new(pos: Point2, vel: Vector2, color: graphics::Color, size: Vector2, angle: f64) -> Self {
+    fn new(pos: Point2, vel: Vector2, color: graphics::Color, size: f64, angle: f64, max_age: f64) -> Self {
         Particle {
             pos: pos,
             vel: vel,
@@ -228,6 +229,7 @@ impl Particle {
             angle: angle,
             rotation: 0.0,
             age: 0.0,
+            max_age: max_age,
         }
     }
 }
@@ -274,11 +276,12 @@ impl ParticleSystemBuilder {
         self
     }
 
-    prop!(max_life, max_life_range, f64);
     prop!(start_color, start_color_range, graphics::Color);
+    prop!(start_size, start_size_range, f64);
     // These two need some work, 'cause, shapes.
     prop!(start_position, start_position_range, Point2);
     prop!(start_velocity, start_velocity_range, Vector2);
+    prop!(start_max_age, start_max_age_range, f64);
 
     pub fn acceleration(mut self, accel: Vector2) -> Self {
         self.system.acceleration = accel;
@@ -302,13 +305,14 @@ pub struct ParticleSystem {
     
     // Parameters:
     // Emission parameters
-    max_life: StartParam<f64>,
     emission_rate: f64,
     start_color: StartParam<graphics::Color>,
     start_position: StartParam<Point2>,
     start_velocity: StartParam<Vector2>,
     start_angle: StartParam<f64>,
     start_rotation: StartParam<f64>,
+    start_size: StartParam<f64>,
+    start_max_age: StartParam<f64>,
     // Global state/update parameters
     acceleration: Vector2,
 }
@@ -319,13 +323,14 @@ impl ParticleSystem {
             particles: Vec::new(), 
             max_particles: 0,
             image: ParticleSystem::make_image(ctx, 5),
-            max_life: StartParam::Fixed(f64::INFINITY),
             acceleration: Vector2::new(0.0, 0.0),
             start_color: StartParam::Fixed(graphics::Color::RGB(255,255,255)),
             start_position: StartParam::Fixed(Point2::new(0.0, 0.0)),
             start_velocity: StartParam::Fixed(Vector2::new(1.0, 1.0)),
             start_angle: StartParam::Fixed(0.0),
             start_rotation: StartParam::Fixed(0.0),
+            start_size: StartParam::Fixed(1.0),
+            start_max_age: StartParam::Fixed(1.0),
             emission_rate: 1.0,
             residual_particle: 0.0,
         }
@@ -350,9 +355,12 @@ impl ParticleSystem {
         let pos = self.start_position.get_value();
         let vec = self.start_velocity.get_value();
         let col = self.start_color.get_value();
-        let size = Vector2::new(5.0, 5.0);
-        let angle = 0.0;
-        let newparticle = Particle::new(pos, vec, col, size, angle);
+        let size = self.start_size.get_value();
+        let max_age = self.start_max_age.get_value();
+        let angle = self.start_angle.get_value();
+        let rotation = self.start_rotation.get_value();
+        let mut newparticle = Particle::new(pos, vec, col, size, angle, max_age);
+        newparticle.rotation = rotation;
         if self.particles.len() <= self.max_particles {
             self.particles.push(newparticle);
         }
@@ -375,16 +383,9 @@ impl ParticleSystem {
             p.angle += p.rotation;
         }
 
-        // Gotta make borrowck happy by not referring
-        // to self in the same closure twice.
-        //let max_life = self.max_life;
-        //self.particles.retain(|p| p.age < max_life);
-        self.particles.retain(|p| p.age < 5.0);
+        self.particles.retain(|p| p.age < p.max_age);
     }
 
-    fn calc_particle_size(&self, idx: usize) -> u32 {
-        5
-    }
 }
 
 impl graphics::Drawable for ParticleSystem {
@@ -405,11 +406,10 @@ impl graphics::Drawable for ParticleSystem {
         // Maybe we can make it an x and y scale?  Hmm.
         let dst_rect = dst.unwrap_or(graphics::Rect::new(0, 0, 0, 0));
         for (i,p) in self.particles.iter().enumerate() {
-            let p_size = self.calc_particle_size(i);
             let rect = graphics::Rect::new(dst_rect.x() + p.pos.x as i32,
                                            dst_rect.y() + p.pos.y as i32,
-                                           p_size,
-                                           p_size);
+                                           p.size as u32,
+                                           p.size as u32);
             // BUGGO: AIEEEE this requires &mut self which the trait does not allow...
             //self.image.set_color_mod(p.color);
             try!(self.image.draw_ex(context, None, Some(rect), p.angle, None, false, false));

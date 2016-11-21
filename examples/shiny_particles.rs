@@ -34,7 +34,6 @@ impl GameState for MainState {
     fn load(ctx: &mut Context, conf: &conf::Conf) -> GameResult<Self> {
         let system = ParticleSystemBuilder::new(ctx)
             .count(50000)
-            .max_life(15.0)
             .acceleration(Vector2::new(0.0, 50.0))
             .start_color_range(graphics::Color::RGB(0, 0, 0),
                                graphics::Color::RGB(255, 255, 255))
@@ -43,6 +42,7 @@ impl GameState for MainState {
                 Vector2::new( 50.0, 0.0)
                 )
             .emission_rate(2000.0)
+            
             .build();
         let state = MainState { particles: system };
         graphics::set_background_color(ctx, ggez::graphics::Color::RGBA(0, 0, 0, 0));
