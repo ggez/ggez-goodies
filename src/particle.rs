@@ -415,6 +415,11 @@ impl graphics::Drawable for ParticleSystem {
             // Apparently casting an immutable reference to a mutable one is
             // beyond unsafe, and into undefined, so they don't make it easy
             // for you...
+            // Interior mutability?
+            // Love2D HAD a ColorMode global setting for just this sort
+            // of thing, that multiplied/whatever the current color against
+            // all drawing (including images, I think), but they got rid
+            // of it in 0.9.0 and I'm not sure why.
             unsafe {
                 let evil_mutable_self = &mut *(self as *const Self as *mut Self);
                 evil_mutable_self.image.set_color_mod(p.color);
