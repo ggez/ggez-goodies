@@ -25,7 +25,7 @@ type Point2 = na::Point2<f64>;
 type Vector2 = na::Vector2<f64>;
 
 
-pub enum StartParam<T> {
+enum StartParam<T> {
     Fixed(T),
     UniformRange(T, T),
     // todo: stepped range, a list of discrete values of which one gets chosen.
@@ -236,8 +236,24 @@ impl Particle {
 // This probably isn't actually needed as a separate type, 
 // at least at this point,
 // but it makes things clearer for the moment...  Hmm.
+// Wow the macro system is kind of shitty though, since you
+// can't synthesize identifiers.
 pub struct ParticleSystemBuilder {
     system: ParticleSystem,
+}
+
+macro_rules! prop {
+    ($name:ident, $rangename:ident, $typ:ty) => {
+        pub fn $name(mut self, $name: $typ) -> Self {
+            self.system.$name = StartParam::Fixed($name);
+            self
+        }
+
+        pub fn $rangename(mut self, start: $typ, end: $typ) -> Self {
+            self.system.$name = StartParam::UniformRange(start, end);
+            self
+        }
+    }
 }
 
 impl ParticleSystemBuilder {
@@ -258,37 +274,19 @@ impl ParticleSystemBuilder {
         self
     }
 
-    pub fn lifetime(mut self, time: f64) -> Self {
-        self.system.max_life = StartParam::Fixed(time);
-        self
-    }
-
-    pub fn start_color(mut self, start: graphics::Color) -> Self {
-        self.system.start_color = StartParam::Fixed(start);
-        self
-    }
-
-    pub fn start_color_range(mut self, from: graphics::Color, to: graphics::Color) -> Self {
-        self.system.start_color = StartParam::UniformRange(from, to);
-        self
-    }
-
-    pub fn start_position(mut self, start: StartParam<Point2>) -> Self {
-        self.system.start_position = start;
-        self
-    }
-
-    pub fn start_velocity(mut self, start: StartParam<Vector2>) -> Self {
-        self.system.start_velocity = start;
-        self
-    }
+    prop!(max_life, max_life_range, f64);
+    prop!(start_color, start_color_range, graphics::Color);
+    // These two need some work, 'cause, shapes.
+    prop!(start_position, start_position_range, Point2);
+    prop!(start_velocity, start_velocity_range, Vector2);
 
     pub fn acceleration(mut self, accel: Vector2) -> Self {
         self.system.acceleration = accel;
         self
     }
 
-    pub fn emission_rate(mut self, start: StartParam<f64>) -> Self {
+    // This also needs some variety in life.
+    pub fn emission_rate(mut self, start: f64) -> Self {
         self.system.emission_rate = start;
         self
     }
@@ -305,7 +303,7 @@ pub struct ParticleSystem {
     // Parameters:
     // Emission parameters
     max_life: StartParam<f64>,
-    emission_rate: StartParam<f64>,
+    emission_rate: f64,
     start_color: StartParam<graphics::Color>,
     start_position: StartParam<Point2>,
     start_velocity: StartParam<Vector2>,
@@ -328,7 +326,7 @@ impl ParticleSystem {
             start_velocity: StartParam::Fixed(Vector2::new(1.0, 1.0)),
             start_angle: StartParam::Fixed(0.0),
             start_rotation: StartParam::Fixed(0.0),
-            emission_rate: StartParam::Fixed(1.0),
+            emission_rate: 1.0,
             residual_particle: 0.0,
         }
     }
@@ -364,7 +362,7 @@ impl ParticleSystem {
         // This is tricky 'cause we have to keep the emission rate
         // correct and constant.  So we "accumulate" particles over
         // time until we have >1 of them and then emit it.
-        let num_to_emit = self.emission_rate.get_value() * dt + self.residual_particle;
+        let num_to_emit = self.emission_rate * dt + self.residual_particle;
         let actual_num_to_emit = num_to_emit.trunc() as usize;
         self.residual_particle = num_to_emit.fract();
         for _ in 0..actual_num_to_emit {
