@@ -6,6 +6,8 @@
 // Cocos2d's plist file format
 // Oh, love2d's particle system parameters, derp.
 
+use std::marker::Sized;
+
 extern crate nalgebra as na;
 
 use ggez::{GameResult, Context};
@@ -14,37 +16,6 @@ use ggez::graphics;
 type Point2 = na::Point2<f64>;
 type Vector2 = na::Vector2<f64>;
 
-struct Particle {
-    pos: Point2,
-    vel: Vector2,
-}
-
-/// A trait that defines a way to do some sort of
-/// lerp or easing function on a type.
-trait Interpable {
-    fn interp(&self, t: f64) -> Self;
-}
-
-/// A structure that represents a transition between
-/// set properties, with multiple potential defined points.
-/// So for instance you could use Transition<Color> and define
-/// a transition of colors from red to orange to grey to do smoke.
-/// You could also use Transition<f64> to just represent a size
-/// curve.
-/// So really this is a general-purpose easing type thing...
-/// It assumes that all time values range from 0 to 1, currently.
-/// Though we could fix that just by having or finding some kind of
-/// scaling factor... hmmmm.  Nah, that should be external to the
-/// transition.
-struct Transition<T: Interpable> {
-    breakpoints: Vec<(f64, T)>,
-}
-
-impl<T: Interpable> Transition<T> {
-    /// Add a new breakpoint to the transition
-    /// at time 0 < t < 1
-    fn add(&mut self, t: f64, val: T) {}
-}
 
 // Properties particles should have:
 // Age, position, velocity
@@ -92,6 +63,26 @@ impl<T: Interpable> Transition<T> {
 // would abstract out a lot of this, and then we just define
 // the basics.
 
+// Aha.  We have a 2x2 matrix of cases here: A particle can have a property
+// that's specific to each particle and calculated from some particle-specific
+// state, like position.  It can have a property that's the same for  each particle
+// but calculated the same for each particle, like color in a simple flame effect.
+// It can have a property that's not specific to each particle and calculated the
+// same for each particle, like gravity, or that's not specific to each particle and
+// calculated
+//
+// So our axes are: State per particle vs state per particle system,
+// and constant over time vs varying over time.
+
+
+struct Particle {
+    // These are both varying over time and per-particle.
+    pos: Point2,
+    vel: Vector2,
+    
+}
+
+
 impl Particle {
     fn new(pos: Point2, vel: Vector2) -> Self {
         Particle {
@@ -100,6 +91,49 @@ impl Particle {
         }
     }
 }
+
+/// A trait that defines a way to do some sort of
+/// lerp or easing function on a type.
+trait Interpable where Self: Sized {
+    /// Interpolate the value.  t should always be a number
+    /// between 0.0 and 1.0, normalized for whatever actual
+    /// value is the "end" of the interpolation.
+    fn interp(&self, t: f64) -> Self;
+
+    /// A little shortcut that does the normalization for you.
+    fn normalize_interp(&self, t: f64, max_t: f64) -> Self {
+        let norm_t = t / max_t;
+        self.interp(norm_t)
+    }
+}
+
+impl Interpable for f64 {
+    fn interp(&self, t: f64) -> Self {
+        *self * t
+    }
+}
+
+/// A structure that represents a transition between
+/// set properties, with multiple potential defined points.
+/// So for instance you could use Transition<Color> and define
+/// a transition of colors from red to orange to grey to do smoke.
+/// You could also use Transition<f64> to just represent a size
+/// curve.
+/// So really this is a general-purpose easing type thing...
+/// It assumes that all time values range from 0 to 1, currently.
+/// Though we could fix that just by having or finding some kind of
+/// scaling factor... hmmmm.  Nah, that should be external to the
+/// transition.
+struct Transition<T: Interpable> {
+    breakpoints: Vec<(f64, T)>,
+}
+
+impl<T: Interpable> Transition<T> {
+    /// Add a new breakpoint to the transition
+    /// at time 0 < t < 1
+    fn add(&mut self, t: f64, val: T) {}
+}
+
 
 pub struct ParticleSystem {
     particles: Vec<Particle>,
