@@ -16,6 +16,10 @@ use ggez::timer;
 use std::time::Duration;
 use std::ops::{Add, AddAssign, Sub};
 
+
+extern crate nalgebra as na;
+type Vector2 = na::Vector2<f64>;
+
 extern crate ggez_goodies;
 use ggez_goodies::particle::*;
 
@@ -23,23 +27,43 @@ struct MainState {
     particles: ParticleSystem,
 }
 
+const WINDOW_WIDTH: i32 = 640;
+const WINDOW_HEIGHT: i32 = 480;
+
 impl GameState for MainState {
     fn load(ctx: &mut Context, conf: &conf::Conf) -> GameResult<Self> {
-        let system = ParticleSystem::new();
+        let start_color = StartParam::UniformRange(
+            graphics::Color::RGB(0, 0, 0),
+            graphics::Color::RGB(255, 255, 255)
+            );
+        let start_velocity = StartParam::UniformRange(
+            Vector2::new(-50.0, -200.0),
+            Vector2::new( 50.0, 0.0)
+            );
+        let system = ParticleSystemBuilder::new()
+            .count(50000)
+            .lifetime(15.0)
+            .acceleration(Vector2::new(0.0, 50.0))
+            .start_color(start_color)
+            .start_velocity(start_velocity)
+            .emission_rate(StartParam::Fixed(2000.0))
+            .build();
         let state = MainState { particles: system };
+        graphics::set_background_color(ctx, ggez::graphics::Color::RGBA(0, 0, 0, 0));
         Ok(state)
     }
     fn update(&mut self, ctx: &mut Context, dt: Duration) -> GameResult<()> {
         let seconds = timer::duration_to_f64(dt);
-        self.particles.emit();
         self.particles.update(seconds);
+        println!("Particles: {}, FPS: {}", self.particles.count(), timer::get_fps(ctx));
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
 
-        graphics::draw(ctx, &self.particles, None, None);
+        let dest_rect = ggez::graphics::Rect::new(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 0, 0);
+        graphics::draw(ctx, &self.particles, None, Some(dest_rect))?;
 
         graphics::present(ctx);
         timer::sleep_until_next_frame(ctx, 60);
@@ -50,8 +74,8 @@ impl GameState for MainState {
 pub fn main() {
     let mut c = conf::Conf::new();
     c.window_title = "Shiny particles".to_string();
-    c.window_width = 640;
-    c.window_height = 480;
+    c.window_width = WINDOW_WIDTH as u32;
+    c.window_height = WINDOW_HEIGHT as u32;
     let game: GameResult<Game<MainState>> = Game::new("shinyparticles", c);
     match game {
         Err(e) => {
