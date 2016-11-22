@@ -27,12 +27,11 @@ type Vector2 = na::Vector2<f64>;
 
 enum StartParam<T> {
     Fixed(T),
-    UniformRange(T, T),
-    // todo: stepped range, a list of discrete values of which one gets chosen.
+    UniformRange(T, T), /* todo: stepped range, a list of discrete values of which one gets chosen. */
 }
 
-impl<T> StartParam<T> 
-where T: PartialOrd + SampleRange + Copy {
+impl<T> StartParam<T> where T: PartialOrd + SampleRange + Copy
+{
     pub fn get_value(&self) -> T {
         match *self {
             StartParam::Fixed(x) => x,
@@ -99,16 +98,29 @@ trait Interpable where Self: Sized {
     /// value is the "end" of the interpolation.
     fn interp(&self, t: f64) -> Self;
 
+    fn interp_between(t: f64, v1: Self, v2: Self) -> Self;
+
     /// A little shortcut that does the normalization for you.
     fn normalize_interp(&self, t: f64, max_t: f64) -> Self {
         let norm_t = t / max_t;
         self.interp(norm_t)
+    }
+
+    fn normalize_interp_between(t: f64, max_t: f64, v1: Self, v2: Self) -> Self {
+        let norm_t = t / max_t;
+        Self::interp_between(norm_t, v1, v2)
     }
 }
 
 impl Interpable for f64 {
     fn interp(&self, t: f64) -> Self {
         *self * t
+    }
+
+    fn interp_between(t: f64, v1: Self, v2: Self) -> Self {
+        let val1 = v1.interp(1.0 - t);
+        let val2 = v2.interp(t);
+        val1 + val2
     }
 }
 
@@ -123,14 +135,41 @@ impl Interpable for f64 {
 /// Though we could fix that just by having or finding some kind of
 /// scaling factor... hmmmm.  Nah, that should be external to the
 /// transition.
-struct Transition<T: Interpable> {
+struct Transition<T: Interpable + Copy> {
     breakpoints: Vec<(f64, T)>,
 }
 
-impl<T: Interpable> Transition<T> {
+impl<T: Interpable + Copy> Transition<T> {
+    fn default() -> Self {
+        Transition { breakpoints: Vec::new() }
+    }
+
+    fn new(value: T) -> Self {
+        let mut t = Self::default();
+        t.start_end(value, value);
+        t
+    }
+
     /// Add a new breakpoint to the transition
     /// at time 0 < t < 1
-    fn add(&mut self, t: f64, val: T) {}
+    fn add(&mut self, t: f64, val: T) {
+        self.breakpoints.push((t, val))
+    }
+
+    fn start_end(&mut self, startval: T, endval: T) {
+        self.breakpoints.clear();
+        self.add(0.0, startval);
+        self.add(1.0, endval);
+    }
+
+    fn get_value(&self, t: f64) -> T {
+        let (_, current) = self.breakpoints[0];
+        let (_, next) = self.breakpoints[1];
+        // we don't have to lerp a value between 0
+        // and itself, we have to lerp between two
+        // values...
+        T::interp_between(t, current, next)
+    }
 }
 
 
@@ -191,7 +230,7 @@ struct Particle {
     pos: Point2,
     vel: Vector2,
     color: graphics::Color,
-    size: f64,
+    size: Transition<f64>,
     angle: f64,
     rotation: f64,
     age: f64,
@@ -218,14 +257,27 @@ struct Particle {
 // Hmmmm, we could handle this in a more functional way, where we define
 // each transition as a function, and then compose/chain them.  But Rust
 // requires these functions to be pure.
+//
+// Okay, any thing that could be a Transition?  We really want that to
+// be a per-particle-system thing rather than a per-particle thing.
+// Also it's going to be a huge pain in the ass to get the numbers
+// right.  :/
 
 impl Particle {
-    fn new(pos: Point2, vel: Vector2, color: graphics::Color, size: f64, angle: f64, max_age: f64) -> Self {
+    fn new(pos: Point2,
+           vel: Vector2,
+           color: graphics::Color,
+           size: f64,
+           angle: f64,
+           max_age: f64)
+           -> Self {
+        let mut t = Transition::default();
+        t.start_end(1.0, 100.0);
         Particle {
             pos: pos,
             vel: vel,
             color: color,
-            size: size,
+            size: t,
             angle: angle,
             rotation: 0.0,
             age: 0.0,
@@ -235,7 +287,7 @@ impl Particle {
 }
 
 
-// This probably isn't actually needed as a separate type, 
+// This probably isn't actually needed as a separate type,
 // at least at this point,
 // but it makes things clearer for the moment...  Hmm.
 // Wow the macro system is kind of shitty though, since you
@@ -261,9 +313,7 @@ macro_rules! prop {
 impl ParticleSystemBuilder {
     pub fn new(ctx: &mut Context) -> Self {
         let system = ParticleSystem::new(ctx);
-        ParticleSystemBuilder {
-            system: system
-        }
+        ParticleSystemBuilder { system: system }
     }
     pub fn build(self) -> ParticleSystem {
         self.system
@@ -303,7 +353,7 @@ pub struct ParticleSystem {
     residual_particle: f64,
     max_particles: usize,
     image: graphics::Image,
-    
+
     // Parameters:
     // Emission parameters
     emission_rate: f64,
@@ -320,12 +370,12 @@ pub struct ParticleSystem {
 
 impl ParticleSystem {
     pub fn new(ctx: &mut Context) -> Self {
-        ParticleSystem { 
-            particles: Vec::new(), 
+        ParticleSystem {
+            particles: Vec::new(),
             max_particles: 0,
             image: ParticleSystem::make_image(ctx, 5),
             acceleration: Vector2::new(0.0, 0.0),
-            start_color: StartParam::Fixed(graphics::Color::RGB(255,255,255)),
+            start_color: StartParam::Fixed(graphics::Color::RGB(255, 255, 255)),
             start_position: StartParam::Fixed(Point2::new(0.0, 0.0)),
             start_velocity: StartParam::Fixed(Vector2::new(1.0, 1.0)),
             start_angle: StartParam::Fixed(0.0),
@@ -345,11 +395,11 @@ impl ParticleSystem {
     /// ...in fact, we need the Renderer to even *attempt* to do such a thing.
     /// Bah!
     fn make_image(ctx: &mut Context, size: u32) -> graphics::Image {
-        graphics::Image::solid(ctx, size, graphics::Color::RGBA(255,255,255,255)).unwrap()
+        graphics::Image::solid(ctx, size, graphics::Color::RGBA(255, 255, 255, 255)).unwrap()
     }
 
     pub fn count(&self) -> usize {
-        return self.particles.len()
+        return self.particles.len();
     }
 
     pub fn emit_one(&mut self) {
@@ -386,7 +436,6 @@ impl ParticleSystem {
 
         self.particles.retain(|p| p.age < p.max_age);
     }
-
 }
 
 impl graphics::Drawable for ParticleSystem {
@@ -406,11 +455,13 @@ impl graphics::Drawable for ParticleSystem {
         // expensive(ish).
         // Maybe we can make it an x and y scale?  Hmm.
         let dst_rect = dst.unwrap_or(graphics::Rect::new(0, 0, 0, 0));
-        for (i,p) in self.particles.iter().enumerate() {
+        for (i, p) in self.particles.iter().enumerate() {
+            let life_fraction = p.age / p.max_age;
+            let size = p.size.get_value(life_fraction);
             let rect = graphics::Rect::new(dst_rect.x() + p.pos.x as i32,
                                            dst_rect.y() + p.pos.y as i32,
-                                           p.size as u32,
-                                           p.size as u32);
+                                           size as u32,
+                                           size as u32);
             // BUGGO: AIEEEE this requires &mut self which the trait does not allow...
             // Apparently casting an immutable reference to a mutable one is
             // beyond unsafe, and into undefined, so they don't make it easy
@@ -420,13 +471,14 @@ impl graphics::Drawable for ParticleSystem {
             // of thing, that multiplied/whatever the current color against
             // all drawing (including images, I think), but they got rid
             // of it in 0.9.0 and I'm not sure why.
+            // ...or we could just make the trait take &mut self.
             unsafe {
                 let evil_mutable_self = &mut *(self as *const Self as *mut Self);
                 evil_mutable_self.image.set_color_mod(p.color);
             }
             try!(self.image.draw_ex(context, None, Some(rect), p.angle, None, false, false));
-            //graphics::set_color(context, p.color);
-            //graphics::rectangle(context, graphics::DrawMode::Fill, rect)?;
+            // graphics::set_color(context, p.color);
+            // graphics::rectangle(context, graphics::DrawMode::Fill, rect)?;
         }
         Ok(())
     }
