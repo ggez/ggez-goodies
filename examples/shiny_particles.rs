@@ -62,7 +62,7 @@ impl GameState for MainState {
         graphics::clear(ctx);
 
         let dest_rect = ggez::graphics::Rect::new(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 0, 0);
-        graphics::draw(ctx, &self.particles, None, Some(dest_rect))?;
+        graphics::draw(ctx, &mut self.particles, None, Some(dest_rect))?;
 
         graphics::present(ctx);
         timer::sleep_until_next_frame(ctx, 60);

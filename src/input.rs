@@ -57,6 +57,12 @@ enum InputEffect<Axes, Buttons>
 }
 
 #[derive(Debug)]
+struct AxisStatus {
+    position: f64,
+    current_direction: f64,
+}
+
+#[derive(Debug)]
 pub struct InputManager<Axes, Buttons>
     where Axes: Eq + Ord + Hash + Clone,
           Buttons: Eq + Ord + Hash + Clone
@@ -66,12 +72,10 @@ pub struct InputManager<Axes, Buttons>
     // Binding of keys to input values.
     bindings: HashMap<InputEvent, InputEffect<Axes, Buttons>>,
     // Input state for axes
-    axes: BTreeMap<Axes, f64>,
+    axes: BTreeMap<Axes, AxisStatus>,
     // Input states for buttons
     buttons: BTreeMap<Buttons, bool>,
 }
-
-use std::collections::hash_map::Entry;
 
 impl<Axes, Buttons> InputManager<Axes, Buttons>
     where Axes: Eq + Ord + Hash + Clone,
@@ -101,36 +105,51 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
     pub fn update_keydown(&mut self, keycode: Option<Keycode>) {
         if let Some(keycode) = keycode {
             let effect = {
-                let e = self.bindings.get(&InputEvent::KeyEvent(keycode));
-                match e {
-                    None => {
-                        return;
-                    }
-                    Some(effect) => (*effect).clone(),
+                if let Some(e) = self.bindings.get(&InputEvent::KeyEvent(keycode)) {
+                    e.clone()
+                } else {
+                    return;
                 }
             };
-            self.start_effect(effect);
+            self.update_effect(effect, true);
         }
     }
 
     pub fn update_keyup(&mut self, keycode: Option<Keycode>) {
         if let Some(keycode) = keycode {
             let effect = {
-                let e = self.bindings.get(&InputEvent::KeyEvent(keycode));
-                match e {
-                    None => {
-                        return;
-                    }
-                    Some(effect) => (*effect).clone(),
+                if let Some(e) = self.bindings.get(&InputEvent::KeyEvent(keycode)) {
+                    e.clone()
+                } else {
+                    return;
                 }
             };
-            self.end_effect(effect);
+            self.update_effect(effect, false);
         }
     }
 
-    fn start_effect(&mut self, effect: InputEffect<Axes, Buttons>) {}
+    fn update_effect(&mut self, effect: InputEffect<Axes, Buttons>, started: bool) {
+        match effect {
+            InputEffect::Axis(axis, direction) => {
+                let direction_float = if direction {
+                    1.0
+                } else {
+                    -1.0
+                };
+                let default_status = AxisStatus {
+                    position: 0.0,
+                    current_direction: direction_float,
+                };
+                let axis_status = self.axes.entry(axis).or_insert(default_status);
+                axis_status.current_direction = direction_float;
+            }
+            InputEffect::Button(button) => {
+                let button_pressed = self.buttons.entry(button).or_insert(started);
+                *button_pressed = started;
 
-    fn end_effect(&mut self, effect: InputEffect<Axes, Buttons>) {}
+            }
+        }
+    }
 
     pub fn mouse_position() {}
 
