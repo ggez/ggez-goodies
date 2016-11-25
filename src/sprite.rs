@@ -72,6 +72,12 @@ impl<'a> Sprite<'a> {
 /// It manages `Atlas`es, `Sprite`s, and so on.
 /// When you tell it to draw, it will draw all sprites,
 /// doing layering and such.
+///
+/// Now that I think of it we probably want layering to be handled
+/// separately, so it will just have layers of Drawable things.
+/// Then each layer can be one Drawable, or a collection of such;
+/// no reason Drawable can't be implemented for a slice or iterator
+/// or whatever.
 struct SpriteManager<'a> {
     atlas: Atlas,
     sprites: Vec<Vec<Sprite<'a>>>,

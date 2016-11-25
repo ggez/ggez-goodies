@@ -5,7 +5,7 @@ pub mod asset;
 pub mod scene;
 pub mod sprite;
 pub mod particle;
-
+pub mod input;
 
 #[cfg(test)]
 mod tests {
