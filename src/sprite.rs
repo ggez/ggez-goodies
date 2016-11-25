@@ -44,7 +44,7 @@ pub struct Sprite<'a> {
 }
 
 impl<'a> graphics::Drawable for Sprite<'a> {
-    fn draw_ex(&self,
+    fn draw_ex(&mut self,
                context: &mut ggez::Context,
                src: Option<graphics::Rect>,
                dst: Option<graphics::Rect>,
@@ -59,10 +59,15 @@ impl<'a> graphics::Drawable for Sprite<'a> {
 
 
 impl<'a> Sprite<'a> {
-    fn draw(&self, context: &mut ggez::Context, location: graphics::Point) -> ggez::GameResult<()> {
+    fn draw(&mut self,
+            context: &mut ggez::Context,
+            location: graphics::Point)
+            -> ggez::GameResult<()> {
         let source = try!(self.atlas.get_source(self.index));
         let dest = Rect::new(location.x(), location.y(), source.width(), source.height());
-        self.atlas.source.draw(context, Some(source), Some(dest))
+        // grr why does this not work with the mutable Drawable
+        // self.atlas.source.draw(context, Some(source), Some(dest))
+        Ok(())
     }
 }
 

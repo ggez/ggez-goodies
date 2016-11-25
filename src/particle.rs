@@ -439,7 +439,7 @@ impl ParticleSystem {
 }
 
 impl graphics::Drawable for ParticleSystem {
-    fn draw_ex(&self,
+    fn draw_ex(&mut self,
                context: &mut Context,
                src: Option<graphics::Rect>,
                dst: Option<graphics::Rect>,
@@ -474,8 +474,9 @@ impl graphics::Drawable for ParticleSystem {
             // ...or we could just make the trait take &mut self.
             unsafe {
                 let evil_mutable_self = &mut *(self as *const Self as *mut Self);
-                evil_mutable_self.image.set_color_mod(p.color);
+
             }
+            self.image.set_color_mod(p.color);
             try!(self.image.draw_ex(context, None, Some(rect), p.angle, None, false, false));
             // graphics::set_color(context, p.color);
             // graphics::rectangle(context, graphics::DrawMode::Fill, rect)?;

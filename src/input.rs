@@ -15,7 +15,9 @@
 //! anyway, so.
 
 use std::cmp::PartialOrd;
+use std::hash::Hash;
 use std::collections::BTreeMap;
+use std::collections::HashMap;
 use ggez::event::*;
 
 
@@ -36,83 +38,119 @@ use ggez::event::*;
 // Enter, z, LMB: Button 1
 // Shift, x, MMB: Button 2
 // Ctrl,  c, RMB: Button 3
-// 
+//
 // Easy way?  Hash map of event -> axis/button bindings.
 
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 enum InputEvent {
-    KeyEvent,
+    KeyEvent(Keycode),
     MouseButtonEvent,
 }
 
-#[derive(Debug, Eq, Ord, PartialEq, PartialOrd)]
-enum InputEffect<Axes, Buttons> {
-    Axis(Axes, f64),
+#[derive(Debug, Eq, Ord, PartialEq, PartialOrd, Copy, Clone)]
+enum InputEffect<Axes, Buttons>
+    where Axes: Eq + Ord + Clone,
+          Buttons: Eq + Ord + Clone
+{
+    Axis(Axes, bool),
     Button(Buttons),
 }
 
 #[derive(Debug)]
-pub struct InputManager<Axes, Buttons> {
+pub struct InputManager<Axes, Buttons>
+    where Axes: Eq + Ord + Hash + Clone,
+          Buttons: Eq + Ord + Hash + Clone
+{
     // Once EnumSet is stable it should be used for these
     // instead of BTreeMap. ♥?
     // Binding of keys to input values.
-    bindings: BTreeMap<InputEvent, InputEffect<Axes, Buttons>>,
+    bindings: HashMap<InputEvent, InputEffect<Axes, Buttons>>,
     // Input state for axes
     axes: BTreeMap<Axes, f64>,
     // Input states for buttons
     buttons: BTreeMap<Buttons, bool>,
 }
 
-impl<Axes,Buttons> InputManager<Axes,Buttons> {
+use std::collections::hash_map::Entry;
+
+impl<Axes, Buttons> InputManager<Axes, Buttons>
+    where Axes: Eq + Ord + Hash + Clone,
+          Buttons: Eq + Ord + Hash + Clone
+{
     pub fn new() -> Self {
         InputManager {
-            bindings: BTreeMap::new(),
+            bindings: HashMap::new(),
             axes: BTreeMap::new(),
             buttons: BTreeMap::new(),
         }
     }
 
-    pub fn bind_key_to_axis(self, keycode: Keycode, axis: Axes, positive: bool) -> Self {
-        let direction = if positive { 1.0 } else { -1.0 };
-        self.bindings.append(keycode, InputEffect::Axis(axis, direction));
+    pub fn bind_key_to_axis(mut self, keycode: Keycode, axis: Axes, positive: bool) -> Self {
+
+        self.bindings.insert(InputEvent::KeyEvent(keycode),
+                             InputEffect::Axis(axis, positive));
         self
     }
 
-    
-    pub fn update_keydown(&mut self, keycode: Option<Keycode>) {}
-
-    pub fn update_keyup(&mut self, keycode: Option<Keycode>) {}
-
-    pub fn mouse_position() {
+    pub fn bind_key_to_button(mut self, keycode: Keycode, button: Buttons) -> Self {
+        self.bindings.insert(InputEvent::KeyEvent(keycode), InputEffect::Button(button));
+        self
     }
 
-    pub fn mouse_scroll_delta() {
+
+    pub fn update_keydown(&mut self, keycode: Option<Keycode>) {
+        if let Some(keycode) = keycode {
+            let effect = {
+                let e = self.bindings.get(&InputEvent::KeyEvent(keycode));
+                match e {
+                    None => {
+                        return;
+                    }
+                    Some(effect) => (*effect).clone(),
+                }
+            };
+            self.start_effect(effect);
+        }
     }
 
-    pub fn get_axis() {
+    pub fn update_keyup(&mut self, keycode: Option<Keycode>) {
+        if let Some(keycode) = keycode {
+            let effect = {
+                let e = self.bindings.get(&InputEvent::KeyEvent(keycode));
+                match e {
+                    None => {
+                        return;
+                    }
+                    Some(effect) => (*effect).clone(),
+                }
+            };
+            self.end_effect(effect);
+        }
     }
 
-    pub fn get_axis_raw() {
-    }
+    fn start_effect(&mut self, effect: InputEffect<Axes, Buttons>) {}
 
-    pub fn get_button() {
-    }
+    fn end_effect(&mut self, effect: InputEffect<Axes, Buttons>) {}
 
-    pub fn get_button_down() {
-    }
+    pub fn mouse_position() {}
 
-    pub fn get_button_up() {
-    }
+    pub fn mouse_scroll_delta() {}
 
-    pub fn get_mouse_button() {
-    }
+    pub fn get_axis() {}
 
-    pub fn get_mouse_button_down() {
-    }
+    pub fn get_axis_raw() {}
 
-    pub fn get_mouse_button_up() {
-    }
+    pub fn get_button() {}
 
-    pub fn reset_input_axes() {
-    }
+    pub fn get_button_down() {}
+
+    pub fn get_button_up() {}
+
+    pub fn get_mouse_button() {}
+
+    pub fn get_mouse_button_down() {}
+
+    pub fn get_mouse_button_up() {}
+
+    pub fn reset_input_axes() {}
 }
