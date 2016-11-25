@@ -173,3 +173,25 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
 
     pub fn reset_input_axes() {}
 }
+
+
+mod tests {
+
+    #[ignore(unused_imports)]
+    use ggez::event::*;
+    #[ignore(unused_imports)]
+    use super::*;
+
+    #[ignore(dead_code)]
+    #[derive(Hash, Copy, Clone, Eq, Ord, PartialEq, PartialOrd)]
+    enum Buttons {
+        Up,
+        Left,
+        Right,
+        Down,
+    }
+    #[test]
+    fn test_input_events() {
+        let im = InputManager::<(), Buttons>::new().bind_key_to_button(Keycode::W, Buttons::Up);
+    }
+}

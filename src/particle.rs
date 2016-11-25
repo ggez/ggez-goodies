@@ -441,9 +441,9 @@ impl ParticleSystem {
 impl graphics::Drawable for ParticleSystem {
     fn draw_ex(&mut self,
                context: &mut Context,
-               src: Option<graphics::Rect>,
+               _src: Option<graphics::Rect>,
                dst: Option<graphics::Rect>,
-               angle: f64,
+               _angle: f64,
                center: Option<graphics::Point>,
                flip_horizontal: bool,
                flip_vertical: bool)
@@ -455,7 +455,7 @@ impl graphics::Drawable for ParticleSystem {
         // expensive(ish).
         // Maybe we can make it an x and y scale?  Hmm.
         let dst_rect = dst.unwrap_or(graphics::Rect::new(0, 0, 0, 0));
-        for (i, p) in self.particles.iter().enumerate() {
+        for p in self.particles.iter() {
             let life_fraction = p.age / p.max_age;
             let size = p.size.get_value(life_fraction);
             let rect = graphics::Rect::new(dst_rect.x() + p.pos.x as i32,
@@ -472,12 +472,18 @@ impl graphics::Drawable for ParticleSystem {
             // all drawing (including images, I think), but they got rid
             // of it in 0.9.0 and I'm not sure why.
             // ...or we could just make the trait take &mut self.
-            unsafe {
-                let evil_mutable_self = &mut *(self as *const Self as *mut Self);
+            // unsafe {
+            //     let evil_mutable_self = &mut *(self as *const Self as *mut Self);
 
-            }
+            // }
             self.image.set_color_mod(p.color);
-            try!(self.image.draw_ex(context, None, Some(rect), p.angle, None, false, false));
+            try!(self.image.draw_ex(context,
+                                    None,
+                                    Some(rect),
+                                    p.angle,
+                                    center,
+                                    flip_horizontal,
+                                    flip_vertical));
             // graphics::set_color(context, p.color);
             // graphics::rectangle(context, graphics::DrawMode::Fill, rect)?;
         }

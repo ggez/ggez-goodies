@@ -286,9 +286,9 @@ fn handle_timed_life(actor: &mut Actor, dt: f64) {
 /// has Y pointing up and the origin at the center,
 /// to the screen coordinate system, which has Y
 /// pointing downward and the origin at the top-left,
-fn world_to_screen_coords(state: &MainState, point: &Vec2) -> Vec2 {
-    let width = state.screen_width as f64;
-    let height = state.screen_height as f64;
+fn world_to_screen_coords(screen_width: u32, screen_height: u32, point: &Vec2) -> Vec2 {
+    let width = screen_width as f64;
+    let height = screen_height as f64;
     let x = point.x + width / 2.0;
     let y = height - (point.y + height / 2.0);
     Vec2 { x: x, y: y }
@@ -321,7 +321,7 @@ impl Assets {
         // let font_path = path::Path::new("consolefont.png");
         // let font_chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!,.?;'\"";
         // let font = try!(graphics::Font::new_bitmap(ctx, font_path, font_chars));
-        let font_path = path::Path::new("DejaVuSans.ttf");
+        let font_path = path::Path::new("DejaVuSerif.ttf");
         let font = try!(graphics::Font::new(ctx, font_path, 16));
 
         let shot_sound_path = path::Path::new("pew.ogg");
@@ -336,6 +336,14 @@ impl Assets {
             shot_sound: shot_sound,
             hit_sound: hit_sound,
         })
+    }
+
+    fn actor_image(&mut self, actor: &Actor) -> &mut graphics::Image {
+        match actor.tag {
+            ActorType::Player => &mut self.player_image,
+            ActorType::Rock => &mut self.rock_image,
+            ActorType::Shot => &mut self.shot_image,
+        }
     }
 }
 
@@ -388,6 +396,29 @@ struct MainState {
     level_display: graphics::Text,
 }
 
+fn draw_actor(assets: &mut Assets,
+              ctx: &mut Context,
+              actor: &Actor,
+              world_coords: (u32, u32))
+              -> GameResult<()> {
+    let (screen_w, screen_h) = world_coords;
+    let pos = world_to_screen_coords(screen_w, screen_h, &actor.pos);
+    // let pos = Vec2::new(1.0, 1.0);
+    let px = pos.x as i32;
+    let py = pos.y as i32;
+    let destrect = graphics::Rect::new(px, py, SPRITE_SIZE, SPRITE_SIZE);
+    let actor_center = graphics::Point::new(16, 16);
+    let image = assets.actor_image(actor);
+    graphics::draw_ex(ctx,
+                      image,
+                      None,
+                      Some(destrect),
+                      actor.facing.to_degrees(),
+                      Some(actor_center),
+                      false,
+                      false)
+
+}
 
 
 impl MainState {
@@ -407,31 +438,6 @@ impl MainState {
     }
 
 
-    fn draw_actor(&self, ctx: &mut Context, actor: &Actor) -> GameResult<()> {
-        let pos = world_to_screen_coords(self, &actor.pos);
-        let px = pos.x as i32;
-        let py = pos.y as i32;
-        let destrect = graphics::Rect::new(px, py, SPRITE_SIZE, SPRITE_SIZE);
-        let actor_center = graphics::Point::new(16, 16);
-        let image = self.actor_image(actor);
-        graphics::draw_ex(ctx,
-                          image,
-                          None,
-                          Some(destrect),
-                          actor.facing.to_degrees(),
-                          Some(actor_center),
-                          false,
-                          false)
-
-    }
-
-    fn actor_image(&self, actor: &Actor) -> &graphics::Image {
-        match actor.tag {
-            ActorType::Player => &self.assets.player_image,
-            ActorType::Rock => &self.assets.rock_image,
-            ActorType::Shot => &self.assets.shot_image,
-        }
-    }
 
     fn clear_dead_stuff(&mut self) {
         self.shots.retain(|s| s.life > 0.0);
@@ -467,8 +473,8 @@ impl MainState {
     }
 
     fn update_ui(&mut self, ctx: &Context) {
-        let score_str = format!("SCORE{}", self.score);
-        let level_str = format!("LEVEL{}", self.level);
+        let score_str = format!("Score: {}", self.score);
+        let level_str = format!("Level: {}", self.level);
         let score_text = graphics::Text::new(ctx, &score_str, &self.assets.font).unwrap();
         let level_text = graphics::Text::new(ctx, &level_str, &self.assets.font).unwrap();
 
@@ -582,13 +588,20 @@ impl<'a> GameState for MainState {
         graphics::clear(ctx);
 
         // Loop over all objects drawing them...
-        let p = &self.player;
-        try!(self.draw_actor(ctx, p));
-        for s in &self.shots {
-            try!(self.draw_actor(ctx, &s));
-        }
-        for r in &self.rocks {
-            try!(self.draw_actor(ctx, &r));
+        {
+            let assets = &mut self.assets;
+            let coords = (self.screen_width, self.screen_height);
+
+            let p = &self.player;
+            try!(draw_actor(assets, ctx, p, coords));
+
+            for s in &self.shots {
+                try!(draw_actor(assets, ctx, s, coords));
+            }
+
+            for r in &self.rocks {
+                try!(draw_actor(assets, ctx, r, coords));
+            }
         }
 
 
@@ -601,8 +614,8 @@ impl<'a> GameState for MainState {
                                              0,
                                              self.score_display.width(),
                                              self.score_display.height());
-        try!(graphics::draw(ctx, &self.level_display, None, Some(level_rect)));
-        try!(graphics::draw(ctx, &self.score_display, None, Some(score_rect)));
+        try!(graphics::draw(ctx, &mut self.level_display, None, Some(level_rect)));
+        try!(graphics::draw(ctx, &mut self.score_display, None, Some(score_rect)));
 
         // Then we flip the screen and wait for the next frame.
         graphics::present(ctx);
