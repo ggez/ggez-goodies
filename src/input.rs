@@ -62,6 +62,15 @@ struct AxisStatus {
     current_direction: f64,
 }
 
+impl Default for AxisStatus {
+    fn default() -> Self {
+        AxisStatus {
+            position: 0.0,
+            current_direction: 0.0,
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct InputManager<Axes, Buttons>
     where Axes: Eq + Ord + Hash + Clone,
@@ -151,15 +160,27 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
         }
     }
 
-    pub fn mouse_position() {}
-
-    pub fn mouse_scroll_delta() {}
-
-    pub fn get_axis() {}
+    pub fn get_axis(&self, axis: &Axes) -> f64 {
+        if let Some(ax) = self.axes.get(axis) {
+            ax.position
+        } else {
+            0.0
+        }
+    }
 
     pub fn get_axis_raw() {}
 
-    pub fn get_button() {}
+    pub fn get_button(&self, axis: &Buttons) -> bool {
+        if let Some(pressed) = self.buttons.get(axis) {
+            *pressed
+        } else {
+            false
+        }
+    }
+
+    pub fn mouse_position() {}
+
+    pub fn mouse_scroll_delta() {}
 
     pub fn get_button_down() {}
 
@@ -192,6 +213,11 @@ mod tests {
     }
     #[test]
     fn test_input_events() {
-        let im = InputManager::<(), Buttons>::new().bind_key_to_button(Keycode::W, Buttons::Up);
+        let mut im = InputManager::<(), Buttons>::new().bind_key_to_button(Keycode::W, Buttons::Up);
+
+        im.update_keydown(Some(Keycode::W));
+        assert!(im.get_button(&Buttons::Up));
+        im.update_keyup(Some(Keycode::W));
+        assert!(!im.get_button(&Buttons::Up));
     }
 }
