@@ -20,10 +20,11 @@
 // It DOES also make thread-safety work through thread_local!().
 
 use std::collections::BTreeMap;
+use std::fmt::Debug;
 use std::path::Path;
 use std::rc::Rc;
 use ggez;
-use ggez::{Context, GameError};
+use ggez::{Context, GameError, GameResult};
 use ggez::graphics;
 
 pub trait Loadable<K, E> {
@@ -34,14 +35,15 @@ pub trait StateLoadable<K, E, S> {
     fn load_state(_key: &K, &mut S) -> Result<Self, E> where Self: Sized;
 }
 
+#[derive(Debug)]
 pub struct AssetCache<K, V>
-    where K: Ord + Clone
+    where K: Ord + Clone + Debug
 {
     contents: BTreeMap<K, Rc<V>>,
 }
 
 impl<K, V> AssetCache<K, V>
-    where K: Ord + Clone
+    where K: Ord + Clone + Debug
 {
     /// Creates a new `AssetCache` that loads assets
     /// when necessary with the given loader function.
@@ -102,12 +104,36 @@ impl<K, V> AssetCache<K, V>
             let _ = self.get(k);
         }
     }
+
+    /// Preloads objects that require a state to load.
+    pub fn preload_state<E, S>(&mut self, keys: &[K], state: &mut S)
+        where V: StateLoadable<K, E, S>
+    {
+        for k in keys {
+            let _ = self.get_state(k, state);
+        }
+    }
+
+
+    /// Gets an object but only if it already exists in the
+    /// wossname.
+    /// Returns an error if it is not.
+    pub fn get_preload(&mut self, key: &K) -> GameResult<Rc<V>> {
+        if let Some(val) = self.contents.get(key) {
+            Ok(val.clone())
+        } else {
+            let errmsg = format!("Tried to get asset {:?} but it was not preloaded!", key);
+            let err = GameError::ResourceNotFound(errmsg);
+            Err(err)
+
+        }
+    }
 }
 
 
 
 impl<'a, K: AsRef<Path>> StateLoadable<K, GameError, ggez::Context<'a>> for ggez::graphics::Image {
-    fn load_state(key: &K, ctx: &mut Context<'a>) -> Result<Self, GameError> {
+    fn load_state(key: &K, ctx: &mut Context<'a>) -> GameResult<Self> {
         graphics::Image::new(ctx, key)
     }
 }
