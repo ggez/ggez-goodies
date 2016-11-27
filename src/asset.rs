@@ -20,6 +20,7 @@
 // It DOES also make thread-safety work through thread_local!().
 
 use std::collections::BTreeMap;
+use std::collections::btree_map::{Entry, VacantEntry, OccupiedEntry};
 use std::fmt::Debug;
 use std::path::Path;
 use std::rc::Rc;
@@ -68,6 +69,22 @@ impl<K, V> AssetCache<K, V>
         Ok(v_rc)
     }
 
+    pub fn get_mut<E, S>(&mut self, key: &K) -> Result<&mut Rc<V>, E>
+        where V: Loadable<K, E>
+    {
+        // entry.or_insert_with() isn't quite powerful
+        // enough 'cause it doesn't propegate results.  ;_;
+        let entry = self.contents.entry(key.clone());
+        match entry {
+            Entry::Vacant(e) => {
+                let v = V::load(key)?;
+                let v_rc = Rc::new(v);
+                Ok(e.insert(v_rc))
+            }
+            Entry::Occupied(e) => Ok(e.into_mut()),
+        }
+    }
+
     /// Gets the given asset, loading it if necessary.
     pub fn get_state<E, S>(&mut self, key: &K, state: &mut S) -> Result<Rc<V>, E>
         where V: StateLoadable<K, E, S>
@@ -80,6 +97,22 @@ impl<K, V> AssetCache<K, V>
         let v_rc = Rc::new(v);
         self.contents.insert(key.clone(), v_rc.clone());
         Ok(v_rc)
+    }
+
+    pub fn get_state_mut<E, S>(&mut self, key: &K, state: &mut S) -> Result<&mut Rc<V>, E>
+        where V: StateLoadable<K, E, S>
+    {
+        // entry.or_insert_with() isn't quite powerful
+        // enough 'cause it doesn't propegate results.  ;_;
+        let entry = self.contents.entry(key.clone());
+        match entry {
+            Entry::Vacant(e) => {
+                let v = V::load_state(key, state)?;
+                let v_rc = Rc::new(v);
+                Ok(e.insert(v_rc))
+            }
+            Entry::Occupied(e) => Ok(e.into_mut()),
+        }
     }
 
     /// Removes all assets from the cache
@@ -121,6 +154,17 @@ impl<K, V> AssetCache<K, V>
     pub fn get_preload(&mut self, key: &K) -> GameResult<Rc<V>> {
         if let Some(val) = self.contents.get(key) {
             Ok(val.clone())
+        } else {
+            let errmsg = format!("Tried to get asset {:?} but it was not preloaded!", key);
+            let err = GameError::ResourceNotFound(errmsg);
+            Err(err)
+
+        }
+    }
+
+    pub fn get_preload_mut(&mut self, key: &K) -> GameResult<&mut Rc<V>> {
+        if let Some(val) = self.contents.get_mut(key) {
+            Ok(val)
         } else {
             let errmsg = format!("Tried to get asset {:?} but it was not preloaded!", key);
             let err = GameError::ResourceNotFound(errmsg);
