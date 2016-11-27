@@ -17,7 +17,6 @@ use rand::{Rand, Rng};
 use rand::distributions::range::SampleRange;
 extern crate nalgebra as na;
 
-use ggez;
 use ggez::{GameResult, Context};
 use ggez::graphics;
 

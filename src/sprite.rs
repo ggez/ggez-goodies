@@ -1,6 +1,9 @@
 //! Sprites!
 //! We want atlasing, flipbook animations, layering, tilemaps...
 
+use std::cmp::Ordering;
+use std::collections::BTreeMap;
+
 use ggez;
 use ggez::graphics;
 use ggez::graphics::{Rect, Point, Drawable};
@@ -71,19 +74,92 @@ impl<'a> Sprite<'a> {
     }
 }
 
+struct LayerIndex {
+    layer: i32,
+    id: usize,
+}
+
+impl LayerIndex {
+    fn new(layer: i32, id: usize) -> Self {
+        LayerIndex {
+            layer: layer,
+            id: id,
+        }
+    }
+}
 
 
-/// A `SpriteManager` is in charge of doing all sprite drawing.
-/// It manages `Atlas`es, `Sprite`s, and so on.
-/// When you tell it to draw, it will draw all sprites,
-/// doing layering and such.
-///
-/// Now that I think of it we probably want layering to be handled
-/// separately, so it will just have layers of Drawable things.
-/// Then each layer can be one Drawable, or a collection of such;
-/// no reason Drawable can't be implemented for a slice or iterator
-/// or whatever.
-struct SpriteManager<'a> {
-    atlas: Atlas,
-    sprites: Vec<Vec<Sprite<'a>>>,
+impl PartialEq for LayerIndex{
+    // Two objects are the same if their ID is identical.
+    // all ID's should be unique, so.
+    fn eq(&self, other: &LayerIndex) -> bool {
+        self.id == other.id
+    }
+}
+
+impl Eq for LayerIndex {}
+
+impl PartialOrd for LayerIndex {
+    fn partial_cmp(&self, other: &LayerIndex) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for LayerIndex{
+    fn cmp(&self, other: &LayerIndex) -> Ordering {
+        if self.layer == other.layer {
+            self.id.cmp(&other.id)
+        } else {
+            self.layer.cmp(&other.layer)
+        }
+    }
+}
+
+
+/// A `LayerManager` is in charge of doing all sprite drawing.
+/// It has a collection of Drawable objects and will draw them
+/// in order of layer and a monotonic ID that it manages on its
+// own.
+pub struct LayerManager<T>
+    where T: Drawable
+{
+    layers: BTreeMap<LayerIndex, T>,
+    next_id: usize,
+}
+
+impl<T: Drawable> LayerManager<T> {
+    fn new() -> Self {
+        LayerManager {
+            layers: BTreeMap::new(),
+            next_id: 0,
+        }
+    }
+
+    fn next_id(&mut self) -> usize {
+        self.next_id += 1;
+        self.next_id
+    }
+
+    pub fn add(&mut self, layer: i32, item: T) {
+        let id = self.next_id();
+        let idx = LayerIndex::new(layer, id);
+        self.layers.insert(idx, item);
+    }
+}
+
+impl<T: Drawable> Drawable for LayerManager<T> {
+    fn draw_ex(&mut self,
+               context: &mut ggez::Context,
+               src: Option<graphics::Rect>,
+               dst: Option<graphics::Rect>,
+               angle: f64,
+               center: Option<graphics::Point>,
+               flip_horizontal: bool,
+               flip_vertical: bool)
+               -> ggez::GameResult<()> {
+        for (_key,item) in self.layers.iter_mut() {
+            item.draw_ex(context, src, dst, angle, center, flip_horizontal, flip_vertical)?;
+        }
+        Ok(())
+    }
 }
