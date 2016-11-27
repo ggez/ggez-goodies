@@ -128,7 +128,7 @@ pub struct LayerManager<T>
 }
 
 impl<T: Drawable> LayerManager<T> {
-    fn new() -> Self {
+    pub fn new() -> Self {
         LayerManager {
             layers: BTreeMap::new(),
             next_id: 0,

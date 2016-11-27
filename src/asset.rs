@@ -19,12 +19,19 @@
 // a bit labyrenthine.
 // It DOES also make thread-safety work through thread_local!().
 
-
 use std::collections::BTreeMap;
+use std::path::Path;
 use std::rc::Rc;
+use ggez;
+use ggez::{Context, GameError};
+use ggez::graphics;
 
-pub trait Loadable<K,E> {
+pub trait Loadable<K, E> {
     fn load(_key: &K) -> Result<Self, E> where Self: Sized;
+}
+
+pub trait StateLoadable<K, E, S> {
+    fn load_state(_key: &K, &mut S) -> Result<Self, E> where Self: Sized;
 }
 
 pub struct AssetCache<K, V>
@@ -33,7 +40,8 @@ pub struct AssetCache<K, V>
     contents: BTreeMap<K, Rc<V>>,
 }
 
-impl<K, V> AssetCache<K, V> where K: Ord + Clone
+impl<K, V> AssetCache<K, V>
+    where K: Ord + Clone
 {
     /// Creates a new `AssetCache` that loads assets
     /// when necessary with the given loader function.
@@ -58,6 +66,20 @@ impl<K, V> AssetCache<K, V> where K: Ord + Clone
         Ok(v_rc)
     }
 
+    /// Gets the given asset, loading it if necessary.
+    pub fn get_state<E, S>(&mut self, key: &K, state: &mut S) -> Result<Rc<V>, E>
+        where V: StateLoadable<K, E, S>
+    {
+        if let Some(v) = self.contents.get(key) {
+            return Ok(v.clone());
+        };
+
+        let v = V::load_state(key, state)?;
+        let v_rc = Rc::new(v);
+        self.contents.insert(key.clone(), v_rc.clone());
+        Ok(v_rc)
+    }
+
     /// Removes all assets from the cache
     /// and frees any excess memory it uses.
     pub fn clear(&mut self) {
@@ -83,74 +105,20 @@ impl<K, V> AssetCache<K, V> where K: Ord + Clone
 }
 
 
-pub trait StateLoadable<K,E,S> {
-    fn load(_key: &K, &mut S) -> Result<Self, E> where Self: Sized;
-}
 
-/// An AssetCache that owns some State
-/// object, which then gets passed to and
-/// updated by the Load function.
-pub struct StatefulAssetCache<K, V, S>
-    where K: Ord + Clone
-{
-    contents: BTreeMap<K, Rc<V>>,
-    state: S,
-}
-
-impl<K, V, S> StatefulAssetCache<K, V, S> where K: Ord + Clone
-{
-    /// Creates a new `AssetCache` that loads assets
-    /// when necessary with the given loader function.
-    pub fn new(state: S) -> Self {
-        let map = BTreeMap::new();
-        StatefulAssetCache {
-            contents: map,
-            state: state,
-        }
-    }
-
-    /// Gets the given asset, loading it if necessary.
-    pub fn get<E>(&mut self, key: &K) -> Result<Rc<V>, E>
-        where V: StateLoadable<K, E, S>
-    {
-        if let Some(v) = self.contents.get(key) {
-            return Ok(v.clone());
-        };
-
-        let v = V::load(key, &mut self.state)?;
-        let v_rc = Rc::new(v);
-        self.contents.insert(key.clone(), v_rc.clone());
-        Ok(v_rc)
-    }
-
-    /// Removes all assets from the cache
-    /// and frees any excess memory it uses.
-    pub fn clear(&mut self) {
-        let map = BTreeMap::new();
-        self.contents = map;
-    }
-
-    /// Returns true if the given asset is loaded.
-    pub fn loaded(&self, key: &K) -> bool {
-        self.contents.contains_key(key)
-    }
-
-    /// Takes a slice containing a list of keys,
-    /// and loads all the keys so that their objects
-    /// are immediately accessible.
-    pub fn preload<E>(&mut self, keys: &[K])
-        where V: StateLoadable<K, E, S>
-    {
-        for k in keys {
-            let _ = self.get(k);
-        }
+impl<'a, K: AsRef<Path>> StateLoadable<K, GameError, ggez::Context<'a>> for ggez::graphics::Image {
+    fn load_state(key: &K, ctx: &mut Context<'a>) -> Result<Self, GameError> {
+        graphics::Image::new(ctx, key)
     }
 }
+
+
+
 
 
 mod tests {
     use super::*;
-    #[cfg(test)] 
+    #[cfg(test)]
     impl<'a> Loadable<&'a str, ()> for String {
         fn load(key: &&str) -> Result<String, ()> {
             Ok(key.to_string())
@@ -171,7 +139,7 @@ mod tests {
 
 
     impl<'a> StateLoadable<&'a str, (), i32> for String {
-        fn load(key: &&str, state: &mut i32) -> Result<String, ()> {
+        fn load_state(key: &&str, state: &mut i32) -> Result<String, ()> {
             *state += 1;
             Ok(key.to_string())
         }
@@ -179,12 +147,12 @@ mod tests {
 
     #[test]
     fn test_stateful_assetcache() {
-        let mut a = StatefulAssetCache::<&str, String, i32>::new(0);
-        assert_eq!(a.state, 0);
+        let mut a = AssetCache::<&str, String>::new();
+        let s = &mut 10;
         assert!(!a.loaded(&"foo"));
-        let s1 = a.get(&"foo").unwrap();
+        let s1 = a.get_state(&"foo", s).unwrap();
         assert_eq!(*s1, "foo");
-        assert_eq!(a.state, 1);
+        assert_eq!(*s, 11);
         assert!(a.loaded(&"foo"));
     }
 
