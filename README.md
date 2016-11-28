@@ -1,6 +1,6 @@
 # ggez-goodies
 
-[![Build Status](https://travis-ci.org/ggez/ggez.svg?branch=master)](https://travis-ci.org/ggez/ggez)
+[![Build Status](https://travis-ci.org/ggez/ggez-goodies.svg?branch=master)](https://travis-ci.org/ggez/ggez-goodies)
 [![license](http://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ggez/ggez/blob/master/LICENSE)
 
 
