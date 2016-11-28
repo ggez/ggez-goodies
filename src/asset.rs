@@ -184,6 +184,208 @@ impl<'a, K: AsRef<Path>> StateLoadable<K, GameError, ggez::Context<'a>> for ggez
 
 
 
+/// An opaque asset handle that can be used for O(1) fetches
+/// of assets.
+#[derive(Debug, Copy, Clone)]
+pub struct AssetHandle(usize);
+
+#[derive(Debug)]
+pub struct AssetCache2<K, V>
+    where K: Ord + Clone + Debug
+{
+    handles: Vec<Rc<V>>,
+    keys: BTreeMap<K, AssetHandle>,
+    next_handle: usize,
+}
+
+impl<K, V> AssetCache2<K, V>
+    where K: Ord + Clone + Debug
+{
+    /// Creates a new `AssetCache` that loads assets
+    /// when necessary with the given loader function.
+    pub fn new() -> Self {
+        AssetCache2 {
+            handles: Vec::new(),
+            keys: BTreeMap::new(),
+            next_handle: 0,
+        }
+    }
+
+    fn new_handle(&mut self) -> AssetHandle {
+        let i = self.next_handle;
+        self.next_handle += 1;
+        AssetHandle(i)
+    }
+
+    // Inserts the given asset into the handles vec at the given
+    // location, and inserts the key into the key->handle mapping.
+    // Performs asserts that will panic if something
+    // gets out of sync (which should be impossible).
+    fn bind_handle(&mut self, key: K, h: AssetHandle, value: Rc<V>) {
+        let AssetHandle(i) = h;
+        assert!(i == self.handles.len());
+        self.handles.push(value);
+
+        assert!(!self.keys.contains_key(&key));
+        self.keys.insert(key, h);
+    }
+
+    // Adds a new item to the cache, returns an Rc reference to it
+    // and an AssetHandle.
+    fn add_item(&mut self, key: K, value: V) -> (AssetHandle, Rc<V>) {
+        let handle = self.new_handle();
+        let rc = Rc::new(value);
+        self.bind_handle(key, handle, rc.clone());
+        (handle, rc)
+    }
+
+    /// Retrieves an asset via its handle.
+    /// This is always safe (and fast) because for a handle
+    /// to be valid its object *must* exist in the cache.
+    pub fn get(&self, handle: AssetHandle) -> Rc<V> {
+        let AssetHandle(i) = handle;
+        self.handles[i].clone()
+    }
+
+    // fn add_item_mut(&mut self, key: K, value: &mut V) -> (AssetHandle, Rc<&mut V>) {
+    //     let entry = self.contents.entry(key.clone());
+    //     match entry {
+    //         Entry::Vacant(e) => {
+    //             let v = V::load(key)?;
+    //             let v_rc = Rc::new(v);
+    //             Ok(e.insert(v_rc));
+    //             Ok(self.add_item(key.clone(), v));
+    //         }
+    //         Entry::Occupied(e) => Ok(e.into_mut()),
+    //     }
+
+    // }
+
+    /// Gets the given asset, loading it if necessary.
+    /// Returns an Rc to the value, plus an AssetHandle
+    /// which can be used to retrieve it quickly.
+    // Oh my goodness getting the E type param to the
+    // right place was amazingly difficult.
+    pub fn get_key<E>(&mut self, key: &K) -> Result<(AssetHandle, Rc<V>), E>
+        where V: Loadable<K, E>
+    {
+        if let Some(handle) = self.keys.get(key) {
+            return Ok((*handle, self.get(*handle)));
+        };
+
+        let v = V::load(key)?;
+        let res = self.add_item(key.clone(), v);
+        Ok(res)
+    }
+
+    // pub fn get_mut<E, S>(&mut self, key: &K) -> Result<&mut Rc<V>, E>
+    //     where V: Loadable<K, E>
+    // {
+    //     // entry.or_insert_with() isn't quite powerful
+    //     // enough 'cause it doesn't propegate Results.  ;_;
+    //     let entry = self.contents.entry(key.clone());
+    //     match entry {
+    //         Entry::Vacant(e) => {
+    //             let v = V::load(key)?;
+    //             let v_rc = Rc::new(v);
+    //             Ok(e.insert(v_rc));
+    //             Ok(self.add_item(key.clone(), v));
+    //         }
+    //         Entry::Occupied(e) => Ok(e.into_mut()),
+    //     }
+    // }
+
+    // /// Gets the given asset, loading it if necessary.
+    // pub fn get_state<E, S>(&mut self, key: &K, state: &mut S) -> Result<Rc<V>, E>
+    //     where V: StateLoadable<K, E, S>
+    // {
+    //     if let Some(v) = self.contents.get(key) {
+    //         return Ok(v.clone());
+    //     };
+
+    //     let v = V::load_state(key, state)?;
+    //     let v_rc = Rc::new(v);
+    //     self.contents.insert(key.clone(), v_rc.clone());
+    //     Ok(v_rc)
+    // }
+
+    // pub fn get_state_mut<E, S>(&mut self, key: &K, state: &mut S) -> Result<&mut Rc<V>, E>
+    //     where V: StateLoadable<K, E, S>
+    // {
+    //     // entry.or_insert_with() isn't quite powerful
+    //     // enough 'cause it doesn't propegate results.  ;_;
+    //     let entry = self.contents.entry(key.clone());
+    //     match entry {
+    //         Entry::Vacant(e) => {
+    //             let v = V::load_state(key, state)?;
+    //             let v_rc = Rc::new(v);
+    //             Ok(e.insert(v_rc))
+    //         }
+    //         Entry::Occupied(e) => Ok(e.into_mut()),
+    //     }
+    // }
+
+    // /// Removes all assets from the cache
+    // /// and frees any excess memory it uses.
+    // pub fn clear(&mut self) {
+    //     let map = BTreeMap::new();
+    //     self.contents = map;
+    // }
+
+    // /// Returns true if the given asset is loaded.
+    // pub fn loaded(&self, key: &K) -> bool {
+    //     self.contents.contains_key(key)
+    // }
+
+    /// Takes a slice containing a list of keys,
+    /// and loads all the keys so that their objects
+    /// are immediately accessible.
+    pub fn preload<E>(&mut self, keys: &[K])
+        where V: Loadable<K, E>
+    {
+        for k in keys {
+            let _ = self.get_key(k);
+        }
+    }
+
+    // /// Preloads objects that require a state to load.
+    // pub fn preload_state<E, S>(&mut self, keys: &[K], state: &mut S)
+    //     where V: StateLoadable<K, E, S>
+    // {
+    //     for k in keys {
+    //         let _ = self.get_state(k, state);
+    //     }
+    // }
+
+
+    // /// Gets an object but only if it already exists in the
+    // /// wossname.
+    // /// Returns an error if it is not.
+    // pub fn get_preload(&mut self, key: &K) -> GameResult<Rc<V>> {
+    //     if let Some(val) = self.contents.get(key) {
+    //         Ok(val.clone())
+    //     } else {
+    //         let errmsg = format!("Tried to get asset {:?} but it was not preloaded!", key);
+    //         let err = GameError::ResourceNotFound(errmsg);
+    //         Err(err)
+
+    //     }
+    // }
+
+    // pub fn get_preload_mut(&mut self, key: &K) -> GameResult<&mut Rc<V>> {
+    //     if let Some(val) = self.contents.get_mut(key) {
+    //         Ok(val)
+    //     } else {
+    //         let errmsg = format!("Tried to get asset {:?} but it was not preloaded!", key);
+    //         let err = GameError::ResourceNotFound(errmsg);
+    //         Err(err)
+
+    //     }
+    // }
+}
+
+
+
 
 
 mod tests {
