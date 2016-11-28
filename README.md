@@ -1,5 +1,9 @@
 # ggez-goodies
 
+[![Build Status](https://travis-ci.org/ggez/ggez.svg?branch=master)](https://travis-ci.org/ggez/ggez)
+[![license](http://img.shields.io/badge/license-MIT-blue.svg)](https://github.com/ggez/ggez/blob/master/LICENSE)
+
+
 Useful modules for the ggez Rust game framework.
 
 Each module is meant to be pretty much self-contained without relying on the others.
