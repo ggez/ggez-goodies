@@ -247,8 +247,18 @@ impl<K, V> AssetCache2<K, V>
         self.handles[i].clone()
     }
 
+
+    /// Not sure this is even right, but...
+    pub fn get_mut<'a>(&'a mut self, handle: AssetHandle) -> Option<&'a mut V> {
+        let AssetHandle(i) = handle;
+        use std::rc::Rc;
+        Rc::get_mut(&mut self.handles[i])
+    }
+
+    
     // fn add_item_mut(&mut self, key: K, value: &mut V) -> (AssetHandle, Rc<&mut V>) {
-    //     let entry = self.contents.entry(key.clone());
+    //     let handle = self.new_handle();
+    //     let entry = self.entry(key.clone());
     //     match entry {
     //         Entry::Vacant(e) => {
     //             let v = V::load(key)?;
@@ -295,47 +305,33 @@ impl<K, V> AssetCache2<K, V>
     //     }
     // }
 
-    // /// Gets the given asset, loading it if necessary.
-    // pub fn get_state<E, S>(&mut self, key: &K, state: &mut S) -> Result<Rc<V>, E>
-    //     where V: StateLoadable<K, E, S>
-    // {
-    //     if let Some(v) = self.contents.get(key) {
-    //         return Ok(v.clone());
-    //     };
+    /// Gets the given asset, loading it with a state object if necessary.
+    pub fn get_key_state<E, S>(&mut self, key: &K, state: &mut S) -> Result<(AssetHandle, Rc<V>), E>
+        where V: StateLoadable<K, E, S>
+    {
+        if let Some(handle) = self.keys.get(key) {
+            return Ok((*handle, self.get(*handle)));
+        };
 
-    //     let v = V::load_state(key, state)?;
-    //     let v_rc = Rc::new(v);
-    //     self.contents.insert(key.clone(), v_rc.clone());
-    //     Ok(v_rc)
-    // }
-
-    // pub fn get_state_mut<E, S>(&mut self, key: &K, state: &mut S) -> Result<&mut Rc<V>, E>
-    //     where V: StateLoadable<K, E, S>
-    // {
-    //     // entry.or_insert_with() isn't quite powerful
-    //     // enough 'cause it doesn't propegate results.  ;_;
-    //     let entry = self.contents.entry(key.clone());
-    //     match entry {
-    //         Entry::Vacant(e) => {
-    //             let v = V::load_state(key, state)?;
-    //             let v_rc = Rc::new(v);
-    //             Ok(e.insert(v_rc))
-    //         }
-    //         Entry::Occupied(e) => Ok(e.into_mut()),
-    //     }
-    // }
+        let v = V::load_state(key, state)?;
+        let res = self.add_item(key.clone(), v);
+        Ok(res)
+    }
 
     // /// Removes all assets from the cache
     // /// and frees any excess memory it uses.
+    // /// This is now unsafe because it introduces the possibility
+    // /// of dangling handles!  We can have a stack of bindings, kinda,
+    // /// to manage this.  (Or just create/delete new state objects.)
     // pub fn clear(&mut self) {
     //     let map = BTreeMap::new();
     //     self.contents = map;
     // }
 
-    // /// Returns true if the given asset is loaded.
-    // pub fn loaded(&self, key: &K) -> bool {
-    //     self.contents.contains_key(key)
-    // }
+    /// Returns true if the given asset is loaded.
+    pub fn loaded(&self, key: &K) -> bool {
+        self.keys.contains_key(key)
+    }
 
     /// Takes a slice containing a list of keys,
     /// and loads all the keys so that their objects
@@ -348,40 +344,14 @@ impl<K, V> AssetCache2<K, V>
         }
     }
 
-    // /// Preloads objects that require a state to load.
-    // pub fn preload_state<E, S>(&mut self, keys: &[K], state: &mut S)
-    //     where V: StateLoadable<K, E, S>
-    // {
-    //     for k in keys {
-    //         let _ = self.get_state(k, state);
-    //     }
-    // }
-
-
-    // /// Gets an object but only if it already exists in the
-    // /// wossname.
-    // /// Returns an error if it is not.
-    // pub fn get_preload(&mut self, key: &K) -> GameResult<Rc<V>> {
-    //     if let Some(val) = self.contents.get(key) {
-    //         Ok(val.clone())
-    //     } else {
-    //         let errmsg = format!("Tried to get asset {:?} but it was not preloaded!", key);
-    //         let err = GameError::ResourceNotFound(errmsg);
-    //         Err(err)
-
-    //     }
-    // }
-
-    // pub fn get_preload_mut(&mut self, key: &K) -> GameResult<&mut Rc<V>> {
-    //     if let Some(val) = self.contents.get_mut(key) {
-    //         Ok(val)
-    //     } else {
-    //         let errmsg = format!("Tried to get asset {:?} but it was not preloaded!", key);
-    //         let err = GameError::ResourceNotFound(errmsg);
-    //         Err(err)
-
-    //     }
-    // }
+    /// Preloads objects that require a state to load.
+    pub fn preload_state<E, S>(&mut self, keys: &[K], state: &mut S)
+        where V: StateLoadable<K, E, S>
+    {
+        for k in keys {
+            let _ = self.get_key_state(k, state);
+        }
+    }
 }
 
 
@@ -428,4 +398,64 @@ mod tests {
         assert!(a.loaded(&"foo"));
     }
 
+
+    #[test]
+    fn test_assetcache2() {
+        let mut a = AssetCache2::<&str, String>::new();
+        let h;
+        {
+            assert!(!a.loaded(&"foo"));
+            let (handle, s1) = a.get_key(&"foo").unwrap();
+            h = handle;
+            assert!(a.loaded(&"foo"));
+            assert_eq!(*s1, "foo");
+            let gotten_with_handle = a.get(handle);
+            assert_eq!(*s1, *gotten_with_handle);
+        }
+    }
+
+    #[test]
+    fn test_stateful_assetcache2() {
+        let h;
+        let mut a = AssetCache2::<&str, String>::new();
+        {
+            let s = &mut 10;
+            assert!(!a.loaded(&"foo"));
+            let (handle, s1) = a.get_key_state(&"foo", s).unwrap();
+            h = handle;
+            assert_eq!(*s1, "foo");
+            assert_eq!(*s, 11);
+            assert!(a.loaded(&"foo"));
+
+            let gotten_with_handle = a.get(handle);
+            assert_eq!(*s1, *gotten_with_handle);
+            assert_eq!(*s, 11);
+
+        }
+
+    }
+
+    #[test]
+    fn test_mut_assetcache2() {
+        let mut a = AssetCache2::<&str, String>::new();
+        assert!(!a.loaded(&"foo"));
+        let (h, _) = a.get_key(&"foo").unwrap();
+
+        {
+            let mut_value = a.get_mut(h);
+            assert!(mut_value.is_some());
+            let m = mut_value.unwrap();
+            assert_eq!("foo", *m);
+            *m += "Foobaz";
+            assert_eq!("fooFoobaz", *m);
+        }
+        // Now get it again and ensure it's mutated.
+        {
+            let mut_value = a.get_mut(h);
+            assert!(mut_value.is_some());
+            let m = mut_value.unwrap();
+            assert_eq!("fooFoobaz", *m);
+        }
+
+    }
 }
