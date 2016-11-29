@@ -75,8 +75,8 @@ impl Default for AxisStatus {
         AxisStatus {
             position: 0.0,
             direction: 0.0,
-            acceleration: 2.0,
-            gravity: 2.0,
+            acceleration: 4.0,
+            gravity: 3.0,
         }
     }
 }
