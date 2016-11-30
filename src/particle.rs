@@ -28,10 +28,24 @@ enum StartParam<T> {
     Fixed(T),
     UniformRange(T, T), /* todo: stepped range, a list of discrete values of which one gets chosen. */
 }
-
+/*
 impl<T> StartParam<T> where T: PartialOrd + SampleRange + Copy
 {
     pub fn get_value(&self) -> T {
+        match *self {
+            StartParam::Fixed(x) => x,
+            StartParam::UniformRange(ref low, ref high) => {
+                let mut rng = rand::thread_rng();
+                rng.gen_range(*low, *high)
+            }
+        }
+    }
+}
+*/
+
+impl StartParam<f64>
+{
+    pub fn get_value(&self) -> f64 {
         match *self {
             StartParam::Fixed(x) => x,
             StartParam::UniformRange(ref low, ref high) => {
