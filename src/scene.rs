@@ -20,6 +20,18 @@ pub struct SceneManager {
     scene_stack: Vec<Box<Scene>>,
 }
 
+impl SceneManager {
+    pub fn switch_scene<T>(&mut self, ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<()>
+        where T: Scene + 'static
+    {
+        let new_scene = T::load(ctx, conf)?;
+        // let old_scene = &mut self.current_scene;
+        self.current_scene = Some(Box::new(new_scene));
+        Ok(())
+
+    }
+}
+
 
 impl Default for SceneManager {
     fn default() -> Self {
