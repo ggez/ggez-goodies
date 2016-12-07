@@ -11,10 +11,7 @@ use std::marker::Sized;
 
 use ggez::GameResult;
 
-struct SceneStateTest {
-    state: i32,
-}
-
+/*
 trait SceneState {
     fn load_scene(self) -> Box<Scene<S=Self>>;
     fn unload_scene(s: Scene<S=Self>) -> Box<Self>;
@@ -28,10 +25,10 @@ trait SceneState {
     }
     */
 }
-
+*/
 
 trait Scene  {
-    type S: SceneState;
+    type S;
     fn update(&mut self) -> GameResult<()>;
 
     fn draw(&mut self) -> GameResult<()>;
@@ -49,6 +46,50 @@ trait Scene  {
     }
 */
 }
+
+#[derive(Copy, Clone)]
+struct SceneStateTest {
+    state: i32,
+}
+
+struct TestScene {
+    state: SceneStateTest,
+}
+
+impl Scene for TestScene {
+    type S = SceneStateTest;
+    
+    fn update(&mut self) -> GameResult<()> {
+        Ok(())
+    }
+
+    fn draw(&mut self) -> GameResult<()> {
+        Ok(())
+    }
+
+    fn unload(&mut self) -> Box<Self::S> {
+        Box::new(self.state)
+    }
+
+    fn load(state: Box<Self::S>) -> Box<Self> where Self: Sized {
+        Box::new(TestScene {
+            state: *state,
+        })
+    }
+}
+
+struct SceneRunner {
+    scenes: BTreeMap<String, Box<SceneStateTest>>,
+}
+
+
+impl SceneRunner {
+    fn add_scene<S>(&mut self, name: &str, initial_state: SceneStateTest) {
+        self.scenes.insert(name.to_string(), Box::new(initial_state));
+    }
+}
+
+
 /*
 pub trait SceneState<S> where S: Scene {
     fn load_scene(self) -> GameResult<S>;
