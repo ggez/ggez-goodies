@@ -11,31 +11,22 @@ use std::marker::Sized;
 
 use ggez::GameResult;
 
-/*
-trait SceneState {
-    fn load_scene(self) -> Box<Scene<S=Self>>;
-    fn unload_scene(s: Scene<S=Self>) -> Box<Self>;
-    /*
-    fn load_scene<S>(self) -> Box<S> where S: Scene + Sized  {
-        S::load(Box::new(self))
-    }
-    
-    fn unload_scene<S>(mut s: S) -> Self where S: Scene + Sized {
-        s.unload()
-    }
-    */
-}
-*/
 
-trait Scene  {
-    type S;
+trait SceneState where Self: Sized {
+    type Scene: Scene<State=Self>;
+}
+
+
+trait Scene where Self: Sized {
+    //type State;
+    type State: SceneState<Scene=Self>;
     fn update(&mut self) -> GameResult<()>;
 
     fn draw(&mut self) -> GameResult<()>;
 
-    fn unload(&mut self) -> Box<Self::S>;
+    fn unload(&mut self) -> Box<Self::State>;
 
-    fn load(state: Box<Self::S>) -> Box<Self> where Self: Sized;
+    fn load(state: Box<Self::State>) -> Box<Self>;
 
     /*
     fn load_from_default() -> GameResult<Self>
@@ -52,12 +43,16 @@ struct SceneStateTest {
     state: i32,
 }
 
+impl SceneState for SceneStateTest {
+    type Scene = TestScene;
+}
+
 struct TestScene {
     state: SceneStateTest,
 }
 
 impl Scene for TestScene {
-    type S = SceneStateTest;
+    type State = SceneStateTest;
     
     fn update(&mut self) -> GameResult<()> {
         Ok(())
@@ -67,11 +62,11 @@ impl Scene for TestScene {
         Ok(())
     }
 
-    fn unload(&mut self) -> Box<Self::S> {
+    fn unload(&mut self) -> Box<Self::State> {
         Box::new(self.state)
     }
 
-    fn load(state: Box<Self::S>) -> Box<Self> where Self: Sized {
+    fn load(state: Box<Self::State>) -> Box<Self> where Self: Sized {
         Box::new(TestScene {
             state: *state,
         })
