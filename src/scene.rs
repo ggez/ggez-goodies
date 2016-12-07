@@ -16,8 +16,8 @@ struct SceneStateTest {
 }
 
 trait SceneState {
-    fn load_scene(self) -> Box<Scene<Self>>;
-    fn unload_scene(s: Scene<Self>) -> Box<Self>;
+    fn load_scene(self) -> Box<Scene<S=Self>>;
+    fn unload_scene(s: Scene<S=Self>) -> Box<Self>;
     /*
     fn load_scene<S>(self) -> Box<S> where S: Scene + Sized  {
         S::load(Box::new(self))
@@ -30,15 +30,15 @@ trait SceneState {
 }
 
 
-trait Scene<S> where S: SceneState {
-    //type S;
+trait Scene  {
+    type S: SceneState;
     fn update(&mut self) -> GameResult<()>;
 
     fn draw(&mut self) -> GameResult<()>;
 
-    fn unload(&mut self) -> Box<S>;
+    fn unload(&mut self) -> Box<Self::S>;
 
-    fn load(state: Box<S>) -> Box<Self> where Self: Sized;
+    fn load(state: Box<Self::S>) -> Box<Self> where Self: Sized;
 
     /*
     fn load_from_default() -> GameResult<Self>
