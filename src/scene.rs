@@ -22,6 +22,14 @@ trait SceneState {
 
 trait Scene {
     fn unload(&mut self) -> Box<SceneState>;
+
+    fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
+        Ok(())
+    }
+
+    fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult<()> {
+        Ok(())
+    }
 }
 
 struct SceneManager {
@@ -66,6 +74,13 @@ impl SceneManager {
         &mut *self.current
     }
 
+    fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
+        self.current.update(ctx, dt)
+    }
+
+    fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult<()> {
+        self.current.draw(ctx)
+    }
 }
 
 /*
@@ -74,7 +89,7 @@ impl GameState for SceneManager {
         Ok(SceneManager::default())
     }
 
-
+  
     fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
         Ok(())
     }
