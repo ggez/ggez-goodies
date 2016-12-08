@@ -17,26 +17,26 @@ use std::time::Duration;
 
 trait SceneState {
     fn load(&mut self) -> Box<Scene>;
-    fn scene_name(&self) -> String;
+    fn name(&self) -> String;
 }
 
 trait Scene {
-    fn save(&mut self) -> Box<SceneState>;
+    fn unload(&mut self) -> Box<SceneState>;
 }
 
 struct SceneManager {
-    scene_states: BTreeMap<String, Box<SceneState>>,
-    current_scene: Box<Scene>,
+    states: BTreeMap<String, Box<SceneState>>,
+    current: Box<Scene>,
 }
 
 impl SceneManager {
     pub fn switch_scene(&mut self, scene_name: &str) -> GameResult<()> {
         // Save current scene
-        let old_scene_state = self.current_scene.save();
-        self.scene_states.insert(old_scene_state.scene_name(), old_scene_state);
-        if let Some(scene_state) = self.scene_states.get_mut(scene_name) {
+        let old_scene_state = self.current.unload();
+        self.states.insert(old_scene_state.name(), old_scene_state);
+        if let Some(scene_state) = self.states.get_mut(scene_name) {
             let new_scene = scene_state.load();
-            self.current_scene = new_scene;
+            self.current = new_scene;
             Ok(())
         } else {
             let msg = format!("SceneManager: Asked to load scene {} but it did not exist?", scene_name);
@@ -47,26 +47,27 @@ impl SceneManager {
     fn new<S: SceneState + 'static>(mut default_scene: S) -> Self {
         let new_scene = default_scene.load();
         let mut scenes: BTreeMap<String, Box<SceneState>> = BTreeMap::new();
-        scenes.insert(default_scene.scene_name(), Box::new(default_scene));
+        scenes.insert(default_scene.name(), Box::new(default_scene));
         SceneManager {
-            current_scene: new_scene,
-            scene_states: scenes,
+            current: new_scene,
+            states: scenes,
         }
     }
 
-    fn add_scene<S: SceneState + 'static>(&mut self, scene_state: S) {
-        self.scene_states.insert(scene_state.scene_name(), Box::new(scene_state));
+    fn add<S: SceneState + 'static>(&mut self, scene_state: S) {
+        self.states.insert(scene_state.name(), Box::new(scene_state));
     }
 
-    fn current_scene(&self) -> &Scene {
-        &*self.current_scene
+    fn current(&self) -> &Scene {
+        &*self.current
     }
 
-    fn current_scene_mut(&mut self) -> &mut Scene {
-        &mut *self.current_scene
+    fn current_mut(&mut self) -> &mut Scene {
+        &mut *self.current
     }
 
 }
+
 /*
 impl GameState for SceneManager {
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self> {
@@ -97,7 +98,7 @@ mod tests {
         fn load(&mut self) -> Box<Scene> {
             Box::new(TestScene(self.clone()))
         }
-        fn scene_name(&self) -> String {
+        fn name(&self) -> String {
             self.name.clone()
         }
     }
@@ -106,7 +107,7 @@ mod tests {
     struct TestScene(TestSceneState);
 
     impl Scene for TestScene {
-        fn save(&mut self) -> Box<SceneState> {
+        fn unload(&mut self) -> Box<SceneState> {
             Box::new(self.0.clone())
         }
     }
@@ -116,19 +117,19 @@ mod tests {
         let default_scene = TestSceneState{name: "default scene".to_string(), value: 42};
         let new_scene = TestSceneState{name: "other scene".to_string(), value: 23};
         let mut sm = SceneManager::new(default_scene);
-        sm.add_scene(new_scene);
+        sm.add(new_scene);
 
         {
-            let mut s = sm.current_scene_mut().save();
-            assert_eq!(s.scene_name(), "default scene");
+            let mut s = sm.current_mut().unload();
+            assert_eq!(s.name(), "default scene");
         }
 
         let res = sm.switch_scene("other scene");
         assert!(res.is_ok());
 
         {
-            let mut s = sm.current_scene_mut().save();
-            assert_eq!(s.scene_name(), "other scene");
+            let mut s = sm.current_mut().unload();
+            assert_eq!(s.name(), "other scene");
         }
 
         let res = sm.switch_scene("non existent scene");
