@@ -11,21 +11,21 @@ use ggez_goodies::scene::*;
 
 // First we make a structure to contain the game's state
 struct MainState {
-    data: i32,
+    font: graphics::Font,
 }
 
 struct SceneState1 {
-    data: i32,
+    time_unloaded: f64,
 }
 
 struct Scene1 {
-    data: i32,
+    current_time: f64,
 }
 
 
 impl SceneState<MainState> for SceneState1 {
     fn load(&mut self) -> Box<Scene<MainState>> {
-        Box::new(Scene1 { data: self.data })
+        Box::new(Scene1 { current_time: 0.0 })
     }
     fn name(&self) -> String {
         "Test state".to_string()
@@ -34,7 +34,25 @@ impl SceneState<MainState> for SceneState1 {
 
 impl Scene<MainState> for Scene1 {
     fn unload(&mut self) -> Box<SceneState<MainState>> {
-        Box::new(SceneState1 { data: self.data })
+        Box::new(SceneState1 { time_unloaded: 0.0 })
+    }
+
+
+    fn update(&mut self,
+              _ctx: &mut ggez::Context,
+              _dt: Duration,
+              _state: &mut MainState)
+              -> GameResult<()> {
+        Ok(())
+    }
+
+    fn draw(&mut self, ctx: &mut ggez::Context, state: &mut MainState) -> GameResult<()> {
+        ctx.renderer.clear();
+        let text = &mut graphics::Text::new(ctx, "Hello world!", &state.font)?;
+        try!(graphics::draw(ctx, text, None, None));
+        ctx.renderer.present();
+        timer::sleep_until_next_frame(ctx, 60);
+        Ok(())
     }
 }
 
@@ -43,38 +61,17 @@ impl Loadable<MainState> for MainState {
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self>
         where Self: Sized
     {
-        Ok(MainState { data: 0 })
+        let font = graphics::Font::new(ctx, "DejaVuSerif.ttf", 48)?;
+        Ok(MainState { font: font })
     }
     fn default_scene() -> Box<SceneState<MainState> + 'static> {
-        Box::new(SceneState1 { data: 1 })
+        Box::new(SceneState1 { time_unloaded: 0.0 })
     }
 }
-// impl GameState for MainState {
-// fn load(ctx: &mut Context, _conf: &conf::Conf) -> GameResult<MainState> {
-// let font = graphics::Font::new(ctx, "DejaVuSerif.ttf", 48).unwrap();
-// let text = graphics::Text::new(ctx, "Hello world!", &font).unwrap();
-//
-// let s = MainState { data: 1 };
-// Ok(s)
-// }
-//
-// fn update(&mut self, _ctx: &mut Context, _dt: Duration) -> GameResult<()> {
-// Ok(())
-// }
-//
-// fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-// ctx.renderer.clear();
-// try!(graphics::draw(ctx, &mut self.text, None, None));
-// ctx.renderer.present();
-// timer::sleep_until_next_frame(ctx, 60);
-// Ok(())
-// }
-// }
-//
 
 pub fn main() {
     let c = conf::Conf::new();
-    let mut game: Game<SceneManager<MainState>> = Game::new("helloworld", c).unwrap();
+    let mut game: Game<SceneManager<MainState>> = Game::new("scenetest", c).unwrap();
     if let Err(e) = game.run() {
         println!("Error encountered: {:?}", e);
     } else {
