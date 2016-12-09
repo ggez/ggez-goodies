@@ -16,7 +16,7 @@ use std::time::Duration;
 
 pub trait SceneState<T> {
     fn load(&mut self) -> Box<Scene<T>>;
-    fn name(&self) -> String;
+    fn name(&self) -> &str;
 }
 
 pub trait Scene<T> {
@@ -53,7 +53,7 @@ impl<T> GameState for SceneManager<T>
         let mut default_scene_state = T::default_scene();
         let default_scene = default_scene_state.load();
         let mut scenes: BTreeMap<String, Box<SceneState<T>>> = BTreeMap::new();
-        scenes.insert(default_scene_state.name(), default_scene_state);
+        scenes.insert(default_scene_state.name().to_string(), default_scene_state);
         let game_data = T::load(ctx, conf)?;
         let sm = SceneManager {
             current: default_scene,
@@ -78,7 +78,8 @@ impl<T> SceneManager<T>
     pub fn switch_scene(&mut self, scene_name: &str) -> GameResult<()> {
         // Save current scene
         let old_scene_state = self.current.unload();
-        self.states.insert(old_scene_state.name(), old_scene_state);
+        let old_scene_name = old_scene_state.name().to_string();
+        self.states.insert(old_scene_name, old_scene_state);
         if let Some(scene_state) = self.states.get_mut(scene_name) {
             let new_scene = scene_state.load();
             self.current = new_scene;
@@ -101,7 +102,7 @@ impl<T> SceneManager<T>
     //
 
     pub fn add<S: SceneState<T> + 'static>(&mut self, scene_state: S) {
-        self.states.insert(scene_state.name(), Box::new(scene_state));
+        self.states.insert(scene_state.name().to_string(), Box::new(scene_state));
     }
 
     pub fn current(&self) -> &Scene<T> {
@@ -150,8 +151,8 @@ mod tests {
         fn load(&mut self) -> Box<Scene<()>> {
             Box::new(TestScene(self.clone()))
         }
-        fn name(&self) -> String {
-            self.name.clone()
+        fn name(&self) -> &str {
+            &self.name
         }
     }
 

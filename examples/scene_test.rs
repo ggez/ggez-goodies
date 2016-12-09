@@ -9,7 +9,6 @@ use std::time::Duration;
 
 use ggez_goodies::scene::*;
 
-// First we make a structure to contain the game's state
 struct MainState {
     font: graphics::Font,
 }
@@ -27,8 +26,8 @@ impl SceneState<MainState> for SceneState1 {
     fn load(&mut self) -> Box<Scene<MainState>> {
         Box::new(Scene1 { current_time: 0.0 })
     }
-    fn name(&self) -> String {
-        "Test state".to_string()
+    fn name(&self) -> &str {
+        "Test state"
     }
 }
 
