@@ -9,6 +9,7 @@
 use ggez;
 use ggez::GameResult;
 use ggez::conf;
+use ggez::event;
 use ggez::game::GameState;
 
 use std::collections::BTreeMap;
@@ -32,6 +33,41 @@ pub trait Scene<T> {
 
     fn draw(&mut self, _ctx: &mut ggez::Context, _state: &mut T) -> GameResult<()> {
         Ok(())
+    }
+
+    fn mouse_button_down_event(&mut self, _button: event::Mouse, _x: i32, _y: i32) {}
+
+    fn mouse_button_up_event(&mut self, _button: event::Mouse, _x: i32, _y: i32) {}
+
+    fn mouse_motion_event(&mut self,
+                          _state: event::MouseState,
+                          _x: i32,
+                          _y: i32,
+                          _xrel: i32,
+                          _yrel: i32) {
+    }
+
+    fn mouse_wheel_event(&mut self, _x: i32, _y: i32) {}
+
+    fn key_down_event(&mut self,
+                      _keycode: Option<event::Keycode>,
+                      _keymod: event::Mod,
+                      _repeat: bool) {
+    }
+
+    fn key_up_event(&mut self,
+                    _keycode: Option<event::Keycode>,
+                    _keymod: event::Mod,
+                    _repeat: bool) {
+    }
+
+    fn focus_event(&mut self, _gained: bool) {}
+
+    /// Called upon a quit event.  If it returns true,
+    /// the game does not exit.
+    fn quit_event(&mut self) -> bool {
+        println!("Quitting game");
+        false
     }
 }
 
@@ -69,6 +105,51 @@ impl<T> GameState for SceneManager<T>
 
     fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult<()> {
         self.current.draw(ctx, &mut self.game_data)
+    }
+
+    fn mouse_button_down_event(&mut self, button: event::Mouse, x: i32, y: i32) {
+        self.current.mouse_button_down_event(button, x, y)
+    }
+
+    fn mouse_button_up_event(&mut self, button: event::Mouse, x: i32, y: i32) {
+        self.current.mouse_button_up_event(button, x, y)
+    }
+
+    fn mouse_motion_event(&mut self,
+                          _state: event::MouseState,
+                          _x: i32,
+                          _y: i32,
+                          _xrel: i32,
+                          _yrel: i32) {
+        self.current.mouse_motion_event(_state, _x, _y, _xrel, _yrel)
+    }
+
+    fn mouse_wheel_event(&mut self, _x: i32, _y: i32) {
+        self.current.mouse_wheel_event(_x, _y)
+    }
+
+    fn key_down_event(&mut self,
+                      _keycode: Option<event::Keycode>,
+                      _keymod: event::Mod,
+                      _repeat: bool) {
+        self.current.key_down_event(_keycode, _keymod, _repeat)
+    }
+
+    fn key_up_event(&mut self,
+                    _keycode: Option<event::Keycode>,
+                    _keymod: event::Mod,
+                    _repeat: bool) {
+        self.current.key_up_event(_keycode, _keymod, _repeat)
+    }
+
+    fn focus_event(&mut self, _gained: bool) {
+        self.current.focus_event(_gained)
+    }
+
+    /// Called upon a quit event.  If it returns true,
+    /// the game does not exit.
+    fn quit_event(&mut self) -> bool {
+        self.current.quit_event()
     }
 }
 

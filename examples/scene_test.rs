@@ -1,6 +1,7 @@
 extern crate ggez;
 extern crate ggez_goodies;
 use ggez::conf;
+use ggez::event;
 use ggez::game::{Game, GameState};
 use ggez::{GameResult, Context};
 use ggez::graphics;
@@ -11,6 +12,7 @@ use ggez_goodies::scene::*;
 
 struct MainState {
     font: graphics::Font,
+    message_text: graphics::Text,
 }
 
 struct SceneState1 {
@@ -62,10 +64,28 @@ impl Scene<MainState> for Scene1 {
                               self.current_time);
         let text = &mut graphics::Text::new(ctx, &message, &state.font)?;
         let text_rect = graphics::Rect::new(10, 240, text.width(), text.height());
+
         try!(graphics::draw(ctx, text, None, Some(text_rect)));
+
+
+        let text_rect2 = graphics::Rect::new(10,
+                                             270,
+                                             state.message_text.width(),
+                                             state.message_text.height());
+
+        try!(graphics::draw(ctx, &mut state.message_text, None, Some(text_rect2)));
+
         ctx.renderer.present();
         timer::sleep_until_next_frame(ctx, 60);
         Ok(())
+    }
+
+    fn key_down_event(&mut self,
+                      _keycode: Option<event::Keycode>,
+                      _keymod: event::Mod,
+                      _repeat: bool) {
+        println!("Key pressed!");
+
     }
 }
 
@@ -75,7 +95,12 @@ impl Loadable<MainState> for MainState {
         where Self: Sized
     {
         let font = graphics::Font::new(ctx, "DejaVuSerif.ttf", 16)?;
-        Ok(MainState { font: font })
+
+        let text = graphics::Text::new(ctx, "Press space to switch to the next scene.", &font)?;
+        Ok(MainState {
+            font: font,
+            message_text: text,
+        })
     }
     fn default_scene() -> Box<SceneState<MainState> + 'static> {
         Box::new(SceneState1 {
