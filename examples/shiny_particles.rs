@@ -39,13 +39,9 @@ impl GameState for MainState {
             .start_size_range(2.0, 15.0)
             .start_color_range(graphics::Color::RGB(0, 0, 0),
                                graphics::Color::RGB(255, 255, 255))
-            .start_velocity_range(
-                Vector2::new(-50.0, -200.0),
-                Vector2::new( 50.0, 0.0)
-            )
+            .start_velocity_range(Vector2::new(-50.0, -200.0), Vector2::new(50.0, 0.0))
             .start_rotation_range(-10.0, 10.0)
             .emission_rate(1000.0)
-            
             .build();
         let state = MainState { particles: system };
         graphics::set_background_color(ctx, ggez::graphics::Color::RGBA(0, 0, 0, 0));
@@ -54,7 +50,9 @@ impl GameState for MainState {
     fn update(&mut self, ctx: &mut Context, dt: Duration) -> GameResult<()> {
         let seconds = timer::duration_to_f64(dt);
         self.particles.update(seconds);
-        println!("Particles: {}, FPS: {}", self.particles.count(), timer::get_fps(ctx));
+        println!("Particles: {}, FPS: {}",
+                 self.particles.count(),
+                 timer::get_fps(ctx));
         Ok(())
     }
 
