@@ -15,7 +15,7 @@ struct MainState {
     message_text: graphics::Text,
 }
 
-struct SceneState1 {
+struct SavedScene1 {
     time_unloaded: f64,
     name: String,
 }
@@ -26,7 +26,7 @@ struct Scene1 {
 }
 
 
-impl SceneState<MainState> for SceneState1 {
+impl SavedScene<MainState> for SavedScene1 {
     fn load(&mut self) -> Box<Scene<MainState>> {
         Box::new(Scene1 {
             current_time: self.time_unloaded,
@@ -39,8 +39,8 @@ impl SceneState<MainState> for SceneState1 {
 }
 
 impl Scene<MainState> for Scene1 {
-    fn unload(&mut self) -> Box<SceneState<MainState>> {
-        Box::new(SceneState1 {
+    fn unload(&mut self) -> Box<SavedScene<MainState>> {
+        Box::new(SavedScene1 {
             time_unloaded: self.current_time,
             name: self.name.clone(),
         })
@@ -51,10 +51,10 @@ impl Scene<MainState> for Scene1 {
               _ctx: &mut ggez::Context,
               dt: Duration,
               _state: &mut MainState)
-              -> GameResult<()> {
+              -> GameResult<Option<String>> {
         let seconds = timer::duration_to_f64(dt);
         self.current_time += seconds;
-        Ok(())
+        Ok(None)
     }
 
     fn draw(&mut self, ctx: &mut ggez::Context, state: &mut MainState) -> GameResult<()> {
@@ -102,8 +102,8 @@ impl Loadable<MainState> for MainState {
             message_text: text,
         })
     }
-    fn default_scene() -> Box<SceneState<MainState> + 'static> {
-        Box::new(SceneState1 {
+    fn default_scene() -> Box<SavedScene<MainState> + 'static> {
+        Box::new(SavedScene1 {
             time_unloaded: 0.0,
             name: "Test scene".to_string(),
         })
