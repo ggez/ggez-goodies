@@ -9,6 +9,12 @@
 //!
 //! It will return an `Rc` containing the item loaded, so multiple
 //! items can safely access (read-only) instances of the same asset.
+//!
+//! If you want to make a stack of asset managers, where one
+//! has access to the assets higher up in the stack...
+//! Just build one and clone it.  All the Rc's in it will get
+//! cloned along with it, providing exactly the behavior you
+//! want except better.  :D
 
 // TODO: This is not thread safe; should we offer one that it?
 // TODO: Check out calx-resource:
@@ -36,7 +42,7 @@ pub trait StateLoadable<K, E, S> {
     fn load_state(_key: &K, &mut S) -> Result<Self, E> where Self: Sized;
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AssetCache<K, V>
     where K: Ord + Clone + Debug
 {
@@ -186,10 +192,11 @@ impl<'a, K: AsRef<Path>> StateLoadable<K, GameError, ggez::Context<'a>> for ggez
 
 /// An opaque asset handle that can be used for O(1) fetches
 /// of assets.
+// TODO: Add a UUID or something to this....
 #[derive(Debug, Copy, Clone)]
 pub struct AssetHandle(usize);
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AssetCache2<K, V>
     where K: Ord + Clone + Debug
 {
@@ -255,7 +262,7 @@ impl<K, V> AssetCache2<K, V>
         Rc::get_mut(&mut self.handles[i])
     }
 
-    
+
     // fn add_item_mut(&mut self, key: K, value: &mut V) -> (AssetHandle, Rc<&mut V>) {
     //     let handle = self.new_handle();
     //     let entry = self.entry(key.clone());

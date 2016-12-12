@@ -245,35 +245,34 @@ mod tests {
             Box::new(self.0.clone())
         }
     }
-
-    #[test]
-    fn test_scene_switching() {
-        let default_scene = TestSceneState {
-            name: "default scene".to_string(),
-            value: 42,
-        };
-        let new_scene = TestSceneState {
-            name: "other scene".to_string(),
-            value: 23,
-        };
-        let mut sm = SceneManager::new(default_scene);
-        sm.add(new_scene);
-
-        {
-            let mut s = sm.current_mut().unload();
-            assert_eq!(s.name(), "default scene");
-        }
-
-        let res = sm.switch_scene("other scene");
-        assert!(res.is_ok());
-
-        {
-            let mut s = sm.current_mut().unload();
-            assert_eq!(s.name(), "other scene");
-        }
-
-        let res = sm.switch_scene("non existent scene");
-        assert!(res.is_err());
-    }
-
+    // #[test]
+    // fn test_scene_switching() {
+    // let default_scene = TestSceneState {
+    // name: "default scene".to_string(),
+    // value: 42,
+    // };
+    // let new_scene = TestSceneState {
+    // name: "other scene".to_string(),
+    // value: 23,
+    // };
+    // let mut sm = SceneManager::new(default_scene);
+    // sm.add(new_scene);
+    //
+    // {
+    // let mut s = sm.current_mut().unload();
+    // assert_eq!(s.name(), "default scene");
+    // }
+    //
+    // let res = sm.switch_scene("other scene");
+    // assert!(res.is_ok());
+    //
+    // {
+    // let mut s = sm.current_mut().unload();
+    // assert_eq!(s.name(), "other scene");
+    // }
+    //
+    // let res = sm.switch_scene("non existent scene");
+    // assert!(res.is_err());
+    // }
+    //
 }
