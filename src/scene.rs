@@ -27,8 +27,8 @@ pub trait Scene<T> {
               _ctx: &mut ggez::Context,
               _dt: Duration,
               _state: &mut T)
-              -> GameResult<()> {
-        Ok(())
+              -> GameResult<Option<String>> {
+        Ok(None)
     }
 
     fn draw(&mut self, _ctx: &mut ggez::Context, _state: &mut T) -> GameResult<()> {
@@ -76,31 +76,30 @@ pub trait Loadable<T> {
     fn default_scene() -> Box<SceneState<T> + 'static>;
 }
 
-pub struct SceneManager<T: Loadable<T>> {
+pub struct SceneManager<T> {
     states: BTreeMap<String, Box<SceneState<T>>>,
     current: Box<Scene<T>>,
     game_data: T,
+    next_scene: Option<String>,
 }
 
 impl<T> GameState for SceneManager<T>
     where T: Loadable<T>
-{
+{    
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self> {
         let mut default_scene_state = T::default_scene();
-        let default_scene = default_scene_state.load();
-        let mut scenes: BTreeMap<String, Box<SceneState<T>>> = BTreeMap::new();
-        scenes.insert(default_scene_state.name().to_string(), default_scene_state);
         let game_data = T::load(ctx, conf)?;
-        let sm = SceneManager {
-            current: default_scene,
-            states: scenes,
-            game_data: game_data,
-        };
-        Ok(sm)
+
+        Ok(Self::new(default_scene_state, game_data))
     }
 
     fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
-        self.current.update(ctx, dt, &mut self.game_data)
+        // TODO: Get rid of this hacky clone!
+        if let Some(scene_name) = self.next_scene.clone() {
+            self.switch_scene(&scene_name);
+        }
+        self.next_scene = self.current.update(ctx, dt, &mut self.game_data)?;
+        Ok(())
     }
 
     fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult<()> {
@@ -154,8 +153,27 @@ impl<T> GameState for SceneManager<T>
 }
 
 impl<T> SceneManager<T>
+{
+    /// This lets us create a SceneManager by providing the data for it,
+    /// instead of having it implicitly created via the Loadable trait.
+    fn new(mut default_scene_state: Box<SceneState<T>>, game_data: T) -> Self {
+        let default_scene = default_scene_state.load();
+        let mut scenes: BTreeMap<String, Box<SceneState<T>>> = BTreeMap::new();
+        scenes.insert(default_scene_state.name().to_string(), default_scene_state);
+        let sm = SceneManager {
+            current: default_scene,
+            states: scenes,
+            game_data: game_data,
+            next_scene: None,
+        };
+        sm
+    }
+}
+
+impl<T> SceneManager<T>
     where T: Loadable<T>
 {
+    
     pub fn switch_scene(&mut self, scene_name: &str) -> GameResult<()> {
         // Save current scene
         let old_scene_state = self.current.unload();
@@ -193,14 +211,16 @@ impl<T> SceneManager<T>
     pub fn current_mut(&mut self) -> &mut Scene<T> {
         &mut *self.current
     }
-
-    pub fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
-        self.current.update(ctx, dt, &mut self.game_data)
+/*
+    pub fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<Option<String>> {
+        self.current.update(ctx, dt, &mut self.game_data)?;
+        Ok(None)        
     }
 
     pub fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult<()> {
         self.current.draw(ctx, &mut self.game_data)
     }
+*/
 }
 
 // impl GameState for SceneManager {
