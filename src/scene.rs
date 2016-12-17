@@ -15,14 +15,30 @@ use ggez::game::GameState;
 use std::collections::BTreeMap;
 use std::time::Duration;
 
+/// Arbitrary data that can be loaded to produce a Scene
+/// of a particular type.  The T is the global data that
+/// the Scene relies upon to function, such as your global
+/// game state.
 pub trait SavedScene<T> {
     fn load(&mut self) -> Box<Scene<T>>;
     fn name(&self) -> &str;
 }
 
+/// A Scene is sort of a stand-in GameState that can be
+/// loaded and unloaded by the SceneManager.  When unloaded
+/// it produces something implementing the SavedScene state,
+/// which will re-produce the Scene when loaded.
+///
+/// Like a GameState, it has update() and draw() methods
+/// (with a slightly different signature), as well as event
+/// handlers.
 pub trait Scene<T> {
     fn unload(&mut self) -> Box<SavedScene<T>>;
 
+    /// Note this returns an Option<String>;
+    /// if you want to switch to a new scene,
+    /// return the name of the scene in the Option
+    /// and it will be loaded.  Or None to just carry on.
     fn update(&mut self,
               _ctx: &mut ggez::Context,
               _dt: Duration,
@@ -71,11 +87,22 @@ pub trait Scene<T> {
     }
 }
 
-pub trait Loadable<T> {
+/// The GameData trait just provides
+/// a method to create a new object of type T, instantiating
+/// your global game data.
+///
+/// It also provides a method that is called to generate
+/// the first scene of your game.
+pub trait GameData<T> {
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self> where Self: Sized;
-    fn default_scene() -> Box<SavedScene<T> + 'static>;
+    fn starting_scene() -> Box<SavedScene<T> + 'static>;
 }
 
+/// A SceneManager is a GameState that handles Scene's
+/// and switches from one to another when requested.
+///
+/// The stuff you would normally store in your GameState
+/// type should implement GameData and go into the T type.
 pub struct SceneManager<T> {
     states: BTreeMap<String, Box<SavedScene<T>>>,
     current: Box<Scene<T>>,
@@ -84,19 +111,19 @@ pub struct SceneManager<T> {
 }
 
 impl<T> GameState for SceneManager<T>
-    where T: Loadable<T>
-{    
+    where T: GameData<T>
+{
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self> {
-        let mut default_scene_state = T::default_scene();
+        let starting_scene_state = T::starting_scene();
         let game_data = T::load(ctx, conf)?;
 
-        Ok(Self::new(default_scene_state, game_data))
+        Ok(Self::new(starting_scene_state, game_data))
     }
 
     fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
         // TODO: Get rid of this hacky clone!
-        if let Some(scene_name) = self.next_scene.clone() {
-            self.switch_scene(&scene_name);
+        if let Some(ref scene_name) = self.next_scene.clone() {
+            self.switch_scene(&scene_name)?;
         }
         self.next_scene = self.current.update(ctx, dt, &mut self.game_data)?;
         Ok(())
@@ -152,16 +179,16 @@ impl<T> GameState for SceneManager<T>
     }
 }
 
-impl<T> SceneManager<T>
-{
+impl<T> SceneManager<T> {
     /// This lets us create a SceneManager by providing the data for it,
-    /// instead of having it implicitly created via the Loadable trait.
-    fn new(mut default_scene_state: Box<SavedScene<T>>, game_data: T) -> Self {
-        let default_scene = default_scene_state.load();
+    /// instead of having it implicitly created via the GameData trait.
+    fn new(mut starting_scene_state: Box<SavedScene<T>>, game_data: T) -> Self {
+        let starting_scene = starting_scene_state.load();
         let mut scenes: BTreeMap<String, Box<SavedScene<T>>> = BTreeMap::new();
-        scenes.insert(default_scene_state.name().to_string(), default_scene_state);
+        scenes.insert(starting_scene_state.name().to_string(),
+                      starting_scene_state);
         let sm = SceneManager {
-            current: default_scene,
+            current: starting_scene,
             states: scenes,
             game_data: game_data,
             next_scene: None,
@@ -181,7 +208,7 @@ impl<T> SceneManager<T>
         &mut *self.current
     }
 
-        pub fn switch_scene(&mut self, scene_name: &str) -> GameResult<()> {
+    pub fn switch_scene(&mut self, scene_name: &str) -> GameResult<()> {
         // Save current scene
         let old_scene_state = self.current.unload();
         let old_scene_name = old_scene_state.name().to_string();
@@ -198,32 +225,7 @@ impl<T> SceneManager<T>
     }
 }
 
-impl<T> SceneManager<T>
-    where T: Loadable<T>
-{
-    
-    // pub fn new<S: SavedScene + 'static>(mut default_scene: S) -> Self {
-    // let new_scene = default_scene.load();
-    // let mut scenes: BTreeMap<String, Box<SavedScene>> = BTreeMap::new();
-    // scenes.insert(default_scene.name(), Box::new(default_scene));
-    // SceneManager {
-    // current: new_scene,
-    // states: scenes,
-    // }
-    // }
-    //
-/*
-    pub fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<Option<String>> {
-        self.current.update(ctx, dt, &mut self.game_data)?;
-        Ok(None)        
-    }
-
-    pub fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult<()> {
-        self.current.draw(ctx, &mut self.game_data)
-    }
-*/
-}
-
+#[cfg(test)]
 mod tests {
     use super::{Scene, SavedScene, SceneManager};
 
@@ -250,7 +252,7 @@ mod tests {
             Box::new(self.0.clone())
         }
     }
-    
+
     #[test]
     fn test_scene_switching() {
         let default_scene = TestSavedScene {
@@ -263,22 +265,22 @@ mod tests {
         };
         let mut sm = SceneManager::new(Box::new(default_scene), ());
         sm.add(new_scene);
-        
+
         {
             let mut s = sm.current_mut().unload();
             assert_eq!(s.name(), "default scene");
         }
-        
+
         let res = sm.switch_scene("other scene");
         assert!(res.is_ok());
-        
+
         {
             let mut s = sm.current_mut().unload();
             assert_eq!(s.name(), "other scene");
         }
-        
+
         let res = sm.switch_scene("non existent scene");
         assert!(res.is_err());
     }
-    
+
 }

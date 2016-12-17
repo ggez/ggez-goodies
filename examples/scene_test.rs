@@ -90,7 +90,7 @@ impl Scene<MainState> for Scene1 {
 }
 
 
-impl Loadable<MainState> for MainState {
+impl GameData<MainState> for MainState {
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self>
         where Self: Sized
     {
@@ -102,7 +102,7 @@ impl Loadable<MainState> for MainState {
             message_text: text,
         })
     }
-    fn default_scene() -> Box<SavedScene<MainState> + 'static> {
+    fn starting_scene() -> Box<SavedScene<MainState> + 'static> {
         Box::new(SavedScene1 {
             time_unloaded: 0.0,
             name: "Test scene".to_string(),

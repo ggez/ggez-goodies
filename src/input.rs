@@ -192,11 +192,7 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
                 let f = || AxisStatus::default();
                 let axis_status = self.axes.entry(axis).or_insert_with(f);
                 if started {
-                    let direction_float = if direction {
-                        1.0
-                    } else {
-                        -1.0
-                    };
+                    let direction_float = if direction { 1.0 } else { -1.0 };
                     axis_status.direction = direction_float;
                 } else {
                     axis_status.direction = 0.0;
@@ -257,14 +253,11 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
 }
 
 
+#[cfg(test)]
 mod tests {
-
-    #[ignore(unused_imports)]
     use ggez::event::*;
-    #[ignore(unused_imports)]
     use super::*;
 
-    #[ignore(dead_code)]
     #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
     enum Buttons {
         A,
@@ -273,8 +266,6 @@ mod tests {
         Start,
     }
 
-
-    #[ignore(dead_code)]
     #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
     enum Axes {
         Horz,
@@ -283,14 +274,14 @@ mod tests {
     #[test]
     fn test_input_events() {
         let mut im = InputManager::<Axes, Buttons>::new()
-                         .bind_key_to_button(Keycode::Z, Buttons::A)
-                         .bind_key_to_button(Keycode::X, Buttons::B)
-                         .bind_key_to_button(Keycode::Return, Buttons::Start)
-                         .bind_key_to_button(Keycode::RShift, Buttons::Select)
-                         .bind_key_to_axis(Keycode::Up, Axes::Vert, true)
-                         .bind_key_to_axis(Keycode::Down, Axes::Vert, false)
-                         .bind_key_to_axis(Keycode::Left, Axes::Horz, false)
-                         .bind_key_to_axis(Keycode::Right, Axes::Horz, true);
+            .bind_key_to_button(Keycode::Z, Buttons::A)
+            .bind_key_to_button(Keycode::X, Buttons::B)
+            .bind_key_to_button(Keycode::Return, Buttons::Start)
+            .bind_key_to_button(Keycode::RShift, Buttons::Select)
+            .bind_key_to_axis(Keycode::Up, Axes::Vert, true)
+            .bind_key_to_axis(Keycode::Down, Axes::Vert, false)
+            .bind_key_to_axis(Keycode::Left, Axes::Horz, false)
+            .bind_key_to_axis(Keycode::Right, Axes::Horz, true);
 
         im.update_keydown(Some(Keycode::Z));
         assert!(im.get_button(&Buttons::A));

@@ -26,7 +26,7 @@
 // It DOES also make thread-safety work through thread_local!().
 
 use std::collections::BTreeMap;
-use std::collections::btree_map::{Entry, VacantEntry, OccupiedEntry};
+use std::collections::btree_map::Entry;
 use std::fmt::Debug;
 use std::path::Path;
 use std::rc::Rc;
