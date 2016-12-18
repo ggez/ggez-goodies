@@ -20,7 +20,7 @@ use std::time::Duration;
 /// the Scene relies upon to function, such as your global
 /// game state.
 pub trait SavedScene<T> {
-    fn load(&mut self) -> Box<Scene<T>>;
+    fn load(&mut self, _thingy: Thingy<T>) -> Box<Scene<T>>;
     fn name(&self) -> &str;
 }
 
@@ -41,13 +41,12 @@ pub trait Scene<T> {
     /// and it will be loaded.  Or None to just carry on.
     fn update(&mut self,
               _ctx: &mut ggez::Context,
-              _dt: Duration,
-              _state: &mut T)
-              -> GameResult<Option<String>> {
+              _dt: Duration)
+              -> GameResult<Option<Box<Scene<T>>>> {
         Ok(None)
     }
 
-    fn draw(&mut self, _ctx: &mut ggez::Context, _state: &mut T) -> GameResult<()> {
+    fn draw(&mut self, _ctx: &mut ggez::Context) -> GameResult<()> {
         Ok(())
     }
 
@@ -100,16 +99,58 @@ pub trait GameData<T>
     fn starting_scene() -> Box<SavedScene<T>>;
 }
 
+/// A thingy that contains saved scenes and
+/// arbitrary game data.
+///
+/// Basically this is being extracted from the
+/// scene manager so that the data that scenes
+/// actually need is explicitly made available
+/// to them and passed from one to the other,
+/// rather than being provided to them from
+/// outside.
+pub struct Thingy<T> {
+    states: BTreeMap<String, Box<SavedScene<T>>>,
+    game_data: T,
+}
+
+impl<T> Thingy<T> {
+    fn new(data: T) -> Self {
+        Thingy {
+            states: BTreeMap::new(),
+            game_data: data,
+        }
+    }
+
+
+    pub fn add<S: SavedScene<T> + 'static>(&mut self, scene_state: S) {
+        self.states.insert(scene_state.name().to_string(), Box::new(scene_state));
+    }
+
+    // pub fn switch_scene(&mut self, scene_name: &str) -> GameResult<()> {
+    // Save current scene
+    // let old_scene_state = self.current.unload();
+    // let old_scene_name = old_scene_state.name().to_string();
+    // self.states.insert(old_scene_name, old_scene_state);
+    // if let Some(scene_state) = self.states.get_mut(scene_name) {
+    // let new_scene = scene_state.load();
+    // self.current = new_scene;
+    // Ok(())
+    // } else {
+    // let msg = format!("SceneManager: Asked to load scene {} but it did not exist?",
+    // scene_name);
+    // Err(ggez::GameError::ResourceNotFound(msg))
+    // }
+    // }
+    //
+}
+
 /// A SceneManager is a GameState that handles Scene's
 /// and switches from one to another when requested.
 ///
 /// The stuff you would normally store in your GameState
 /// type should implement GameData and go into the T type.
 pub struct SceneManager<T> {
-    states: BTreeMap<String, Box<SavedScene<T>>>,
     current: Box<Scene<T>>,
-    game_data: T,
-    next_scene: Option<String>,
 }
 
 impl<T> GameState for SceneManager<T>
@@ -117,22 +158,19 @@ impl<T> GameState for SceneManager<T>
 {
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self> {
         let starting_scene_state = T::starting_scene();
-        let game_data = T::load(ctx, conf)?;
-
-        Ok(Self::new(starting_scene_state, game_data))
+        Ok(Self::new(starting_scene_state))
     }
 
     fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
         // TODO: Get rid of this hacky clone!
-        if let Some(ref scene_name) = self.next_scene.clone() {
-            self.switch_scene(&scene_name)?;
+        if let Some(newscene) = self.current.update(ctx, dt)? {
+            self.current = newscene;
         }
-        self.next_scene = self.current.update(ctx, dt, &mut self.game_data)?;
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult<()> {
-        self.current.draw(ctx, &mut self.game_data)
+        self.current.draw(ctx)
     }
 
     fn mouse_button_down_event(&mut self, button: event::Mouse, x: i32, y: i32) {
@@ -184,50 +222,10 @@ impl<T> GameState for SceneManager<T>
 impl<T> SceneManager<T> {
     /// This lets us create a SceneManager by providing the data for it,
     /// instead of having it implicitly created via the GameData trait.
-    fn new(mut starting_scene_state: Box<SavedScene<T>>, game_data: T) -> Self {
-        let starting_scene = starting_scene_state.load();
-        let mut scenes: BTreeMap<String, Box<SavedScene<T>>> = BTreeMap::new();
-        scenes.insert(starting_scene_state.name().to_string(),
-                      starting_scene_state);
-        let sm = SceneManager {
-            current: starting_scene,
-            states: scenes,
-            game_data: game_data,
-            next_scene: None,
-        };
+    fn new(mut starting_scene_state: Box<SavedScene<T>>, thingy: Thingy<T>) -> Self {
+        let starting_scene = starting_scene_state.load(thingy);
+        let sm = SceneManager { current: starting_scene };
         sm
-    }
-
-    pub fn game_data(&mut self) -> &mut T {
-        &mut self.game_data
-    }
-
-    pub fn add<S: SavedScene<T> + 'static>(&mut self, scene_state: S) {
-        self.states.insert(scene_state.name().to_string(), Box::new(scene_state));
-    }
-
-    pub fn current(&self) -> &Scene<T> {
-        &*self.current
-    }
-
-    pub fn current_mut(&mut self) -> &mut Scene<T> {
-        &mut *self.current
-    }
-
-    pub fn switch_scene(&mut self, scene_name: &str) -> GameResult<()> {
-        // Save current scene
-        let old_scene_state = self.current.unload();
-        let old_scene_name = old_scene_state.name().to_string();
-        self.states.insert(old_scene_name, old_scene_state);
-        if let Some(scene_state) = self.states.get_mut(scene_name) {
-            let new_scene = scene_state.load();
-            self.current = new_scene;
-            Ok(())
-        } else {
-            let msg = format!("SceneManager: Asked to load scene {} but it did not exist?",
-                              scene_name);
-            Err(ggez::GameError::ResourceNotFound(msg))
-        }
     }
 }
 
