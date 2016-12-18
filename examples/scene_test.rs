@@ -15,11 +15,13 @@ struct MainState {
     message_text: graphics::Text,
 }
 
+#[derive(Clone, Debug)]
 struct SavedScene1 {
     time_unloaded: f64,
     name: String,
 }
 
+#[derive(Clone, Debug)]
 struct Scene1 {
     current_time: f64,
     name: String,

@@ -93,9 +93,11 @@ pub trait Scene<T> {
 ///
 /// It also provides a method that is called to generate
 /// the first scene of your game.
-pub trait GameData<T> {
-    fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self> where Self: Sized;
-    fn starting_scene() -> Box<SavedScene<T> + 'static>;
+pub trait GameData<T>
+    where Self: Sized
+{
+    fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self>;
+    fn starting_scene() -> Box<SavedScene<T>>;
 }
 
 /// A SceneManager is a GameState that handles Scene's
@@ -194,6 +196,10 @@ impl<T> SceneManager<T> {
             next_scene: None,
         };
         sm
+    }
+
+    pub fn game_data(&mut self) -> &mut T {
+        &mut self.game_data
     }
 
     pub fn add<S: SavedScene<T> + 'static>(&mut self, scene_state: S) {
