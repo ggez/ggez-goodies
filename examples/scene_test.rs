@@ -13,6 +13,7 @@ use ggez_goodies::scene::*;
 struct MainState {
     font: graphics::Font,
     message_text: graphics::Text,
+    scenes: SceneManager<MainState>,
 }
 
 #[derive(Clone, Debug)]
@@ -91,30 +92,38 @@ impl Scene<MainState> for Scene1 {
     }
 }
 
-
-impl GameData<MainState> for MainState {
+impl GameState for MainState {
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self>
         where Self: Sized
     {
         let font = graphics::Font::new(ctx, "DejaVuSerif.ttf", 16)?;
 
         let text = graphics::Text::new(ctx, "Press space to switch to the next scene.", &font)?;
+        let scene = SavedScene1 {
+            time_unloaded: 0.0,
+            name: "Starting scene".to_string(),
+        };
+        let sm = SceneManager::new(Box::new(scene));
         Ok(MainState {
             font: font,
             message_text: text,
+            scenes: sm,
         })
     }
-    fn starting_scene() -> Box<SavedScene<MainState> + 'static> {
-        Box::new(SavedScene1 {
-            time_unloaded: 0.0,
-            name: "Test scene".to_string(),
-        })
+
+
+    fn update(&mut self, _ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
+        self.scenes.update(_ctx, dt, self)
+    }
+
+    fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult<()> {
+        self.scenes.draw(ctx, self)
     }
 }
 
 pub fn main() {
     let c = conf::Conf::new();
-    let mut game: Game<SceneManager<MainState>> = Game::new("scenetest", c).unwrap();
+    let mut game: Game<MainState> = Game::new("scenetest", c).unwrap();
     if let Err(e) = game.run() {
         println!("Error encountered: {:?}", e);
     } else {
