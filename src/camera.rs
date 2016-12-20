@@ -19,20 +19,18 @@ use super::{Point2, Vector2};
 // Hmm.  Could, instead, use a 2d transformation
 // matrix, or create one of such.
 pub struct Camera {
-    screen_width: u32,
-    screen_height: u32,
-    view_width: f64,
-    view_height: f64,
+    screen_size: Vector2,
+    view_size: Vector2,
     view_center: Vector2,
 }
 
 impl Camera {
     pub fn new(screen_width: u32, screen_height: u32, view_width: f64, view_height: f64) -> Self {
+        let screen_size = Vector2::new(screen_width as f64, screen_height as f64);
+        let view_size = Vector2::new(view_width, view_height);
         Camera {
-            screen_width: screen_width,
-            screen_height: screen_height,
-            view_width: view_width,
-            view_height: view_height,
+            screen_size: screen_size,
+            view_size: view_size,
             view_center: na::zero(),
         }
     }
@@ -52,26 +50,14 @@ impl Camera {
     /// not know how large the thing that might be drawn is;
     /// that's not its job.
     pub fn world_to_screen_coords(&self, from: Vector2) -> (i32, i32) {
-        let sw = self.screen_width as f64;
-        let sh = self.screen_height as f64;
-        let pixels_per_unit_x = sw / self.view_width;
-        let pixels_per_unit_y = sh / self.view_height;
-        let scale_vec = Vector2::new(pixels_per_unit_x, pixels_per_unit_y);
-
-
+        let pixels_per_unit = self.screen_size / self.view_size;
         let view_offset = from - self.view_center;
-        let view_scale = view_offset * scale_vec;
+        let view_scale = view_offset * pixels_per_unit;
 
 
-        let x = view_scale.x + sw / 2.0;
-        let y = sh - (view_scale.y + sh / 2.0);
+        let x = view_scale.x + self.screen_size.x / 2.0;
+        let y = self.screen_size.y - (view_scale.y + self.screen_size.y / 2.0);
         (x as i32, y as i32)
-
-
-
-        // let x = from.x + sw / 2.0;
-        // let y = sh - (from.y + sh / 2.0);
-        // (x as i32, y as i32)
     }
 
 
