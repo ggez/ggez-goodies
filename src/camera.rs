@@ -52,7 +52,6 @@ impl Camera {
     /// not know how large the thing that might be drawn is;
     /// that's not its job.
     pub fn world_to_screen_coords(&self, from: Vector2) -> (i32, i32) {
-
         let sw = self.screen_width as f64;
         let sh = self.screen_height as f64;
         let pixels_per_unit_x = sw / self.view_width;
@@ -64,10 +63,15 @@ impl Camera {
         let view_scale = view_offset * scale_vec;
 
 
-
-        let x = from.x + sw / 2.0;
-        let y = sh - (from.y + sh / 2.0);
+        let x = view_scale.x + sw / 2.0;
+        let y = sh - (view_scale.y + sh / 2.0);
         (x as i32, y as i32)
+
+
+
+        // let x = from.x + sw / 2.0;
+        // let y = sh - (from.y + sh / 2.0);
+        // (x as i32, y as i32)
     }
 
 
