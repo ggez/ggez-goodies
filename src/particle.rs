@@ -15,36 +15,32 @@ use std::f64;
 use rand;
 use rand::{Rand, Rng};
 use rand::distributions::range::SampleRange;
-extern crate nalgebra as na;
+use na;
 
 use ggez::{GameResult, Context};
 use ggez::graphics;
 
-type Point2 = na::Point2<f64>;
-type Vector2 = na::Vector2<f64>;
-
+use super::{Point2, Vector2};
 
 enum StartParam<T> {
     Fixed(T),
     UniformRange(T, T), /* todo: stepped range, a list of discrete values of which one gets chosen. */
 }
-/*
-impl<T> StartParam<T> where T: PartialOrd + SampleRange + Copy
-{
-    pub fn get_value(&self) -> T {
-        match *self {
-            StartParam::Fixed(x) => x,
-            StartParam::UniformRange(ref low, ref high) => {
-                let mut rng = rand::thread_rng();
-                rng.gen_range(*low, *high)
-            }
-        }
-    }
-}
-*/
+// impl<T> StartParam<T> where T: PartialOrd + SampleRange + Copy
+// {
+// pub fn get_value(&self) -> T {
+// match *self {
+// StartParam::Fixed(x) => x,
+// StartParam::UniformRange(ref low, ref high) => {
+// let mut rng = rand::thread_rng();
+// rng.gen_range(*low, *high)
+// }
+// }
+// }
+// }
+//
 
-impl StartParam<f64>
-{
+impl StartParam<f64> {
     pub fn get_value(&self) -> f64 {
         match *self {
             StartParam::Fixed(x) => x,
@@ -105,7 +101,9 @@ impl StartParam<graphics::Color> {
 
 /// A trait that defines a way to do some sort of
 /// lerp or easing function on a type.
-trait Interpable where Self: Sized {
+trait Interpable
+    where Self: Sized
+{
     /// Interpolate the value.  t should always be a number
     /// between 0.0 and 1.0, normalized for whatever actual
     /// value is the "end" of the interpolation.

@@ -13,7 +13,7 @@ use ggez::graphics::{Rect, Point, Drawable};
 /// Does it contain the image itself or not?  For now, yes.
 pub struct Atlas {
     source: graphics::Image,
-    /// The number of sub-images across 
+    /// The number of sub-images across
     width: u32,
     /// The number of sub-images high
     height: u32,
@@ -89,7 +89,7 @@ impl LayerIndex {
 }
 
 
-impl PartialEq for LayerIndex{
+impl PartialEq for LayerIndex {
     // Two objects are the same if their ID is identical.
     // all ID's should be unique, so.
     fn eq(&self, other: &LayerIndex) -> bool {
@@ -105,7 +105,7 @@ impl PartialOrd for LayerIndex {
     }
 }
 
-impl Ord for LayerIndex{
+impl Ord for LayerIndex {
     fn cmp(&self, other: &LayerIndex) -> Ordering {
         if self.layer == other.layer {
             self.id.cmp(&other.id)
@@ -157,8 +157,14 @@ impl<T: Drawable> Drawable for LayerManager<T> {
                flip_horizontal: bool,
                flip_vertical: bool)
                -> ggez::GameResult<()> {
-        for (_key,item) in self.layers.iter_mut() {
-            item.draw_ex(context, src, dst, angle, center, flip_horizontal, flip_vertical)?;
+        for (_key, item) in self.layers.iter_mut() {
+            item.draw_ex(context,
+                         src,
+                         dst,
+                         angle,
+                         center,
+                         flip_horizontal,
+                         flip_vertical)?;
         }
         Ok(())
     }
