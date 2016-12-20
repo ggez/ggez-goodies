@@ -5,9 +5,6 @@
 extern crate ggez;
 extern crate rand;
 
-use std::path;
-
-use ggez::audio;
 use ggez::conf;
 use ggez::event;
 use ggez::game::{Game, GameState};
@@ -16,7 +13,6 @@ use ggez::graphics;
 use ggez::graphics::Drawable;
 use ggez::timer;
 use std::time::Duration;
-use std::ops::{Add, AddAssign, Sub};
 
 
 extern crate nalgebra as na;
@@ -38,7 +34,7 @@ const CAMERA_WIDTH: f64 = 40.0;
 const CAMERA_HEIGHT: f64 = 30.0;
 
 impl GameState for MainState {
-    fn load(ctx: &mut Context, conf: &conf::Conf) -> GameResult<Self> {
+    fn load(ctx: &mut Context, _conf: &conf::Conf) -> GameResult<Self> {
         let camera = Camera::new(WINDOW_WIDTH, WINDOW_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT);
 
         println!("Camera test instructions; WASD move the object, arrow keys move the camera.");
@@ -53,7 +49,7 @@ impl GameState for MainState {
         };
         Ok(state)
     }
-    fn update(&mut self, ctx: &mut Context, dt: Duration) -> GameResult<()> {
+    fn update(&mut self, _ctx: &mut Context, _dt: Duration) -> GameResult<()> {
         Ok(())
     }
 
