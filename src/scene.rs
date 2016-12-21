@@ -100,13 +100,23 @@ pub trait GameData<T>
     fn starting_scene() -> Box<SavedScene<T>>;
 }
 
+pub struct SceneStore<T> {
+    states: BTreeMap<String, Box<SavedScene<T>>>,
+}
+
+impl<T> SceneStore<T> {
+    pub fn add<S: SavedScene<T> + 'static>(&mut self, scene_state: S) {
+        self.states.insert(scene_state.name().to_string(), Box::new(scene_state));
+    }
+}
+
 /// A SceneManager is a GameState that handles Scene's
 /// and switches from one to another when requested.
 ///
 /// The stuff you would normally store in your GameState
 /// type should implement GameData and go into the T type.
 pub struct SceneManager<T> {
-    states: BTreeMap<String, Box<SavedScene<T>>>,
+    store: SceneStore<T>,
     current: Box<Scene<T>>,
     game_data: T,
     next_scene: Option<String>,
@@ -189,9 +199,10 @@ impl<T> SceneManager<T> {
         let mut scenes: BTreeMap<String, Box<SavedScene<T>>> = BTreeMap::new();
         scenes.insert(starting_scene_state.name().to_string(),
                       starting_scene_state);
+        let store = SceneStore { states: scenes };
         let sm = SceneManager {
             current: starting_scene,
-            states: scenes,
+            store: store,
             game_data: game_data,
             next_scene: None,
         };
@@ -200,10 +211,6 @@ impl<T> SceneManager<T> {
 
     pub fn game_data(&mut self) -> &mut T {
         &mut self.game_data
-    }
-
-    pub fn add<S: SavedScene<T> + 'static>(&mut self, scene_state: S) {
-        self.states.insert(scene_state.name().to_string(), Box::new(scene_state));
     }
 
     pub fn current(&self) -> &Scene<T> {
@@ -218,8 +225,8 @@ impl<T> SceneManager<T> {
         // Save current scene
         let old_scene_state = self.current.unload();
         let old_scene_name = old_scene_state.name().to_string();
-        self.states.insert(old_scene_name, old_scene_state);
-        if let Some(scene_state) = self.states.get_mut(scene_name) {
+        self.store.states.insert(old_scene_name, old_scene_state);
+        if let Some(scene_state) = self.store.states.get_mut(scene_name) {
             let new_scene = scene_state.load();
             self.current = new_scene;
             Ok(())
