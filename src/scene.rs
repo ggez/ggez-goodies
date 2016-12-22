@@ -206,9 +206,10 @@ impl<T> SceneManager<T> {
 
     pub fn switch_scene(&mut self, scene_name: &str) -> GameResult<()> {
         // Save current scene
-        // let old_scene_state = self.current.unload();
-        // let old_scene_name = old_scene_state.name().to_string();
-        // self.store.states.insert(old_scene_name, old_scene_state);
+        let old_scene_state = self.current.unload();
+        let old_scene_name = old_scene_state.name().to_string();
+        self.store.states.insert(old_scene_name, old_scene_state);
+        // Then load the new one.
         if let Some(scene_state) = self.store.states.get_mut(scene_name) {
             let new_scene = scene_state.load();
             self.current = new_scene;
@@ -223,7 +224,16 @@ impl<T> SceneManager<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Scene, SavedScene, SceneManager};
+
+    use ggez;
+    use ggez::GameResult;
+    use ggez::conf;
+    use ggez::event;
+    use ggez::game::GameState;
+
+    use std::time::Duration;
+
+    use super::{Scene, SavedScene, SceneManager, SceneStore};
 
     #[derive(Clone, Debug)]
     struct TestSavedScene {
@@ -232,7 +242,7 @@ mod tests {
     }
 
     impl SavedScene<()> for TestSavedScene {
-        fn load(&mut self) -> Box<Scene<()>> {
+        fn load(&self) -> Box<Scene<()>> {
             Box::new(TestScene(self.clone()))
         }
         fn name(&self) -> &str {
@@ -247,6 +257,19 @@ mod tests {
         fn unload(&mut self) -> Box<SavedScene<()>> {
             Box::new(self.0.clone())
         }
+
+
+        fn update(&mut self,
+                  ctx: &mut ggez::Context,
+                  dt: Duration,
+                  scenes: &mut SceneStore<()>)
+                  -> GameResult<Option<String>> {
+            Ok(None)
+        }
+
+        fn draw(&mut self, ctx: &mut ggez::Context, scenes: &mut SceneStore<()>) -> GameResult<()> {
+            Ok(())
+        }
     }
 
     #[test]
@@ -260,7 +283,7 @@ mod tests {
             value: 23,
         };
         let mut sm = SceneManager::new(Box::new(default_scene), ());
-        sm.add(new_scene);
+        sm.store.add(new_scene);
 
         {
             let mut s = sm.current_mut().unload();
