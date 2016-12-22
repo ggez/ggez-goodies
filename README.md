@@ -16,13 +16,12 @@ CURRENTLY this is massively unstable and is basically changing fluidly as I disc
 * Resource loader/cache (though it's a little janky)
 * Input indirection layer and state tracking -- TODO: Have pressed/released states that tell you if the key state changed *this frame*.
 * Particle system (incomplete)
+* Scene manager (still to do: scene stack?)
+* Camera!
 
 # Modules to create
 
-* Camera stuffs!
-* Scene stack
-* Sprites with ordering, animation, atlasing, tile mapping, 3x3 sprites... (look at
-https://docs.rs/piston2d-sprite/0.28.0/sprite/index.html)
+* Sprites with ordering, animation, atlasing, tile mapping, 3x3 sprites... (look at https://docs.rs/piston2d-sprite/0.28.0/sprite/index.html)
 * GUI (conrod? imgui?)
 * Timers?
 * In-game debugger...
