@@ -9,28 +9,27 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 
-pub trait SavedScene {
-    fn load(&self) -> Box<Scene>;
+pub trait SavedScene<T> {
+    fn load(&self) -> Box<Scene<T>>;
     fn name(&self) -> &str;
 }
 
-pub trait Scene {
-    // fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self> where Self: Sized;
-    fn unload(&mut self) -> Box<SavedScene>;
+pub trait Scene<T> {
+    fn unload(&mut self) -> Box<SavedScene<T>>;
 
     /// Called upon each physics update to the game.
     /// This should be where the game's logic takes place.
     fn update(&mut self,
               ctx: &mut ggez::Context,
               dt: Duration,
-              scenes: &mut SceneStore)
+              scenes: &mut SceneStore<T>)
               -> GameResult<Option<String>>;
 
     /// Called to do the drawing of your game.
     /// You probably want to start this with
     /// `graphics::clear()` and end it with
     /// `graphics::present()` and `timer::sleep_until_next_frame()`
-    fn draw(&mut self, ctx: &mut ggez::Context, scenes: &mut SceneStore) -> GameResult<()>;
+    fn draw(&mut self, ctx: &mut ggez::Context, scenes: &mut SceneStore<T>) -> GameResult<()>;
 
     // You don't have to override these if you don't want to; the defaults
     // do nothing.
@@ -78,19 +77,20 @@ pub trait Scene {
 ///
 /// It also provides a method that is called to generate
 /// the first scene of your game.
-pub trait GameData
+pub trait GameData<T>
     where Self: Sized
 {
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self>;
-    fn starting_scene() -> Box<SavedScene>;
+    fn starting_scene() -> Box<SavedScene<T>>;
 }
 
-pub struct SceneStore {
-    states: BTreeMap<String, Box<SavedScene>>,
+pub struct SceneStore<T> {
+    states: BTreeMap<String, Box<SavedScene<T>>>,
+    pub game_data: T,
 }
 
-impl SceneStore {
-    pub fn add<S: SavedScene + 'static>(&mut self, scene_state: S) {
+impl<T> SceneStore<T> {
+    pub fn add<S: SavedScene<T> + 'static>(&mut self, scene_state: S) {
         self.states.insert(scene_state.name().to_string(), Box::new(scene_state));
     }
 }
@@ -101,14 +101,13 @@ impl SceneStore {
 /// The stuff you would normally store in your GameState
 /// type should implement GameData and go into the T type.
 pub struct SceneManager<T> {
-    store: SceneStore,
-    current: Box<Scene>,
-    game_data: T,
+    store: SceneStore<T>,
+    current: Box<Scene<T>>,
     next_scene: Option<String>,
 }
 
 impl<T> GameState for SceneManager<T>
-    where T: GameData
+    where T: GameData<T>
 {
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self> {
         let starting_scene_state = T::starting_scene();
@@ -179,30 +178,29 @@ impl<T> GameState for SceneManager<T>
 impl<T> SceneManager<T> {
     /// This lets us create a SceneManager by providing the data for it,
     /// instead of having it implicitly created via the GameData trait.
-    fn new(mut starting_scene_state: Box<SavedScene>, game_data: T) -> Self {
+    fn new(mut starting_scene_state: Box<SavedScene<T>>, game_data: T) -> Self {
         let starting_scene = starting_scene_state.load();
-        let mut scenes: BTreeMap<String, Box<SavedScene>> = BTreeMap::new();
+        let mut scenes: BTreeMap<String, Box<SavedScene<T>>> = BTreeMap::new();
         scenes.insert(starting_scene_state.name().to_string(),
                       starting_scene_state);
-        let store = SceneStore { states: scenes };
+        let store = SceneStore {
+            states: scenes,
+
+            game_data: game_data,
+        };
         let sm = SceneManager {
             current: starting_scene,
             store: store,
-            game_data: game_data,
             next_scene: None,
         };
         sm
     }
 
-    pub fn game_data(&mut self) -> &mut T {
-        &mut self.game_data
-    }
-
-    pub fn current(&self) -> &Scene {
+    pub fn current(&self) -> &Scene<T> {
         &*self.current
     }
 
-    pub fn current_mut(&mut self) -> &mut Scene {
+    pub fn current_mut(&mut self) -> &mut Scene<T> {
         &mut *self.current
     }
 

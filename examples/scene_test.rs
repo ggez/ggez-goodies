@@ -15,7 +15,7 @@ struct MainState {
     message_text: graphics::Text,
 }
 
-impl GameData for MainState {
+impl GameData<MainState> for MainState {
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self> {
         let font = graphics::Font::new(ctx, "DejaVuSerif.ttf", 16)?;
 
@@ -29,7 +29,7 @@ impl GameData for MainState {
             message_text: text,
         })
     }
-    fn starting_scene() -> Box<SavedScene> {
+    fn starting_scene() -> Box<SavedScene<MainState>> {
 
         let scene = SavedScene1 {
             time_unloaded: 0.0,
@@ -52,8 +52,8 @@ struct Scene1 {
 }
 
 
-impl SavedScene for SavedScene1 {
-    fn load(&self) -> Box<Scene> {
+impl SavedScene<MainState> for SavedScene1 {
+    fn load(&self) -> Box<Scene<MainState>> {
         Box::new(Scene1 {
             current_time: self.time_unloaded,
             name: self.name.clone(),
@@ -64,8 +64,8 @@ impl SavedScene for SavedScene1 {
     }
 }
 
-impl Scene for Scene1 {
-    fn unload(&mut self) -> Box<SavedScene> {
+impl Scene<MainState> for Scene1 {
+    fn unload(&mut self) -> Box<SavedScene<MainState>> {
         Box::new(SavedScene1 {
             time_unloaded: self.current_time,
             name: self.name.clone(),
@@ -76,31 +76,35 @@ impl Scene for Scene1 {
     fn update(&mut self,
               _ctx: &mut ggez::Context,
               dt: Duration,
-              _state: &mut SceneStore)
+              _state: &mut SceneStore<MainState>)
               -> GameResult<Option<String>> {
         let seconds = timer::duration_to_f64(dt);
         self.current_time += seconds;
         Ok(None)
     }
 
-    fn draw(&mut self, ctx: &mut ggez::Context, state: &mut SceneStore) -> GameResult<()> {
+    fn draw(&mut self,
+            ctx: &mut ggez::Context,
+            store: &mut SceneStore<MainState>)
+            -> GameResult<()> {
         ctx.renderer.clear();
         let message = format!("Scene '{}' has been running for {:0.2} seconds",
                               self.name,
                               self.current_time);
-        // let text = &mut graphics::Text::new(ctx, &message, &state.font)?;
-        // let text_rect = graphics::Rect::new(10, 240, text.width(), text.height());
-        //
-        // try!(graphics::draw(ctx, text, None, Some(text_rect)));
-        //
-        //
-        // let text_rect2 = graphics::Rect::new(10,
-        // 270,
-        // state.message_text.width(),
-        // state.message_text.height());
-        //
-        // try!(graphics::draw(ctx, &mut state.message_text, None, Some(text_rect2)));
-        //
+        let state = &mut store.game_data;
+        let text = &mut graphics::Text::new(ctx, &message, &state.font)?;
+        let text_rect = graphics::Rect::new(10, 240, text.width(), text.height());
+
+        try!(graphics::draw(ctx, text, None, Some(text_rect)));
+
+
+        let text_rect2 = graphics::Rect::new(10,
+                                             270,
+                                             state.message_text.width(),
+                                             state.message_text.height());
+
+        try!(graphics::draw(ctx, &mut state.message_text, None, Some(text_rect2)));
+
         ctx.renderer.present();
         timer::sleep_until_next_frame(ctx, 60);
         Ok(())
