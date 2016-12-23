@@ -22,8 +22,10 @@ struct Frame {
     frame: Rect,
     rotated: bool,
     trimmed: bool,
-    spriteSourceSize: Rect,
-    sourceSize: Dimensions,
+    #[serde(rename = "spriteSourceSize")]
+    sprite_source_size: Rect,
+    #[serde(rename = "sourceSize")]
+    source_size: Dimensions,
     duration: u32,
 }
 
@@ -41,7 +43,8 @@ struct Frametag {
 struct Layer {
     name: String,
     opacity: u32,
-    blendMode: String,
+    #[serde(rename = "blendMode")]
+    blend_mode: String,
 }
 
 
@@ -52,7 +55,8 @@ struct Metadata {
     format: String,
     size: Dimensions,
     scale: String, // Surely this should be a number?
-    frameTags: Vec<Frametag>,
+    #[serde(rename = "frameTags")]
+    frame_tags: Vec<Frametag>,
     layers: Vec<Layer>,
 }
 

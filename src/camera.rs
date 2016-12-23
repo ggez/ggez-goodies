@@ -8,13 +8,17 @@
 //! origin at the center of the screen and Y increasing upward.
 //!
 //! Because that makes sense, darn it.
+//!
+//! However, does not yet do any actual camera movements like
+//! easing, pinning, etc.
+//! But a great source for how such things work is this:
+//! http://www.gamasutra.com/blogs/ItayKeren/20150511/243083/Scroll_Back_The_Theory_and_Practice_of_Cameras_in_SideScrollers.php
 
 use ggez;
 use ggez::GameResult;
 use ggez::graphics;
-use ggez::graphics::Drawable;
 use na;
-use super::{Point2, Vector2};
+use super::Vector2;
 
 // Hmm.  Could, instead, use a 2d transformation
 // matrix, or create one of such.

@@ -178,7 +178,7 @@ impl<T> GameState for SceneManager<T>
 impl<T> SceneManager<T> {
     /// This lets us create a SceneManager by providing the data for it,
     /// instead of having it implicitly created via the GameData trait.
-    fn new(mut starting_scene_state: Box<SavedScene<T>>, game_data: T) -> Self {
+    fn new(starting_scene_state: Box<SavedScene<T>>, game_data: T) -> Self {
         let starting_scene = starting_scene_state.load();
         let mut scenes: BTreeMap<String, Box<SavedScene<T>>> = BTreeMap::new();
         scenes.insert(starting_scene_state.name().to_string(),
@@ -227,8 +227,6 @@ mod tests {
 
     use ggez;
     use ggez::GameResult;
-    use ggez::conf;
-    use ggez::event;
     use ggez::game::GameState;
 
     use std::time::Duration;
@@ -260,14 +258,17 @@ mod tests {
 
 
         fn update(&mut self,
-                  ctx: &mut ggez::Context,
-                  dt: Duration,
-                  scenes: &mut SceneStore<()>)
+                  _ctx: &mut ggez::Context,
+                  _dt: Duration,
+                  _scenes: &mut SceneStore<()>)
                   -> GameResult<Option<String>> {
             Ok(None)
         }
 
-        fn draw(&mut self, ctx: &mut ggez::Context, scenes: &mut SceneStore<()>) -> GameResult<()> {
+        fn draw(&mut self,
+                _ctx: &mut ggez::Context,
+                _scenes: &mut SceneStore<()>)
+                -> GameResult<()> {
             Ok(())
         }
     }
@@ -286,7 +287,7 @@ mod tests {
         sm.store.add(new_scene);
 
         {
-            let mut s = sm.current_mut().unload();
+            let s = sm.current_mut().unload();
             assert_eq!(s.name(), "default scene");
         }
 
@@ -294,7 +295,7 @@ mod tests {
         assert!(res.is_ok());
 
         {
-            let mut s = sm.current_mut().unload();
+            let s = sm.current_mut().unload();
             assert_eq!(s.name(), "other scene");
         }
 

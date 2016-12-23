@@ -2,8 +2,8 @@ extern crate ggez;
 extern crate ggez_goodies;
 use ggez::conf;
 use ggez::event;
-use ggez::game::{Game, GameState};
-use ggez::{GameResult, Context};
+use ggez::game::Game;
+use ggez::GameResult;
 use ggez::graphics;
 use ggez::timer;
 use std::time::Duration;
@@ -54,7 +54,7 @@ impl Scene<MainState> for StartScene {
 }
 
 impl GameData<MainState> for MainState {
-    fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self> {
+    fn load(ctx: &mut ggez::Context, _conf: &conf::Conf) -> GameResult<Self> {
         let font = graphics::Font::new(ctx, "DejaVuSerif.ttf", 16)?;
 
         let text = graphics::Text::new(ctx, "Press space to switch to the next scene.", &font)?;

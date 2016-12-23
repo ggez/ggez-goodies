@@ -41,8 +41,7 @@ use ggez::event::*;
 
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 enum InputEvent {
-    KeyEvent(Keycode),
-    MouseButtonEvent,
+    KeyEvent(Keycode), // MouseButtonEvent,
 }
 
 #[derive(Debug, Copy, Clone)]

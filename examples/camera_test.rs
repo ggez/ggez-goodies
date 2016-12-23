@@ -10,7 +10,6 @@ use ggez::event;
 use ggez::game::{Game, GameState};
 use ggez::{GameResult, Context};
 use ggez::graphics;
-use ggez::graphics::Drawable;
 use ggez::timer;
 use std::time::Duration;
 
@@ -55,8 +54,6 @@ impl GameState for MainState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
-
-        let dest_rect = ggez::graphics::Rect::new(0, 0, 0, 0);
 
         let half_width = (CAMERA_WIDTH / 2.0) as i32;
         let half_height = (CAMERA_HEIGHT / 2.0) as i32;

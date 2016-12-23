@@ -365,9 +365,9 @@ impl<K, V> AssetCache2<K, V>
 
 
 
+#[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(test)]
     impl<'a> Loadable<&'a str, ()> for String {
         fn load(key: &&str) -> Result<String, ()> {
             Ok(key.to_string())
@@ -423,13 +423,11 @@ mod tests {
 
     #[test]
     fn test_stateful_assetcache2() {
-        let h;
         let mut a = AssetCache2::<&str, String>::new();
         {
             let s = &mut 10;
             assert!(!a.loaded(&"foo"));
             let (handle, s1) = a.get_key_state(&"foo", s).unwrap();
-            h = handle;
             assert_eq!(*s1, "foo");
             assert_eq!(*s, 11);
             assert!(a.loaded(&"foo"));
