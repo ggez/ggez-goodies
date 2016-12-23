@@ -1,6 +1,8 @@
 extern crate ggez;
 extern crate rand;
 extern crate nalgebra as na;
+extern crate serde;
+extern crate serde_json;
 
 pub mod asset;
 pub mod camera;
@@ -8,6 +10,7 @@ pub mod input;
 pub mod particle;
 pub mod scene;
 pub mod sprite;
+pub mod sprite_loader;
 
 type Point2 = na::Point2<f64>;
 type Vector2 = na::Vector2<f64>;
