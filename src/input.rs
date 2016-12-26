@@ -217,19 +217,19 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
         axis_status.direction
     }
 
-    pub fn get_button(&self, axis: &Buttons) -> bool {
-        if let Some(pressed) = self.buttons.get(axis) {
+    pub fn get_button(&self, axis: Buttons) -> bool {
+        if let Some(pressed) = self.buttons.get(&axis) {
             *pressed
         } else {
             false
         }
     }
 
-    pub fn get_button_down(&self, axis: &Buttons) -> bool {
+    pub fn get_button_down(&self, axis: Buttons) -> bool {
         self.get_button(axis)
     }
 
-    pub fn get_button_up(&self, axis: &Buttons) -> bool {
+    pub fn get_button_up(&self, axis: Buttons) -> bool {
         !self.get_button(axis)
     }
 

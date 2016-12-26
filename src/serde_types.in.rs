@@ -1,7 +1,7 @@
 
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct Rect {
+pub struct Rect {
     x: u32,
     y: u32,
     w: u32,
@@ -10,14 +10,14 @@ struct Rect {
 
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct Dimensions {
+pub struct Dimensions {
     w: u32,
     h: u32,
 }
 
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct Frame {
+pub struct Frame {
     filename: String,
     frame: Rect,
     rotated: bool,
@@ -31,7 +31,7 @@ struct Frame {
 
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct Frametag {
+pub struct Frametag {
     name: String,
     from: u32,
     to: u32,
@@ -40,7 +40,7 @@ struct Frametag {
 
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct Layer {
+pub struct Layer {
     name: String,
     opacity: u32,
     #[serde(rename = "blendMode")]
@@ -49,7 +49,7 @@ struct Layer {
 
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct Metadata {
+pub struct Metadata {
     app: String,
     version: String,
     format: String,
@@ -62,7 +62,7 @@ struct Metadata {
 
 
 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
-struct SpritesheetData {
+pub struct SpritesheetData {
     frames: Vec<Frame>,
     meta: Metadata,
 }

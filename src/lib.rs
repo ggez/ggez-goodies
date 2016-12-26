@@ -14,6 +14,8 @@ pub mod sprite_loader;
 
 type Point2 = na::Point2<f64>;
 type Vector2 = na::Vector2<f64>;
+type IPoint2 = na::Point2<u32>;
+type IVector2 = na::Vector2<u32>;
 
 #[cfg(test)]
 mod tests {

@@ -23,7 +23,7 @@ CURRENTLY this is massively unstable and is basically changing fluidly as I disc
 
 * Sprites with ordering, animation, atlasing, tile mapping, 3x3 sprites... (look at https://docs.rs/piston2d-sprite/0.28.0/sprite/index.html)
 * GUI (conrod? imgui?)
-* Timers?
+* Timers?  Coroutines?
 * In-game debugger...
 
 # Useful goodies made by other people
