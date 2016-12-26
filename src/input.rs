@@ -283,11 +283,11 @@ mod tests {
             .bind_key_to_axis(Keycode::Right, Axes::Horz, true);
 
         im.update_keydown(Some(Keycode::Z));
-        assert!(im.get_button(&Buttons::A));
-        assert!(im.get_button_down(&Buttons::A));
+        assert!(im.get_button(Buttons::A));
+        assert!(im.get_button_down(Buttons::A));
         im.update_keyup(Some(Keycode::Z));
-        assert!(!im.get_button(&Buttons::A));
-        assert!(im.get_button_up(&Buttons::A));
+        assert!(!im.get_button(Buttons::A));
+        assert!(im.get_button_up(Buttons::A));
 
         // Push the 'up' button, watch the axis
         // increase to 1.0 but not beyond
