@@ -30,15 +30,16 @@ const WINDOW_HEIGHT: i32 = 480;
 impl GameState for MainState {
     fn load(ctx: &mut Context, _conf: &conf::Conf) -> GameResult<Self> {
         let system = ParticleSystemBuilder::new(ctx)
-            .count(50000)
+            .count(5000)
             .acceleration(Vector2::new(0.0, 50.0))
-            .start_max_age(15.0)
+            .start_max_age(5.0)
             .start_size_range(2.0, 15.0)
             .start_color_range(graphics::Color::RGB(0, 0, 0),
                                graphics::Color::RGB(255, 255, 255))
             .start_velocity_range(Vector2::new(-50.0, -200.0), Vector2::new(50.0, 0.0))
             .start_rotation_range(-10.0, 10.0)
             .emission_rate(1000.0)
+            .delta_size(Transition::range(1.0, 10.0))
             .build();
         let state = MainState { particles: system };
         graphics::set_background_color(ctx, ggez::graphics::Color::RGBA(0, 0, 0, 0));

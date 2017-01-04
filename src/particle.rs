@@ -101,7 +101,7 @@ impl StartParam<graphics::Color> {
 
 /// A trait that defines a way to do some sort of
 /// lerp or easing function on a type.
-trait Interpable
+pub trait Interpable
     where Self: Sized
 {
     /// Interpolate the value.  t should always be a number
@@ -196,19 +196,27 @@ impl<T> Interpolation<T> where T: Copy {
 
 pub enum Transition<T: Copy> {
     Fixed(T),
+    Range(T, T),
 }
 
 
 impl<T: Interpable + Copy> Transition<T> {
-    fn fixed(value: T) -> Self {
+    pub fn fixed(value: T) -> Self {
         Transition::Fixed(value)
+    }
+
+    pub fn range(from: T, to: T) -> Self {
+        Transition::Range(from, to)
     }
 
     /// t should be between 0.0 and 1.0
     /// or should it take the current value and a delta-t???
-    fn get(&self, _t: f64) -> T {
+    pub fn get(&self, t: f64) -> T {
         match *self {
             Transition::Fixed(value) => value,
+            Transition::Range(from, to) => {
+                T::interp_between(t, from, to)
+            }
         }
     }
 }
