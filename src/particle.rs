@@ -11,7 +11,7 @@ use std::f64;
 
 use rand;
 use rand::{Rng};
-
+use na;
 use ggez::{GameResult, Context};
 use ggez::graphics;
 
@@ -368,6 +368,40 @@ impl ParticleSystemBuilder {
     }
 }
 
+enum EmissionShape {
+    // Source point
+    Point(Point2),
+    // m and b in the equation mx+b
+    Line(f64, f64),
+    // Center point and radius
+    Circle(Point2, f64),
+}
+
+impl EmissionShape {
+    /// Gets a random point that complies
+    /// with the given shape.
+    /// TODO: This is an ideal case for unit tests.
+    fn get_random(&self) -> Point2 {
+        match *self {
+            EmissionShape::Point(v) => v,
+            EmissionShape::Line(m, b) => Point2::new(0.0, 0.0),
+            EmissionShape::Circle(center, radius) => {
+                let mut rng = rand::thread_rng();
+                let theta = rng.gen_range(0.0, f64::consts::PI * 2.0);
+                let r = rng.gen_range(0.0, radius);
+                let x = theta.cos() * r;
+                let y = theta.sin() * r;
+                center + Vector2::new(x, y)
+            }
+        }
+    }
+}
+
+enum EmissionVelocity {
+    Uniform,
+    Direction,
+    Cone,
+}
 
 
 pub struct ParticleSystem {
@@ -382,6 +416,7 @@ pub struct ParticleSystem {
     emission_rate: f64,
     start_color: StartParam<graphics::Color>,
     start_position: StartParam<Point2>,
+    start_shape: EmissionShape,
     start_velocity: StartParam<Vector2>,
     start_angle: StartParam<f64>,
     start_rotation: StartParam<f64>,
@@ -405,6 +440,7 @@ impl ParticleSystem {
             acceleration: Vector2::new(0.0, 0.0),
             start_color: StartParam::Fixed(graphics::Color::RGB(255, 255, 255)),
             start_position: StartParam::Fixed(Point2::new(0.0, 0.0)),
+            start_shape: EmissionShape::Point(Point2::new(0.0, 0.0)),
             start_velocity: StartParam::Fixed(Vector2::new(1.0, 1.0)),
             start_angle: StartParam::Fixed(0.0),
             start_rotation: StartParam::Fixed(0.0),
@@ -434,7 +470,8 @@ impl ParticleSystem {
     }
 
     pub fn emit_one(&mut self) {
-        let pos = self.start_position.get_value();
+        //let pos = self.start_position.get_value();
+        let pos = self.start_shape.get_random();
         let vec = self.start_velocity.get_value();
         let col = self.start_color.get_value();
         let size = self.start_size.get_value();
