@@ -35,9 +35,9 @@ pub trait Scene<T> {
     // do nothing.
     // It might be nice to be able to have custom event types and a map or
     // such of handlers?  Hmm, maybe later.
-    fn mouse_button_down_event(&mut self, _button: event::Mouse, _x: i32, _y: i32) {}
+    fn mouse_button_down_event(&mut self, _button: event::MouseButton, _x: i32, _y: i32) {}
 
-    fn mouse_button_up_event(&mut self, _button: event::Mouse, _x: i32, _y: i32) {}
+    fn mouse_button_up_event(&mut self, _button: event::MouseButton, _x: i32, _y: i32) {}
 
     fn mouse_motion_event(&mut self,
                           _state: event::MouseState,
@@ -129,11 +129,11 @@ impl<T> GameState for SceneManager<T>
         self.current.draw(ctx, &mut self.store)
     }
 
-    fn mouse_button_down_event(&mut self, button: event::Mouse, x: i32, y: i32) {
+    fn mouse_button_down_event(&mut self, button: event::MouseButton, x: i32, y: i32) {
         self.current.mouse_button_down_event(button, x, y)
     }
 
-    fn mouse_button_up_event(&mut self, button: event::Mouse, x: i32, y: i32) {
+    fn mouse_button_up_event(&mut self, button: event::MouseButton, x: i32, y: i32) {
         self.current.mouse_button_up_event(button, x, y)
     }
 
