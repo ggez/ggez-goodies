@@ -40,6 +40,9 @@ impl GameState for MainState {
             .start_rotation_range(-10.0, 10.0)
             .emission_rate(1000.0)
             .delta_size(Transition::range(1.0, 10.0))
+            .delta_color(Transition::range(ggez::graphics::Color::RGB(255, 0, 0),
+                ggez::graphics::Color::RGB(255, 255, 0),
+                ))
             .build();
         let state = MainState { particles: system };
         graphics::set_background_color(ctx, ggez::graphics::Color::RGBA(0, 0, 0, 0));

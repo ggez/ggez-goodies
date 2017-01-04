@@ -1,6 +1,4 @@
 // Useful references:
-// https://www.reddit.com/r/gamedev/comments/2vlypg/i_made_a_html5_particle_engine/
-// https://www.reddit.com/r/gamedev/comments/135w5u/version_five_of_my_2d_particle_system_is_complete/
 // https://www.reddit.com/r/gamedev/comments/13ksu3/article_on_particle_systems_and_an_online_cocos2d/
 // Unity3D's particle system
 // Cocos2d's plist file format
@@ -8,14 +6,11 @@
 
 use std::marker::Sized;
 
-use std::cmp::PartialOrd;
 use std::f64;
 
 
 use rand;
-use rand::{Rand, Rng};
-use rand::distributions::range::SampleRange;
-use na;
+use rand::{Rng};
 
 use ggez::{GameResult, Context};
 use ggez::graphics;
@@ -26,19 +21,7 @@ enum StartParam<T> {
     Fixed(T),
     UniformRange(T, T), /* todo: stepped range, a list of discrete values of which one gets chosen. */
 }
-// impl<T> StartParam<T> where T: PartialOrd + SampleRange + Copy
-// {
-// pub fn get_value(&self) -> T {
-// match *self {
-// StartParam::Fixed(x) => x,
-// StartParam::UniformRange(ref low, ref high) => {
-// let mut rng = rand::thread_rng();
-// rng.gen_range(*low, *high)
-// }
-// }
-// }
-// }
-//
+
 
 impl StartParam<f64> {
     pub fn get_value(&self) -> f64 {
@@ -135,19 +118,32 @@ impl Interpable for f64 {
     }
 }
 
-/*
-struct Interpolation<T> {
-    start: T,
-    end: T,
-    f: fn(T, f64) -> T
-}
 
-impl<T> Interpolation<T> where T: Copy {
-    fn interp(&self, t: f64) -> T {
-        self.fn(t)
+impl Interpable for graphics::Color {
+    fn interp(&self, t: f64) -> Self {
+        //*self * t
+        let (r, g, b, a) = self.rgba();
+        let (fr, fg, fb, fa) = (r as f64, g as f64, b as f64, a as f64);
+        let (rr, rg, rb, ra) = (fr * t, fg * t, fb * t, fa * t);
+            graphics::Color::RGBA(rr as u8, rg as u8, rb as u8, ra as u8)
+    }
+
+    fn interp_between(t: f64, v1: Self, v2: Self) -> Self {
+
+        let (r1, g1, b1, a1) = v1.rgba();
+        let (fr1, fg1, fb1, fa1) = (r1 as f64, g1 as f64, b1 as f64, a1 as f64);
+
+        let (r2, g2, b2, a2) = v2.rgba();
+
+        let dr = (r2 - r1) as f64;
+        let dg = (g2 - g1) as f64;
+        let db = (b2 - b1) as f64;
+        let da = (a2 - a1) as f64;
+
+        let (rr, rg, rb, ra) = (fr1 + dr * t, fg1 + dg * t, fb1 + db * t, fa1 + da * t);
+        graphics::Color::RGBA(rr as u8, rg as u8, rb as u8, ra as u8)
     }
 }
-*/
 
 /// A structure that represents a transition between
 /// set properties, with multiple potential defined points.
@@ -157,43 +153,6 @@ impl<T> Interpolation<T> where T: Copy {
 /// curve.
 /// So really this is a general-purpose easing type thing...
 /// It assumes that all time values range from 0 to 1.
-// struct Transition<T: Interpable + Copy> {
-//     breakpoints: Vec<(f64, T)>,
-// }
-
-// impl<T: Interpable + Copy> Transition<T> {
-//     fn default() -> Self {
-//         Transition { breakpoints: Vec::new() }
-//     }
-
-//     fn new(value: T) -> Self {
-//         let mut t = Self::default();
-//         t.start_end(value, value);
-//         t
-//     }
-
-//     /// Add a new breakpoint to the transition
-//     /// at time 0 < t < 1
-//     fn add(&mut self, t: f64, val: T) {
-//         self.breakpoints.push((t, val))
-//     }
-
-//     fn start_end(&mut self, startval: T, endval: T) {
-//         self.breakpoints.clear();
-//         self.add(0.0, startval);
-//         self.add(1.0, endval);
-//     }
-
-//     fn get_value(&self, t: f64) -> T {
-//         let (_, current) = self.breakpoints[0];
-//         let (_, next) = self.breakpoints[1];
-//         // we don't have to lerp a value between 0
-//         // and itself, we have to lerp between two
-//         // values...
-//         T::interp_between(t, current, next)
-//     }
-// }
-
 pub enum Transition<T: Copy> {
     Fixed(T),
     Range(T, T),
@@ -401,6 +360,12 @@ impl ParticleSystemBuilder {
         self.system.delta_size = trans;
         self
     }
+
+
+    pub fn delta_color(mut self, trans: Transition<graphics::Color>) -> Self {
+        self.system.delta_color = trans;
+        self
+    }
 }
 
 
@@ -426,6 +391,7 @@ pub struct ParticleSystem {
     acceleration: Vector2,
 
     delta_size: Transition<f64>,
+    delta_color: Transition<graphics::Color>,
 }
 
 
@@ -448,6 +414,7 @@ impl ParticleSystem {
             residual_particle: 0.0,
 
             delta_size: Transition::fixed(1.0),
+            delta_color: Transition::fixed(graphics::Color::RGB(255, 255, 255)),
         }
     }
 
@@ -499,6 +466,7 @@ impl ParticleSystem {
             p.angle += p.rotation;
 
             p.size = self.delta_size.get(life_fraction);
+            p.color = self.delta_color.get(life_fraction);
         }
 
         self.particles.retain(|p| p.age < p.max_age);
