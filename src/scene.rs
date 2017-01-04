@@ -269,9 +269,7 @@ mod tests {
             assert_eq!(s.name(), "default scene");
         }
         
-        let res = sm.switch_scene("other scene");
-        assert!(res.is_ok());
-        
+        let res = sm.switch_scene("other scene").unwrap();
         {
             let mut s = sm.current_mut().unload();
             assert_eq!(s.name(), "other scene");

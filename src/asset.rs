@@ -9,12 +9,25 @@
 //!
 //! It will return an `Rc` containing the item loaded, so multiple
 //! items can safely access (read-only) instances of the same asset.
+//! (In the same thread, at least.)
+//!
+//! What it does NOT do is allow you to free individual assets from
+//! the cache.  This is on purpose.  If you want fine-grained manual
+//! memory management you know where to get it.  This is more a memory
+//! pool like thing where you allocate a bunch of objects, keep them
+//! around for however long you need them (while the game is loaded,
+//! while a particular scene is loaded, etc), and then free them all.
 //!
 //! If you want to make a stack of asset managers, where one
 //! has access to the assets higher up in the stack...
 //! Just build one and clone it.  All the Rc's in it will get
 //! cloned along with it, providing exactly the behavior you
 //! want except better.  :D
+//!
+//! Though whether or not asset handles from the old one will be valid
+//! with the new one... hmmm.  That might not be a big problem since we
+//! can just request new asset handles from the new cache and they'll already
+//! be there, so that might be the way to go?
 
 // TODO: This is not thread safe; should we offer one that it?
 // TODO: Check out calx-resource:
@@ -196,6 +209,10 @@ impl<'a, K: AsRef<Path>> StateLoadable<K, GameError, ggez::Context<'a>> for ggez
 #[derive(Debug, Copy, Clone)]
 pub struct AssetHandle(usize);
 
+// We COULD use a generic interning crate such as symtern or symbol-map to
+// implement the Handle -> Asset map here.  It might be useful.
+// But it wouldn't get us all the way because we'd still need to maintain
+// the Key -> Handle association ourselves.
 #[derive(Debug, Clone)]
 pub struct AssetCache2<K, V>
     where K: Ord + Clone + Debug
@@ -251,6 +268,7 @@ impl<K, V> AssetCache2<K, V>
     /// to be valid its object *must* exist in the cache.
     pub fn get(&self, handle: AssetHandle) -> Rc<V> {
         let AssetHandle(i) = handle;
+        assert!(i < self.handles.len());
         self.handles[i].clone()
     }
 
@@ -258,6 +276,7 @@ impl<K, V> AssetCache2<K, V>
     /// Not sure this is even right, but...
     pub fn get_mut<'a>(&'a mut self, handle: AssetHandle) -> Option<&'a mut V> {
         let AssetHandle(i) = handle;
+        assert!(i < self.handles.len());
         use std::rc::Rc;
         Rc::get_mut(&mut self.handles[i])
     }

@@ -43,8 +43,7 @@ impl<T> StartParam<T> where T: PartialOrd + SampleRange + Copy
 }
 */
 
-impl StartParam<f64>
-{
+impl StartParam<f64> {
     pub fn get_value(&self) -> f64 {
         match *self {
             StartParam::Fixed(x) => x,
@@ -137,6 +136,20 @@ impl Interpable for f64 {
     }
 }
 
+/*
+struct Interpolation<T> {
+    start: T,
+    end: T,
+    f: fn(T, f64) -> T
+}
+
+impl<T> Interpolation<T> where T: Copy {
+    fn interp(&self, t: f64) -> T {
+        self.fn(t)
+    }
+}
+*/
+
 /// A structure that represents a transition between
 /// set properties, with multiple potential defined points.
 /// So for instance you could use Transition<Color> and define
@@ -144,44 +157,60 @@ impl Interpable for f64 {
 /// You could also use Transition<f64> to just represent a size
 /// curve.
 /// So really this is a general-purpose easing type thing...
-/// It assumes that all time values range from 0 to 1, currently.
-/// Though we could fix that just by having or finding some kind of
-/// scaling factor... hmmmm.  Nah, that should be external to the
-/// transition.
-struct Transition<T: Interpable + Copy> {
-    breakpoints: Vec<(f64, T)>,
+/// It assumes that all time values range from 0 to 1.
+// struct Transition<T: Interpable + Copy> {
+//     breakpoints: Vec<(f64, T)>,
+// }
+
+// impl<T: Interpable + Copy> Transition<T> {
+//     fn default() -> Self {
+//         Transition { breakpoints: Vec::new() }
+//     }
+
+//     fn new(value: T) -> Self {
+//         let mut t = Self::default();
+//         t.start_end(value, value);
+//         t
+//     }
+
+//     /// Add a new breakpoint to the transition
+//     /// at time 0 < t < 1
+//     fn add(&mut self, t: f64, val: T) {
+//         self.breakpoints.push((t, val))
+//     }
+
+//     fn start_end(&mut self, startval: T, endval: T) {
+//         self.breakpoints.clear();
+//         self.add(0.0, startval);
+//         self.add(1.0, endval);
+//     }
+
+//     fn get_value(&self, t: f64) -> T {
+//         let (_, current) = self.breakpoints[0];
+//         let (_, next) = self.breakpoints[1];
+//         // we don't have to lerp a value between 0
+//         // and itself, we have to lerp between two
+//         // values...
+//         T::interp_between(t, current, next)
+//     }
+// }
+
+pub enum Transition<T: Copy> {
+    Fixed(T),
 }
 
+
 impl<T: Interpable + Copy> Transition<T> {
-    fn default() -> Self {
-        Transition { breakpoints: Vec::new() }
+    fn fixed(value: T) -> Self {
+        Transition::Fixed(value)
     }
 
-    fn new(value: T) -> Self {
-        let mut t = Self::default();
-        t.start_end(value, value);
-        t
-    }
-
-    /// Add a new breakpoint to the transition
-    /// at time 0 < t < 1
-    fn add(&mut self, t: f64, val: T) {
-        self.breakpoints.push((t, val))
-    }
-
-    fn start_end(&mut self, startval: T, endval: T) {
-        self.breakpoints.clear();
-        self.add(0.0, startval);
-        self.add(1.0, endval);
-    }
-
-    fn get_value(&self, t: f64) -> T {
-        let (_, current) = self.breakpoints[0];
-        let (_, next) = self.breakpoints[1];
-        // we don't have to lerp a value between 0
-        // and itself, we have to lerp between two
-        // values...
-        T::interp_between(t, current, next)
+    /// t should be between 0.0 and 1.0
+    /// or should it take the current value and a delta-t???
+    fn get(&self, _t: f64) -> T {
+        match *self {
+            Transition::Fixed(value) => value,
+        }
     }
 }
 
@@ -243,7 +272,7 @@ struct Particle {
     pos: Point2,
     vel: Vector2,
     color: graphics::Color,
-    size: Transition<f64>,
+    size: f64,
     angle: f64,
     rotation: f64,
     age: f64,
@@ -275,6 +304,11 @@ struct Particle {
 // be a per-particle-system thing rather than a per-particle thing.
 // Also it's going to be a huge pain in the ass to get the numbers
 // right.  :/
+//
+// While a completely valid insight that's the absolute wrong way of doing it.
+// The thing about particle systems that makes them useful is they're fast, and
+// the thing that makes them fast is the each particle more or less obeys the
+// same rules as all the others.
 
 impl Particle {
     fn new(pos: Point2,
@@ -284,13 +318,11 @@ impl Particle {
            angle: f64,
            max_age: f64)
            -> Self {
-        let mut t = Transition::default();
-        t.start_end(1.0, 100.0);
         Particle {
             pos: pos,
             vel: vel,
             color: color,
-            size: t,
+            size: size,
             angle: angle,
             rotation: 0.0,
             age: 0.0,
@@ -357,7 +389,13 @@ impl ParticleSystemBuilder {
         self.system.emission_rate = start;
         self
     }
+
+    pub fn delta_size(mut self, trans: Transition<f64>) -> Self {
+        self.system.delta_size = trans;
+        self
+    }
 }
+
 
 
 pub struct ParticleSystem {
@@ -379,7 +417,11 @@ pub struct ParticleSystem {
     start_max_age: StartParam<f64>,
     // Global state/update parameters
     acceleration: Vector2,
+
+    delta_size: Transition<f64>,
 }
+
+
 
 impl ParticleSystem {
     pub fn new(ctx: &mut Context) -> Self {
@@ -397,6 +439,8 @@ impl ParticleSystem {
             start_max_age: StartParam::Fixed(1.0),
             emission_rate: 1.0,
             residual_particle: 0.0,
+
+            delta_size: Transition::fixed(1.0),
         }
     }
 
@@ -441,10 +485,13 @@ impl ParticleSystem {
             self.emit_one()
         }
         for mut p in self.particles.iter_mut() {
+            let life_fraction = p.age / p.max_age;
             p.vel += self.acceleration * dt;
             p.pos += p.vel * dt;
             p.age += dt;
             p.angle += p.rotation;
+
+            p.size = self.delta_size.get(life_fraction);
         }
 
         self.particles.retain(|p| p.age < p.max_age);
@@ -469,36 +516,25 @@ impl graphics::Drawable for ParticleSystem {
         // Maybe we can make it an x and y scale?  Hmm.
         let dst_rect = dst.unwrap_or(graphics::Rect::new(0, 0, 0, 0));
         for p in self.particles.iter() {
-            let life_fraction = p.age / p.max_age;
-            let size = p.size.get_value(life_fraction);
+            //let size = p.size.get_value(life_fraction);
+            let size = p.size;
             let rect = graphics::Rect::new(dst_rect.x() + p.pos.x as i32,
                                            dst_rect.y() + p.pos.y as i32,
                                            size as u32,
                                            size as u32);
-            // BUGGO: AIEEEE this requires &mut self which the trait does not allow...
-            // Apparently casting an immutable reference to a mutable one is
-            // beyond unsafe, and into undefined, so they don't make it easy
-            // for you...
-            // Interior mutability?
             // Love2D HAD a ColorMode global setting for just this sort
             // of thing, that multiplied/whatever the current color against
             // all drawing (including images, I think), but they got rid
             // of it in 0.9.0 and I'm not sure why.
-            // ...or we could just make the trait take &mut self.
-            // unsafe {
-            //     let evil_mutable_self = &mut *(self as *const Self as *mut Self);
-
-            // }
             self.image.set_color_mod(p.color);
-            try!(self.image.draw_ex(context,
-                                    None,
-                                    Some(rect),
-                                    p.angle,
-                                    center,
-                                    flip_horizontal,
-                                    flip_vertical));
-            // graphics::set_color(context, p.color);
-            // graphics::rectangle(context, graphics::DrawMode::Fill, rect)?;
+            self.image.draw_ex(
+                context,
+                None,
+                Some(rect),
+                p.angle,
+                center,
+                flip_horizontal,
+                flip_vertical)?;
         }
         Ok(())
     }
