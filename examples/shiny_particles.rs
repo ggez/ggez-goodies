@@ -5,16 +5,13 @@
 extern crate ggez;
 extern crate rand;
 
-use std::path;
 
-use ggez::audio;
 use ggez::conf;
 use ggez::game::{Game, GameState};
 use ggez::{GameResult, Context};
 use ggez::graphics;
 use ggez::timer;
 use std::time::Duration;
-use std::ops::{Add, AddAssign, Sub};
 
 
 extern crate nalgebra as na;
@@ -31,7 +28,7 @@ const WINDOW_WIDTH: i32 = 640;
 const WINDOW_HEIGHT: i32 = 480;
 
 impl GameState for MainState {
-    fn load(ctx: &mut Context, conf: &conf::Conf) -> GameResult<Self> {
+    fn load(ctx: &mut Context, _conf: &conf::Conf) -> GameResult<Self> {
         let system = ParticleSystemBuilder::new(ctx)
             .count(50000)
             .acceleration(Vector2::new(0.0, 50.0))
