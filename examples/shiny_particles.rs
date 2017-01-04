@@ -15,6 +15,7 @@ use std::time::Duration;
 
 
 extern crate nalgebra as na;
+type Point2 = na::Point2<f64>;
 type Vector2 = na::Vector2<f64>;
 
 extern crate ggez_goodies;
@@ -38,11 +39,12 @@ impl GameState for MainState {
                                graphics::Color::RGB(255, 255, 255))
             .start_velocity_range(Vector2::new(-50.0, -200.0), Vector2::new(50.0, 0.0))
             .start_rotation_range(-10.0, 10.0)
-            .emission_rate(1000.0)
-            .delta_size(Transition::range(1.0, 10.0))
+            .emission_rate(100.0)
+            .delta_size(Transition::range(15.0, 5.0))
             .delta_color(Transition::range(ggez::graphics::Color::RGB(255, 0, 0),
-                ggez::graphics::Color::RGB(255, 255, 0),
-                ))
+                                           ggez::graphics::Color::RGB(255, 255, 0)))
+            //.emission_shape(EmissionShape::Circle(Point2::new(0.0, 0.0), 150.0))
+            .emission_shape(EmissionShape::Line(Point2::new(-100.0, -100.0), Point2::new(100.0, 100.0)))
             .build();
         let state = MainState { particles: system };
         graphics::set_background_color(ctx, ggez::graphics::Color::RGBA(0, 0, 0, 0));

@@ -10,7 +10,7 @@ use std::f64;
 
 
 use rand;
-use rand::{Rng};
+use rand::Rng;
 use na;
 use ggez::{GameResult, Context};
 use ggez::graphics;
@@ -125,7 +125,7 @@ impl Interpable for graphics::Color {
         let (r, g, b, a) = self.rgba();
         let (fr, fg, fb, fa) = (r as f64, g as f64, b as f64, a as f64);
         let (rr, rg, rb, ra) = (fr * t, fg * t, fb * t, fa * t);
-            graphics::Color::RGBA(rr as u8, rg as u8, rb as u8, ra as u8)
+        graphics::Color::RGBA(rr as u8, rg as u8, rb as u8, ra as u8)
     }
 
     fn interp_between(t: f64, v1: Self, v2: Self) -> Self {
@@ -173,9 +173,7 @@ impl<T: Interpable + Copy> Transition<T> {
     pub fn get(&self, t: f64) -> T {
         match *self {
             Transition::Fixed(value) => value,
-            Transition::Range(from, to) => {
-                T::interp_between(t, from, to)
-            }
+            Transition::Range(from, to) => T::interp_between(t, from, to),
         }
     }
 }
@@ -366,13 +364,18 @@ impl ParticleSystemBuilder {
         self.system.delta_color = trans;
         self
     }
+
+    pub fn emission_shape(mut self, shape: EmissionShape) -> Self {
+        self.system.start_shape = shape;
+        self
+    }
 }
 
-enum EmissionShape {
+pub enum EmissionShape {
     // Source point
     Point(Point2),
-    // m and b in the equation mx+b
-    Line(f64, f64),
+    // min and max bounds of the line segment.
+    Line(Point2, Point2),
     // Center point and radius
     Circle(Point2, f64),
 }
@@ -384,7 +387,50 @@ impl EmissionShape {
     fn get_random(&self) -> Point2 {
         match *self {
             EmissionShape::Point(v) => v,
-            EmissionShape::Line(m, b) => Point2::new(0.0, 0.0),
+            EmissionShape::Line(p1, p2) => {
+
+                let min_x = f64::min(p1.x, p2.x);
+                let max_x = f64::max(p1.x, p2.x);
+                let min_y = f64::min(p1.y, p2.y);
+                let max_y = f64::max(p1.y, p2.y);
+                let mut rng = rand::thread_rng();
+                let x: f64;
+                let y: f64;
+                if min_x == max_x {
+                    // Line is vertical
+                    x = min_x;
+                    y = rng.gen_range(min_y, max_y);
+                } else if min_y == max_y {
+                    // Line is horizontal
+                    y = max_y;
+                    x = rng.gen_range(min_x, max_x)
+                } else {
+                    // Line is sloped.
+                    let dy = max_y - min_y;
+                    let dx = max_x - min_x;
+                    let slope = dy / dx;
+                    x = rng.gen_range(min_x, max_x);
+                    y = (slope * (x - min_x)) + min_y;
+
+                }
+
+                // This is a bit sticky 'cause we have
+                // to find the min and max x and y that are
+                // within the given bounding box
+                // let x_bbox_ymin = x_from_y(min.y);
+                // let x_bbox_ymax = x_from_y(max.y);
+                // let x_min = f64::max(min.x, f64::min(x_bbox_ymin, x_bbox_ymax));
+                // let x_max = f64::min(max.x, f64::max(x_bbox_ymin, x_bbox_ymax));
+
+
+                // let y_bbox_xmin = y_from_x(min.x);
+                // let y_bbox_xmax = y_from_x(max.x);
+                // let y_min = f64::max(min.y, f64::min(y_bbox_xmin, y_bbox_xmax));
+                // let y_max = f64::min(max.y, f64::max(y_bbox_xmin, y_bbox_xmax));
+
+                Point2::new(x, y)
+
+            }
             EmissionShape::Circle(center, radius) => {
                 let mut rng = rand::thread_rng();
                 let theta = rng.gen_range(0.0, f64::consts::PI * 2.0);
@@ -470,7 +516,7 @@ impl ParticleSystem {
     }
 
     pub fn emit_one(&mut self) {
-        //let pos = self.start_position.get_value();
+        // let pos = self.start_position.get_value();
         let pos = self.start_shape.get_random();
         let vec = self.start_velocity.get_value();
         let col = self.start_color.get_value();
@@ -528,7 +574,7 @@ impl graphics::Drawable for ParticleSystem {
         // Maybe we can make it an x and y scale?  Hmm.
         let dst_rect = dst.unwrap_or(graphics::Rect::new(0, 0, 0, 0));
         for p in self.particles.iter() {
-            //let size = p.size.get_value(life_fraction);
+            // let size = p.size.get_value(life_fraction);
             let size = p.size;
             let rect = graphics::Rect::new(dst_rect.x() + p.pos.x as i32,
                                            dst_rect.y() + p.pos.y as i32,
@@ -539,14 +585,14 @@ impl graphics::Drawable for ParticleSystem {
             // all drawing (including images, I think), but they got rid
             // of it in 0.9.0 and I'm not sure why.
             self.image.set_color_mod(p.color);
-            self.image.draw_ex(
-                context,
-                None,
-                Some(rect),
-                p.angle,
-                center,
-                flip_horizontal,
-                flip_vertical)?;
+            self.image
+                .draw_ex(context,
+                         None,
+                         Some(rect),
+                         p.angle,
+                         center,
+                         flip_horizontal,
+                         flip_vertical)?;
         }
         Ok(())
     }
