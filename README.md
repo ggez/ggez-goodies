@@ -21,6 +21,7 @@ CURRENTLY this is massively unstable and is basically changing fluidly as I disc
 
 # Modules to create
 
+* Font renderer/cacher that creates a bitmap font from a TTF.
 * Sprites with ordering, animation, atlasing, tile mapping, 3x3 sprites... (look at https://docs.rs/piston2d-sprite/0.28.0/sprite/index.html)
 * GUI (conrod? imgui?)
 * Timers?  Coroutines?
