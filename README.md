@@ -21,7 +21,7 @@ CURRENTLY this is massively unstable and is basically changing fluidly as I disc
 
 # Modules to create
 
-* Sprites with ordering, animation, atlasing, tile mapping, 3x3 sprites... (look at https://docs.rs/piston2d-sprite/0.28.0/sprite/index.html)
+* Sprites with ordering, animation, atlasing, tile mapping, 3x3 sprites... (look at https://docs.rs/piston2d-sprite/0.28.0/sprite/index.html) (also look at XNA's sprite system, FNA's implementation of such)
 * GUI (conrod? imgui?)
 * Timers?  Coroutines?
 * In-game debugger...
