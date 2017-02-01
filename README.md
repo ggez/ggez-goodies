@@ -35,6 +35,7 @@ CURRENTLY this is massively unstable and is basically changing fluidly as I disc
 * https://github.com/rsaarelm/calx
 * https://github.com/Gekkio/imgui-rs
 * https://github.com/BourgondAries/TileNet
+* There's a couple crates for loading Tiled maps, check 'em out
 
 # Random thoughts
 
