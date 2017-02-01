@@ -119,6 +119,7 @@ impl Interpable for f64 {
 }
 
 
+// This function is broken; see ggj2017 code for fix.  :/
 impl Interpable for graphics::Color {
     fn interp(&self, t: f64) -> Self {
         //*self * t
