@@ -2,10 +2,10 @@
 //! Currently ggez has no actual global camera state to use,
 //! so this really just does the coordinate transforms for you.
 //!
-//! Basically it translates ggez's integer-valued coordinate
-//! system with the origin at the top-left and Y increasing
-//! downward, to a float-valued coordinate system with the
-//! origin at the center of the screen and Y increasing upward.
+//! Basically it translates ggez's coordinate system with the origin
+//! at the top-left and Y increasing downward to a coordinate system
+//! with the origin at the center of the screen and Y increasing
+//! upward.
 //!
 //! Because that makes sense, darn it.
 //!
@@ -20,7 +20,7 @@ use ggez;
 use ggez::GameResult;
 use ggez::graphics;
 use na;
-use super::Vector2;
+use Vector2;
 
 // Hmm.  Could, instead, use a 2d transformation
 // matrix, or create one of such.
@@ -142,7 +142,7 @@ impl<T> CameraDraw for T where T: graphics::Drawable {}
 
 #[cfg(test)]
 mod tests {
-    use super::super::Vector2;
+    use Vector2;
     use super::*;
 
     #[test]
