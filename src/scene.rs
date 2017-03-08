@@ -14,24 +14,30 @@ pub trait SavedScene {
     fn name(&self) -> &str;
 }
 
+// Perhaps next_scene() should really return a command
+// to manipulate the scene state?
+// It would be nicer to do this via a callback maybe but
+// that's quite Hard since the SceneManager owns the
+// current Scene.
+//
+// But I could certainly imagine it returning:
+// Nothing, Push(NewScene), Pop, Switch(NewScene)
 pub trait Scene: EventHandler {
     fn unload(&mut self) -> Box<SavedScene>;
+    fn next_scene(&self) -> Option<String>;
 }
 
 /// A SceneManager is a GameState that handles Scene's
 /// and switches from one to another when requested.
-///
-/// The stuff you would normally store in your GameState
-/// type should go into the T type.
-pub struct SceneManager<T> {
+pub struct SceneManager {
     states: BTreeMap<String, Box<SavedScene>>,
-    pub game_data: T,
+    //pub game_data: T,
     current: Box<Scene>,
     next_scene: Option<String>,
 }
 
 
-impl<T> EventHandler for SceneManager<T>
+impl EventHandler for SceneManager
 {
     fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
         // TODO: Get rid of this hacky clone!
@@ -39,6 +45,7 @@ impl<T> EventHandler for SceneManager<T>
             self.switch_scene(&scene_name)?;
         }
         self.current.update(ctx, dt)?;
+        self.next_scene = self.current.next_scene();
         Ok(())
     }
 
@@ -92,9 +99,9 @@ impl<T> EventHandler for SceneManager<T>
     }
 }
 
-impl<T> SceneManager<T> {
+impl SceneManager {
     /// This lets us create a SceneManager by providing the data for it.
-    fn new(starting_scene_state: Box<SavedScene>, game_data: T) -> Self {
+    fn new<T>(starting_scene_state: Box<SavedScene>, game_data: T) -> Self {
         let starting_scene = starting_scene_state.load();
         let mut scenes: BTreeMap<String, Box<SavedScene>> = BTreeMap::new();
         scenes.insert(starting_scene_state.name().to_string(),
@@ -103,7 +110,6 @@ impl<T> SceneManager<T> {
             states: scenes,
             current: starting_scene,
             next_scene: None,
-            game_data: game_data,
         };
         sm
     }
@@ -187,6 +193,10 @@ mod tests {
     impl Scene for TestScene {
         fn unload(&mut self) -> Box<SavedScene> {
             Box::new(self.0.clone())
+        }
+        
+        fn next_scene(&self) -> Option<String> {
+            None
         }
     }
 
