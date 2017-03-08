@@ -22,22 +22,22 @@ use ggez_goodies::camera::*;
 struct MainState {
     camera: Camera,
     image: graphics::Image,
-    image_location: Vector2,
+    image_location: graphics::Point,
 }
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
         let camera = Camera::new(WINDOW_WIDTH, WINDOW_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT);
-        
+
         println!("Camera test instructions; WASD move the object, arrow keys move the camera.");
         println!("The red dots are drawn on every integer point in the camera's coordinate \
                   system.");
-        let image = graphics::Image::new(ctx, "tile.png")?;
+        let image = graphics::Image::new(ctx, "player.png")?;
         graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
         let state = MainState {
             camera: camera,
             image: image,
-            image_location: na::zero(),
+            image_location: graphics::Point::zero(),
         };
         Ok(state)
     }
@@ -69,17 +69,14 @@ impl event::EventHandler for MainState {
             }
         }
         self.image
-            .draw_camera(&self.camera, self.image_location, ctx, None, (64, 64))?;
+            .draw_camera(&self.camera, ctx, self.image_location, 0.0)?;
         graphics::present(ctx);
         timer::sleep_until_next_frame(ctx, 60);
         Ok(())
     }
 
 
-    fn key_down_event(&mut self,
-                      keycode: event::Keycode,
-                      _keymod: event::Mod,
-                      _repeat: bool) {
+    fn key_down_event(&mut self, keycode: event::Keycode, _keymod: event::Mod, _repeat: bool) {
         match keycode {
             event::Keycode::W => {
                 self.image_location.y += 0.1;
@@ -87,23 +84,22 @@ impl event::EventHandler for MainState {
             event::Keycode::A => {
                 self.image_location.x -= 0.1;
             }
-                event::Keycode::S => {
-                    self.image_location.y -= 0.1;
-                }
+            event::Keycode::S => {
+                self.image_location.y -= 0.1;
+            }
             event::Keycode::D => {
                 self.image_location.x += 0.1;
             }
             event::Keycode::Up => self.camera.move_by(Vector2::new(0.0, 0.1)),
             event::Keycode::Left => self.camera.move_by(Vector2::new(-0.1, 0.0)),
-                event::Keycode::Down => self.camera.move_by(Vector2::new(0.0, -0.1)),
+            event::Keycode::Down => self.camera.move_by(Vector2::new(0.0, -0.1)),
             event::Keycode::Right => self.camera.move_by(Vector2::new(0.1, 0.0)),
             _ => (),
         };
-        println!("Camera position is now {}, object position is {}",
+        println!("Camera position is now {}, object position is {:?}",
                  self.camera.location(),
                  self.image_location);
     }
-    
 }
 
 pub fn main() {
@@ -113,7 +109,7 @@ pub fn main() {
     c.window_height = WINDOW_HEIGHT as u32;
     let ctx = &mut Context::load_from_conf("camera_test", c).unwrap();
     let game = &mut MainState::new(ctx).unwrap();
-    
+
     if let Err(e) = event::run(ctx, game) {
         println!("Error encountered: {}", e);
     } else {

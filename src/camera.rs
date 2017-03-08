@@ -90,50 +90,36 @@ impl Camera {
         self.view_center
     }
 
-    fn calculate_dest_rect(&self, location: Vector2, dst_size: (f32, f32)) -> graphics::Rect {
+    fn calculate_dest_point(&self, location: Vector2) -> graphics::Point {
         let (sx, sy) = self.world_to_screen_coords(location);
-        let (sw, sh) = dst_size;
-        graphics::Rect::new(sx as f32, sy as f32, sw as f32, sh as f32)
+        graphics::Point::new(sx as f32, sy as f32)
     }
 }
 
 pub trait CameraDraw
     where Self: graphics::Drawable
 {
-    fn draw_ex_camera(&mut self,
+    fn draw_ex_camera(&self,
                       camera: &Camera,
-                      location: Vector2,
-                      context: &mut ggez::Context,
-                      src: Option<graphics::Rect>,
-                      dst_size: (f32, f32),
-                      angle: f64,
-                      center: Option<graphics::Point>,
-                      flip_horizontal: bool,
-                      flip_vertical: bool)
+                      ctx: &mut ggez::Context,
+                      p: ggez::graphics::DrawParam)
                       -> GameResult<()> {
-        // let dest_rect = camera.calculate_dest_rect(location, dst_size);
-        // self.draw_ex(context,
-        //              src,
-        //              Some(dest_rect),
-        //              angle,
-        //              center,
-        //              flip_horizontal,
-        //              flip_vertical)
-        Ok(())
+        let dest = Vector2::new(p.dest.x as f64, p.dest.y as f64);
+        let dest = camera.calculate_dest_point(dest);
+        let mut my_p = p;
+        my_p.dest = dest;
+        self.draw_ex(ctx, my_p)
     }
 
-
-    fn draw_camera(&mut self,
+    fn draw_camera(&self,
                    camera: &Camera,
-                   location: Vector2,
-                   context: &mut ggez::Context,
-                   src: Option<graphics::Rect>,
-                   dst_size: (u32, u32))
+                   ctx: &mut ggez::Context,
+                   dest: ggez::graphics::Point,
+                   rotation: f32)
                    -> GameResult<()> {
-
-        //let dest_rect = camera.calculate_dest_rect(location, dst_size);
-        //self.draw(context, src, Some(dest_rect))
-        Ok(())
+        let dest = Vector2::new(dest.x as f64, dest.y as f64);
+        let dest = camera.calculate_dest_point(dest);
+        self.draw(ctx, dest, rotation)
     }
 }
 
