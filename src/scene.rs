@@ -18,37 +18,14 @@ pub trait Scene: EventHandler {
     fn unload(&mut self) -> Box<SavedScene>;
 }
 
-/// The GameData trait just provides
-/// a method to create a new object of type T, instantiating
-/// your global game data.
-///
-/// It also provides a method that is called to generate
-/// the first scene of your game.
-pub trait GameData
-    where Self: Sized
-{
-    fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self>;
-    fn starting_scene() -> Box<SavedScene>;
-}
-
-pub struct SceneStore<T> {
-    states: BTreeMap<String, Box<SavedScene>>,
-    pub game_data: T,
-}
-
-impl<T> SceneStore<T> {
-    pub fn add<S: SavedScene + 'static>(&mut self, scene_state: S) {
-        self.states.insert(scene_state.name().to_string(), Box::new(scene_state));
-    }
-}
-
 /// A SceneManager is a GameState that handles Scene's
 /// and switches from one to another when requested.
 ///
 /// The stuff you would normally store in your GameState
-/// type should implement GameData and go into the T type.
+/// type should go into the T type.
 pub struct SceneManager<T> {
-    store: SceneStore<T>,
+    states: BTreeMap<String, Box<SavedScene>>,
+    pub game_data: T,
     current: Box<Scene>,
     next_scene: Option<String>,
 }
@@ -116,26 +93,26 @@ impl<T> EventHandler for SceneManager<T>
 }
 
 impl<T> SceneManager<T> {
-    /// This lets us create a SceneManager by providing the data for it,
-    /// instead of having it implicitly created via the GameData trait.
+    /// This lets us create a SceneManager by providing the data for it.
     fn new(starting_scene_state: Box<SavedScene>, game_data: T) -> Self {
         let starting_scene = starting_scene_state.load();
         let mut scenes: BTreeMap<String, Box<SavedScene>> = BTreeMap::new();
         scenes.insert(starting_scene_state.name().to_string(),
                       starting_scene_state);
-        let store = SceneStore {
-            states: scenes,
-
-            game_data: game_data,
-        };
         let sm = SceneManager {
+            states: scenes,
             current: starting_scene,
-            store: store,
             next_scene: None,
+            game_data: game_data,
         };
         sm
     }
 
+    pub fn add<S: SavedScene + 'static>(&mut self, scene_state: S) {
+        self.states.insert(scene_state.name().to_string(), Box::new(scene_state));
+    }
+
+    
     pub fn current(&self) -> &Scene {
         &*self.current
     }
@@ -148,9 +125,9 @@ impl<T> SceneManager<T> {
         // Save current scene
         let old_scene_state = self.current.unload();
         let old_scene_name = old_scene_state.name().to_string();
-        self.store.states.insert(old_scene_name, old_scene_state);
+        self.states.insert(old_scene_name, old_scene_state);
         // Then load the new one.
-        if let Some(scene_state) = self.store.states.get_mut(scene_name) {
+        if let Some(scene_state) = self.states.get_mut(scene_name) {
             let new_scene = scene_state.load();
             self.current = new_scene;
             Ok(())
@@ -171,7 +148,7 @@ mod tests {
 
     use std::time::Duration;
 
-    use super::{Scene, SavedScene, SceneManager, SceneStore};
+    use super::{Scene, SavedScene, SceneManager};
 
     #[derive(Clone, Debug)]
     struct TestSavedScene {
@@ -224,7 +201,7 @@ mod tests {
             value: 23,
         };
         let mut sm = SceneManager::new(Box::new(default_scene), ());
-        sm.store.add(new_scene);
+        sm.add(new_scene);
 
         {
             let s = sm.current_mut().unload();
