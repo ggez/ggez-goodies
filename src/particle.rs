@@ -71,12 +71,12 @@ impl StartParam<graphics::Color> {
             StartParam::Fixed(x) => x,
             StartParam::UniformRange(low, high) => {
                 let mut rng = rand::thread_rng();
-                let (lowr, lowg, lowb) = low.rgb();
-                let (hir, hig, hib) = high.rgb();
+                let (lowr, lowg, lowb) = low.into();
+                let (hir, hig, hib) = high.into();
                 let r = rng.gen_range(lowr, hir);
                 let g = rng.gen_range(lowg, hig);
                 let b = rng.gen_range(lowb, hib);
-                graphics::Color::RGB(r, g, b)
+                (r, g, b).into()
             }
         }
     }
@@ -123,18 +123,18 @@ impl Interpable for f64 {
 impl Interpable for graphics::Color {
     fn interp(&self, t: f64) -> Self {
         //*self * t
-        let (r, g, b, a) = self.rgba();
+        let (r, g, b, a): (u8, u8, u8, u8) = (*self).into();
         let (fr, fg, fb, fa) = (r as f64, g as f64, b as f64, a as f64);
         let (rr, rg, rb, ra) = (fr * t, fg * t, fb * t, fa * t);
-        graphics::Color::RGBA(rr as u8, rg as u8, rb as u8, ra as u8)
+        (rr as u8, rg as u8, rb as u8, ra as u8).into()
     }
 
     fn interp_between(t: f64, v1: Self, v2: Self) -> Self {
 
-        let (r1, g1, b1, a1) = v1.rgba();
+        let (r1, g1, b1, a1) = v1.into();
         let (fr1, fg1, fb1, fa1) = (r1 as f64, g1 as f64, b1 as f64, a1 as f64);
 
-        let (r2, g2, b2, a2) = v2.rgba();
+        let (r2, g2, b2, a2) = v2.into();
 
         let dr = (r2 - r1) as f64;
         let dg = (g2 - g1) as f64;
@@ -142,7 +142,7 @@ impl Interpable for graphics::Color {
         let da = (a2 - a1) as f64;
 
         let (rr, rg, rb, ra) = (fr1 + dr * t, fg1 + dg * t, fb1 + db * t, fa1 + da * t);
-        graphics::Color::RGBA(rr as u8, rg as u8, rb as u8, ra as u8)
+        (rr as u8, rg as u8, rb as u8, ra as u8).into()
     }
 }
 
@@ -485,7 +485,7 @@ impl ParticleSystem {
             max_particles: 0,
             image: ParticleSystem::make_image(ctx, 5),
             acceleration: Vector2::new(0.0, 0.0),
-            start_color: StartParam::Fixed(graphics::Color::RGB(255, 255, 255)),
+            start_color: StartParam::Fixed((255, 255, 255).into()),
             start_position: StartParam::Fixed(Point2::new(0.0, 0.0)),
             start_shape: EmissionShape::Point(Point2::new(0.0, 0.0)),
             start_velocity: StartParam::Fixed(Vector2::new(1.0, 1.0)),
@@ -497,7 +497,7 @@ impl ParticleSystem {
             residual_particle: 0.0,
 
             delta_size: Transition::fixed(1.0),
-            delta_color: Transition::fixed(graphics::Color::RGB(255, 255, 255)),
+            delta_color: Transition::fixed((255, 255, 255).into()),
         }
     }
 
@@ -508,8 +508,8 @@ impl ParticleSystem {
     /// raw data...
     /// ...in fact, we need the Renderer to even *attempt* to do such a thing.
     /// Bah!
-    fn make_image(ctx: &mut Context, size: u32) -> graphics::Image {
-        graphics::Image::solid(ctx, size, graphics::Color::RGBA(255, 255, 255, 255)).unwrap()
+    fn make_image(ctx: &mut Context, size: u16) -> graphics::Image {
+        graphics::Image::solid(ctx, size, graphics::Color::from((255, 255, 255, 255))).unwrap()
     }
 
     pub fn count(&self) -> usize {
@@ -558,14 +558,9 @@ impl ParticleSystem {
 }
 
 impl graphics::Drawable for ParticleSystem {
-    fn draw_ex(&mut self,
+    fn draw_ex(&self,
                context: &mut Context,
-               _src: Option<graphics::Rect>,
-               dst: Option<graphics::Rect>,
-               _angle: f64,
-               center: Option<graphics::Point>,
-               flip_horizontal: bool,
-               flip_vertical: bool)
+               param: graphics::DrawParam)
                -> GameResult<()> {
         // BUGGO: Width and height here should be the max bounds of the
         // particle system...?
@@ -573,28 +568,24 @@ impl graphics::Drawable for ParticleSystem {
         // finding the bounds of all particles on every tick, which is
         // expensive(ish).
         // Maybe we can make it an x and y scale?  Hmm.
-        let dst_rect = dst.unwrap_or(graphics::Rect::new(0, 0, 0, 0));
-        for p in self.particles.iter() {
-            // let size = p.size.get_value(life_fraction);
-            let size = p.size;
-            let rect = graphics::Rect::new(dst_rect.x() + p.pos.x as i32,
-                                           dst_rect.y() + p.pos.y as i32,
-                                           size as u32,
-                                           size as u32);
-            // Love2D HAD a ColorMode global setting for just this sort
-            // of thing, that multiplied/whatever the current color against
-            // all drawing (including images, I think), but they got rid
-            // of it in 0.9.0 and I'm not sure why.
-            self.image.set_color_mod(p.color);
-            self.image
-                .draw_ex(context,
-                         None,
-                         Some(rect),
-                         p.angle,
-                         center,
-                         flip_horizontal,
-                         flip_vertical)?;
-        }
+        // let dst_rect = dst.unwrap_or(graphics::Rect::new(0, 0, 0, 0));
+        // for p in self.particles.iter() {
+        //     // let size = p.size.get_value(life_fraction);
+        //     let size = p.size;
+        //     let rect = graphics::Rect::new(dst_rect.x() + p.pos.x,
+        //                                    dst_rect.y() + p.pos.y,
+        //                                    size,
+        //                                    size as u32);
+        //     graphics::draw(&self.image, 
+        //     self.image
+        //         .draw_ex(context,
+        //                  None,
+        //                  Some(rect),
+        //                  p.angle,
+        //                  center,
+        //                  flip_horizontal,
+        //                  flip_vertical)?;
+        // }
         Ok(())
     }
 }

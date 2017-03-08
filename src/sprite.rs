@@ -37,7 +37,7 @@ impl Atlas {
         }
     }
     fn get_source(&self, index: u32) -> ggez::GameResult<Rect> {
-        Ok(Rect::new(0, 0, self.tile_width, self.tile_height))
+        Ok(Rect::new(0.0, 0.0, self.tile_width as f32, self.tile_height as f32))
     }
 }
 
@@ -47,14 +47,9 @@ pub struct Sprite<'a> {
 }
 
 impl<'a> graphics::Drawable for Sprite<'a> {
-    fn draw_ex(&mut self,
+    fn draw_ex(&self,
                context: &mut ggez::Context,
-               src: Option<graphics::Rect>,
-               dst: Option<graphics::Rect>,
-               angle: f64,
-               center: Option<graphics::Point>,
-               flip_horizontal: bool,
-               flip_vertical: bool)
+               param: graphics::DrawParam)
                -> ggez::GameResult<()> {
         Ok(())
     }
@@ -66,8 +61,8 @@ impl<'a> Sprite<'a> {
             context: &mut ggez::Context,
             location: graphics::Point)
             -> ggez::GameResult<()> {
-        let source = try!(self.atlas.get_source(self.index));
-        let dest = Rect::new(location.x(), location.y(), source.width(), source.height());
+        let source = self.atlas.get_source(self.index)?;
+        let dest = Rect::new(location.x, location.y, source.w, source.h);
         // grr why does this not work with the mutable Drawable
         // self.atlas.source.draw(context, Some(source), Some(dest))
         Ok(())
@@ -148,23 +143,12 @@ impl<T: Drawable> LayerManager<T> {
 }
 
 impl<T: Drawable> Drawable for LayerManager<T> {
-    fn draw_ex(&mut self,
+    fn draw_ex(&self,
                context: &mut ggez::Context,
-               src: Option<graphics::Rect>,
-               dst: Option<graphics::Rect>,
-               angle: f64,
-               center: Option<graphics::Point>,
-               flip_horizontal: bool,
-               flip_vertical: bool)
+               param: graphics::DrawParam)
                -> ggez::GameResult<()> {
-        for (_key, item) in self.layers.iter_mut() {
-            item.draw_ex(context,
-                         src,
-                         dst,
-                         angle,
-                         center,
-                         flip_horizontal,
-                         flip_vertical)?;
+        for (_key, item) in self.layers.iter() {
+            graphics::draw_ex(context, item, param)?;
         }
         Ok(())
     }

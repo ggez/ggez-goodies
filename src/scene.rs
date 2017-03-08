@@ -3,7 +3,7 @@ use ggez;
 use ggez::GameResult;
 use ggez::conf;
 use ggez::event;
-use ggez::game::GameState;
+use ggez::event::EventHandler;
 
 use std::collections::BTreeMap;
 use std::time::Duration;
@@ -14,61 +14,61 @@ pub trait SavedScene<T> {
     fn name(&self) -> &str;
 }
 
-pub trait Scene<T> {
+pub trait Scene<T>: EventHandler {
     fn unload(&mut self) -> Box<SavedScene<T>>;
 
-    /// Called upon each physics update to the game.
-    /// This should be where the game's logic takes place.
-    fn update(&mut self,
-              ctx: &mut ggez::Context,
-              dt: Duration,
-              scenes: &mut SceneStore<T>)
-              -> GameResult<Option<String>>;
+    // /// Called upon each physics update to the game.
+    // /// This should be where the game's logic takes place.
+    // fn update(&mut self,
+    //           ctx: &mut ggez::Context,
+    //           dt: Duration,
+    //           scenes: &mut SceneStore<T>)
+    //           -> GameResult<Option<String>>;
 
-    /// Called to do the drawing of your game.
-    /// You probably want to start this with
-    /// `graphics::clear()` and end it with
-    /// `graphics::present()` and `timer::sleep_until_next_frame()`
-    fn draw(&mut self, ctx: &mut ggez::Context, scenes: &mut SceneStore<T>) -> GameResult<()>;
+    // /// Called to do the drawing of your game.
+    // /// You probably want to start this with
+    // /// `graphics::clear()` and end it with
+    // /// `graphics::present()` and `timer::sleep_until_next_frame()`
+    // fn draw(&mut self, ctx: &mut ggez::Context, scenes: &mut SceneStore<T>) -> GameResult<()>;
 
-    // You don't have to override these if you don't want to; the defaults
-    // do nothing.
-    // It might be nice to be able to have custom event types and a map or
-    // such of handlers?  Hmm, maybe later.
-    fn mouse_button_down_event(&mut self, _button: event::MouseButton, _x: i32, _y: i32) {}
+    // // You don't have to override these if you don't want to; the defaults
+    // // do nothing.
+    // // It might be nice to be able to have custom event types and a map or
+    // // such of handlers?  Hmm, maybe later.
+    // fn mouse_button_down_event(&mut self, _button: event::MouseButton, _x: i32, _y: i32) {}
 
-    fn mouse_button_up_event(&mut self, _button: event::MouseButton, _x: i32, _y: i32) {}
+    // fn mouse_button_up_event(&mut self, _button: event::MouseButton, _x: i32, _y: i32) {}
 
-    fn mouse_motion_event(&mut self,
-                          _state: event::MouseState,
-                          _x: i32,
-                          _y: i32,
-                          _xrel: i32,
-                          _yrel: i32) {
-    }
+    // fn mouse_motion_event(&mut self,
+    //                       _state: event::MouseState,
+    //                       _x: i32,
+    //                       _y: i32,
+    //                       _xrel: i32,
+    //                       _yrel: i32) {
+    // }
 
-    fn mouse_wheel_event(&mut self, _x: i32, _y: i32) {}
+    // fn mouse_wheel_event(&mut self, _x: i32, _y: i32) {}
 
-    fn key_down_event(&mut self,
-                      _keycode: Option<event::Keycode>,
-                      _keymod: event::Mod,
-                      _repeat: bool) {
-    }
+    // fn key_down_event(&mut self,
+    //                   _keycode: event::Keycode,
+    //                   _keymod: event::Mod,
+    //                   _repeat: bool) {
+    // }
 
-    fn key_up_event(&mut self,
-                    _keycode: Option<event::Keycode>,
-                    _keymod: event::Mod,
-                    _repeat: bool) {
-    }
+    // fn key_up_event(&mut self,
+    //                 _keycode: event::Keycode,
+    //                 _keymod: event::Mod,
+    //                 _repeat: bool) {
+    // }
 
-    fn focus_event(&mut self, _gained: bool) {}
+    // fn focus_event(&mut self, _gained: bool) {}
 
-    /// Called upon a quit event.  If it returns true,
-    /// the game does not exit.
-    fn quit_event(&mut self) -> bool {
-        println!("Quitting game");
-        false
-    }
+    // /// Called upon a quit event.  If it returns true,
+    // /// the game does not exit.
+    // fn quit_event(&mut self) -> bool {
+    //     println!("Quitting game");
+    //     false
+    // }
 }
 
 /// The GameData trait just provides
@@ -106,27 +106,21 @@ pub struct SceneManager<T> {
     next_scene: Option<String>,
 }
 
-impl<T> GameState for SceneManager<T>
+
+impl<T> EventHandler for SceneManager<T>
     where T: GameData<T>
 {
-    fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self> {
-        let starting_scene_state = T::starting_scene();
-        let game_data = T::load(ctx, conf)?;
-
-        Ok(Self::new(starting_scene_state, game_data))
-    }
-
     fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
         // TODO: Get rid of this hacky clone!
         if let Some(ref scene_name) = self.next_scene.clone() {
             self.switch_scene(&scene_name)?;
         }
-        self.next_scene = self.current.update(ctx, dt, &mut self.store)?;
+        self.next_scene = self.current.update(ctx, dt)?;
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult<()> {
-        self.current.draw(ctx, &mut self.store)
+        self.current.draw(ctx)
     }
 
     fn mouse_button_down_event(&mut self, button: event::MouseButton, x: i32, y: i32) {
@@ -151,14 +145,14 @@ impl<T> GameState for SceneManager<T>
     }
 
     fn key_down_event(&mut self,
-                      _keycode: Option<event::Keycode>,
+                      _keycode: event::Keycode,
                       _keymod: event::Mod,
                       _repeat: bool) {
         self.current.key_down_event(_keycode, _keymod, _repeat)
     }
 
     fn key_up_event(&mut self,
-                    _keycode: Option<event::Keycode>,
+                    _keycode: event::Keycode,
                     _keymod: event::Mod,
                     _repeat: bool) {
         self.current.key_up_event(_keycode, _keymod, _repeat)
@@ -217,7 +211,7 @@ impl<T> SceneManager<T> {
         } else {
             let msg = format!("SceneManager: Asked to load scene {} but it did not exist?",
                               scene_name);
-            Err(ggez::GameError::ResourceNotFound(msg))
+            Err(ggez::GameError::ResourceNotFound(msg, vec![]))
         }
     }
 }
@@ -227,7 +221,7 @@ mod tests {
 
     use ggez;
     use ggez::GameResult;
-    use ggez::game::GameState;
+    use ggez::event::EventHandler;
 
     use std::time::Duration;
 
@@ -259,15 +253,13 @@ mod tests {
 
         fn update(&mut self,
                   _ctx: &mut ggez::Context,
-                  _dt: Duration,
-                  _scenes: &mut SceneStore<()>)
+                  _dt: Duration)
                   -> GameResult<Option<String>> {
             Ok(None)
         }
 
         fn draw(&mut self,
-                _ctx: &mut ggez::Context,
-                _scenes: &mut SceneStore<()>)
+                _ctx: &mut ggez::Context)
                 -> GameResult<()> {
             Ok(())
         }

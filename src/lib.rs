@@ -8,7 +8,7 @@ pub mod asset;
 pub mod camera;
 pub mod input;
 pub mod particle;
-pub mod scene;
+//pub mod scene;
 pub mod sprite;
 pub mod sprite_loader;
 

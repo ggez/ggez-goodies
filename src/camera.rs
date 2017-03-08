@@ -33,7 +33,7 @@ pub struct Camera {
 impl Camera {
     pub fn new(screen_width: u32, screen_height: u32, view_width: f64, view_height: f64) -> Self {
         let screen_size = Vector2::new(screen_width as f64, screen_height as f64);
-        let view_size = Vector2::new(view_width, view_height);
+        let view_size = Vector2::new(view_width as f64, view_height as f64);
         Camera {
             screen_size: screen_size,
             view_size: view_size,
@@ -90,10 +90,10 @@ impl Camera {
         self.view_center
     }
 
-    fn calculate_dest_rect(&self, location: Vector2, dst_size: (u32, u32)) -> graphics::Rect {
+    fn calculate_dest_rect(&self, location: Vector2, dst_size: (f32, f32)) -> graphics::Rect {
         let (sx, sy) = self.world_to_screen_coords(location);
         let (sw, sh) = dst_size;
-        graphics::Rect::new(sx, sy, sw, sh)
+        graphics::Rect::new(sx as f32, sy as f32, sw as f32, sh as f32)
     }
 }
 
@@ -105,20 +105,21 @@ pub trait CameraDraw
                       location: Vector2,
                       context: &mut ggez::Context,
                       src: Option<graphics::Rect>,
-                      dst_size: (u32, u32),
+                      dst_size: (f32, f32),
                       angle: f64,
                       center: Option<graphics::Point>,
                       flip_horizontal: bool,
                       flip_vertical: bool)
                       -> GameResult<()> {
-        let dest_rect = camera.calculate_dest_rect(location, dst_size);
-        self.draw_ex(context,
-                     src,
-                     Some(dest_rect),
-                     angle,
-                     center,
-                     flip_horizontal,
-                     flip_vertical)
+        // let dest_rect = camera.calculate_dest_rect(location, dst_size);
+        // self.draw_ex(context,
+        //              src,
+        //              Some(dest_rect),
+        //              angle,
+        //              center,
+        //              flip_horizontal,
+        //              flip_vertical)
+        Ok(())
     }
 
 
@@ -130,8 +131,9 @@ pub trait CameraDraw
                    dst_size: (u32, u32))
                    -> GameResult<()> {
 
-        let dest_rect = camera.calculate_dest_rect(location, dst_size);
-        self.draw(context, src, Some(dest_rect))
+        //let dest_rect = camera.calculate_dest_rect(location, dst_size);
+        //self.draw(context, src, Some(dest_rect))
+        Ok(())
     }
 }
 

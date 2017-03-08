@@ -175,7 +175,7 @@ impl<K, V> AssetCache<K, V>
             Ok(val.clone())
         } else {
             let errmsg = format!("Tried to get asset {:?} but it was not preloaded!", key);
-            let err = GameError::ResourceNotFound(errmsg);
+            let err = GameError::ResourceNotFound(errmsg, vec![]);
             Err(err)
 
         }
@@ -186,7 +186,7 @@ impl<K, V> AssetCache<K, V>
             Ok(val)
         } else {
             let errmsg = format!("Tried to get asset {:?} but it was not preloaded!", key);
-            let err = GameError::ResourceNotFound(errmsg);
+            let err = GameError::ResourceNotFound(errmsg, vec![]);
             Err(err)
 
         }
@@ -195,8 +195,8 @@ impl<K, V> AssetCache<K, V>
 
 
 
-impl<'a, K: AsRef<Path>> StateLoadable<K, GameError, ggez::Context<'a>> for ggez::graphics::Image {
-    fn load_state(key: &K, ctx: &mut Context<'a>) -> GameResult<Self> {
+impl<K: AsRef<Path>> StateLoadable<K, GameError, ggez::Context> for ggez::graphics::Image {
+    fn load_state(key: &K, ctx: &mut Context) -> GameResult<Self> {
         graphics::Image::new(ctx, key)
     }
 }
