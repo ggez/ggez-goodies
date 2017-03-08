@@ -2,12 +2,12 @@ extern crate ggez;
 extern crate ggez_goodies;
 use ggez::conf;
 use ggez::event;
-use ggez::game::Game;
 use ggez::GameResult;
 use ggez::graphics;
 use ggez::timer;
 use std::time::Duration;
 
+/*
 use ggez_goodies::scene::*;
 
 struct MainState {
@@ -169,13 +169,14 @@ impl Scene<MainState> for Scene1 {
         }
     }
 }
-
+*/
 pub fn main() {
     let c = conf::Conf::new();
-    let mut game: Game<SceneManager<MainState>> = Game::new("scenetest", c).unwrap();
+    /*let mut game: Game<SceneManager<MainState>> = Game::new("scenetest", c).unwrap();
     if let Err(e) = game.run() {
         println!("Error encountered: {:?}", e);
     } else {
         println!("Game exited cleanly.");
     }
+*/
 }
