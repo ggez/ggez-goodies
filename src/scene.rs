@@ -9,66 +9,13 @@ use std::collections::BTreeMap;
 use std::time::Duration;
 
 
-pub trait SavedScene<T> {
-    fn load(&self) -> Box<Scene<T>>;
+pub trait SavedScene {
+    fn load(&self) -> Box<Scene>;
     fn name(&self) -> &str;
 }
 
-pub trait Scene<T>: EventHandler {
-    fn unload(&mut self) -> Box<SavedScene<T>>;
-
-    // /// Called upon each physics update to the game.
-    // /// This should be where the game's logic takes place.
-    // fn update(&mut self,
-    //           ctx: &mut ggez::Context,
-    //           dt: Duration,
-    //           scenes: &mut SceneStore<T>)
-    //           -> GameResult<Option<String>>;
-
-    // /// Called to do the drawing of your game.
-    // /// You probably want to start this with
-    // /// `graphics::clear()` and end it with
-    // /// `graphics::present()` and `timer::sleep_until_next_frame()`
-    // fn draw(&mut self, ctx: &mut ggez::Context, scenes: &mut SceneStore<T>) -> GameResult<()>;
-
-    // // You don't have to override these if you don't want to; the defaults
-    // // do nothing.
-    // // It might be nice to be able to have custom event types and a map or
-    // // such of handlers?  Hmm, maybe later.
-    // fn mouse_button_down_event(&mut self, _button: event::MouseButton, _x: i32, _y: i32) {}
-
-    // fn mouse_button_up_event(&mut self, _button: event::MouseButton, _x: i32, _y: i32) {}
-
-    // fn mouse_motion_event(&mut self,
-    //                       _state: event::MouseState,
-    //                       _x: i32,
-    //                       _y: i32,
-    //                       _xrel: i32,
-    //                       _yrel: i32) {
-    // }
-
-    // fn mouse_wheel_event(&mut self, _x: i32, _y: i32) {}
-
-    // fn key_down_event(&mut self,
-    //                   _keycode: event::Keycode,
-    //                   _keymod: event::Mod,
-    //                   _repeat: bool) {
-    // }
-
-    // fn key_up_event(&mut self,
-    //                 _keycode: event::Keycode,
-    //                 _keymod: event::Mod,
-    //                 _repeat: bool) {
-    // }
-
-    // fn focus_event(&mut self, _gained: bool) {}
-
-    // /// Called upon a quit event.  If it returns true,
-    // /// the game does not exit.
-    // fn quit_event(&mut self) -> bool {
-    //     println!("Quitting game");
-    //     false
-    // }
+pub trait Scene: EventHandler {
+    fn unload(&mut self) -> Box<SavedScene>;
 }
 
 /// The GameData trait just provides
@@ -77,20 +24,20 @@ pub trait Scene<T>: EventHandler {
 ///
 /// It also provides a method that is called to generate
 /// the first scene of your game.
-pub trait GameData<T>
+pub trait GameData
     where Self: Sized
 {
     fn load(ctx: &mut ggez::Context, conf: &conf::Conf) -> GameResult<Self>;
-    fn starting_scene() -> Box<SavedScene<T>>;
+    fn starting_scene() -> Box<SavedScene>;
 }
 
 pub struct SceneStore<T> {
-    states: BTreeMap<String, Box<SavedScene<T>>>,
+    states: BTreeMap<String, Box<SavedScene>>,
     pub game_data: T,
 }
 
 impl<T> SceneStore<T> {
-    pub fn add<S: SavedScene<T> + 'static>(&mut self, scene_state: S) {
+    pub fn add<S: SavedScene + 'static>(&mut self, scene_state: S) {
         self.states.insert(scene_state.name().to_string(), Box::new(scene_state));
     }
 }
@@ -102,20 +49,19 @@ impl<T> SceneStore<T> {
 /// type should implement GameData and go into the T type.
 pub struct SceneManager<T> {
     store: SceneStore<T>,
-    current: Box<Scene<T>>,
+    current: Box<Scene>,
     next_scene: Option<String>,
 }
 
 
 impl<T> EventHandler for SceneManager<T>
-    where T: GameData<T>
 {
     fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
         // TODO: Get rid of this hacky clone!
         if let Some(ref scene_name) = self.next_scene.clone() {
             self.switch_scene(&scene_name)?;
         }
-        self.next_scene = self.current.update(ctx, dt)?;
+        self.current.update(ctx, dt)?;
         Ok(())
     }
 
@@ -172,9 +118,9 @@ impl<T> EventHandler for SceneManager<T>
 impl<T> SceneManager<T> {
     /// This lets us create a SceneManager by providing the data for it,
     /// instead of having it implicitly created via the GameData trait.
-    fn new(starting_scene_state: Box<SavedScene<T>>, game_data: T) -> Self {
+    fn new(starting_scene_state: Box<SavedScene>, game_data: T) -> Self {
         let starting_scene = starting_scene_state.load();
-        let mut scenes: BTreeMap<String, Box<SavedScene<T>>> = BTreeMap::new();
+        let mut scenes: BTreeMap<String, Box<SavedScene>> = BTreeMap::new();
         scenes.insert(starting_scene_state.name().to_string(),
                       starting_scene_state);
         let store = SceneStore {
@@ -190,11 +136,11 @@ impl<T> SceneManager<T> {
         sm
     }
 
-    pub fn current(&self) -> &Scene<T> {
+    pub fn current(&self) -> &Scene {
         &*self.current
     }
 
-    pub fn current_mut(&mut self) -> &mut Scene<T> {
+    pub fn current_mut(&mut self) -> &mut Scene {
         &mut *self.current
     }
 
@@ -233,8 +179,8 @@ mod tests {
         name: String,
     }
 
-    impl SavedScene<()> for TestSavedScene {
-        fn load(&self) -> Box<Scene<()>> {
+    impl SavedScene for TestSavedScene {
+        fn load(&self) -> Box<Scene> {
             Box::new(TestScene(self.clone()))
         }
         fn name(&self) -> &str {
@@ -245,23 +191,25 @@ mod tests {
     #[derive(Clone, Debug)]
     struct TestScene(TestSavedScene);
 
-    impl Scene<()> for TestScene {
-        fn unload(&mut self) -> Box<SavedScene<()>> {
-            Box::new(self.0.clone())
-        }
-
-
+    impl EventHandler for TestScene {        
         fn update(&mut self,
                   _ctx: &mut ggez::Context,
                   _dt: Duration)
-                  -> GameResult<Option<String>> {
-            Ok(None)
+                  -> GameResult<()> {
+            Ok(())
         }
 
         fn draw(&mut self,
                 _ctx: &mut ggez::Context)
                 -> GameResult<()> {
             Ok(())
+        }
+
+    }
+
+    impl Scene for TestScene {
+        fn unload(&mut self) -> Box<SavedScene> {
+            Box::new(self.0.clone())
         }
     }
 
