@@ -157,31 +157,27 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
     }
 
     /// This method should get called by your key_down_event handler.
-    pub fn update_keydown(&mut self, keycode: Option<Keycode>) {
-        if let Some(keycode) = keycode {
-            let effect = {
-                if let Some(e) = self.bindings.get(&InputEvent::KeyEvent(keycode)) {
-                    e.clone()
-                } else {
-                    return;
-                }
-            };
-            self.update_effect(effect, true);
-        }
+    pub fn update_keydown(&mut self, keycode: Keycode) {
+        let effect = {
+            if let Some(e) = self.bindings.get(&InputEvent::KeyEvent(keycode)) {
+                e.clone()
+            } else {
+                return;
+            }
+        };
+        self.update_effect(effect, true);
     }
 
     /// This method should get called by your key_up_event handler.
-    pub fn update_keyup(&mut self, keycode: Option<Keycode>) {
-        if let Some(keycode) = keycode {
-            let effect = {
-                if let Some(e) = self.bindings.get(&InputEvent::KeyEvent(keycode)) {
-                    e.clone()
-                } else {
-                    return;
-                }
-            };
-            self.update_effect(effect, false);
-        }
+    pub fn update_keyup(&mut self, keycode: Keycode) {
+        let effect = {
+            if let Some(e) = self.bindings.get(&InputEvent::KeyEvent(keycode)) {
+                e.clone()
+            } else {
+                return;
+            }
+        };
+        self.update_effect(effect, false);
     }
 
     /// Takes an InputEffect and actually applies it.
@@ -282,16 +278,16 @@ mod tests {
             .bind_key_to_axis(Keycode::Left, Axes::Horz, false)
             .bind_key_to_axis(Keycode::Right, Axes::Horz, true);
 
-        im.update_keydown(Some(Keycode::Z));
+        im.update_keydown(Keycode::Z);
         assert!(im.get_button(Buttons::A));
         assert!(im.get_button_down(Buttons::A));
-        im.update_keyup(Some(Keycode::Z));
+        im.update_keyup(Keycode::Z);
         assert!(!im.get_button(Buttons::A));
         assert!(im.get_button_up(Buttons::A));
 
         // Push the 'up' button, watch the axis
         // increase to 1.0 but not beyond
-        im.update_keydown(Some(Keycode::Up));
+        im.update_keydown(Keycode::Up);
         assert!(im.get_axis_raw(Axes::Vert) > 0.0);
         while im.get_axis(Axes::Vert) < 0.99 {
             im.update(0.16);
@@ -299,14 +295,14 @@ mod tests {
             assert!(im.get_axis(Axes::Vert) <= 1.0);
         }
         // Release it, watch it wind down
-        im.update_keyup(Some(Keycode::Up));
+        im.update_keyup(Keycode::Up);
         while im.get_axis(Axes::Vert) > 0.01 {
             im.update(0.16);
             assert!(im.get_axis(Axes::Vert) >= 0.0)
         }
 
         // Do the same with the 'down' button.
-        im.update_keydown(Some(Keycode::Down));
+        im.update_keydown(Keycode::Down);
         while im.get_axis(Axes::Vert) > -0.99 {
             im.update(0.16);
             assert!(im.get_axis(Axes::Vert) <= 0.0);
