@@ -55,154 +55,6 @@ pub trait StateLoadable<K, E, S> {
     fn load_state(_key: &K, &mut S) -> Result<Self, E> where Self: Sized;
 }
 
-#[derive(Debug, Clone)]
-pub struct AssetCache<K, V>
-    where K: Ord + Clone + Debug
-{
-    contents: BTreeMap<K, Rc<V>>,
-}
-
-impl<K, V> AssetCache<K, V>
-    where K: Ord + Clone + Debug
-{
-    /// Creates a new `AssetCache` that loads assets
-    /// when necessary with the given loader function.
-    pub fn new() -> Self {
-        let map = BTreeMap::new();
-        AssetCache { contents: map }
-    }
-
-    /// Gets the given asset, loading it if necessary.
-    // Oh my goodness getting the E type param to the
-    // right place was amazingly difficult.
-    pub fn get<E>(&mut self, key: &K) -> Result<Rc<V>, E>
-        where V: Loadable<K, E>
-    {
-        if let Some(v) = self.contents.get(key) {
-            return Ok(v.clone());
-        };
-
-        let v = V::load(key)?;
-        let v_rc = Rc::new(v);
-        self.contents.insert(key.clone(), v_rc.clone());
-        Ok(v_rc)
-    }
-
-    pub fn get_mut<E, S>(&mut self, key: &K) -> Result<&mut Rc<V>, E>
-        where V: Loadable<K, E>
-    {
-        // entry.or_insert_with() isn't quite powerful
-        // enough 'cause it doesn't propegate results.  ;_;
-        let entry = self.contents.entry(key.clone());
-        match entry {
-            Entry::Vacant(e) => {
-                let v = V::load(key)?;
-                let v_rc = Rc::new(v);
-                Ok(e.insert(v_rc))
-            }
-            Entry::Occupied(e) => Ok(e.into_mut()),
-        }
-    }
-
-    /// Gets the given asset, loading it if necessary.
-    pub fn get_state<E, S>(&mut self, key: &K, state: &mut S) -> Result<Rc<V>, E>
-        where V: StateLoadable<K, E, S>
-    {
-        if let Some(v) = self.contents.get(key) {
-            return Ok(v.clone());
-        };
-
-        let v = V::load_state(key, state)?;
-        let v_rc = Rc::new(v);
-        self.contents.insert(key.clone(), v_rc.clone());
-        Ok(v_rc)
-    }
-
-    pub fn get_state_mut<E, S>(&mut self, key: &K, state: &mut S) -> Result<&mut Rc<V>, E>
-        where V: StateLoadable<K, E, S>
-    {
-        // entry.or_insert_with() isn't quite powerful
-        // enough 'cause it doesn't propegate results.  ;_;
-        let entry = self.contents.entry(key.clone());
-        match entry {
-            Entry::Vacant(e) => {
-                let v = V::load_state(key, state)?;
-                let v_rc = Rc::new(v);
-                Ok(e.insert(v_rc))
-            }
-            Entry::Occupied(e) => Ok(e.into_mut()),
-        }
-    }
-
-    /// Removes all assets from the cache
-    /// and frees any excess memory it uses.
-    pub fn clear(&mut self) {
-        let map = BTreeMap::new();
-        self.contents = map;
-    }
-
-    /// Returns true if the given asset is loaded.
-    pub fn loaded(&self, key: &K) -> bool {
-        self.contents.contains_key(key)
-    }
-
-    /// Takes a slice containing a list of keys,
-    /// and loads all the keys so that their objects
-    /// are immediately accessible.
-    pub fn preload<E>(&mut self, keys: &[K])
-        where V: Loadable<K, E>
-    {
-        for k in keys {
-            let _ = self.get(k);
-        }
-    }
-
-    /// Preloads objects that require a state to load.
-    pub fn preload_state<E, S>(&mut self, keys: &[K], state: &mut S)
-        where V: StateLoadable<K, E, S>
-    {
-        for k in keys {
-            let _ = self.get_state(k, state);
-        }
-    }
-
-
-    /// Gets an object but only if it already exists in the
-    /// wossname.
-    /// Returns an error if it is not.
-    pub fn get_preload(&mut self, key: &K) -> GameResult<Rc<V>> {
-        if let Some(val) = self.contents.get(key) {
-            Ok(val.clone())
-        } else {
-            let errmsg = format!("Tried to get asset {:?} but it was not preloaded!", key);
-            let err = GameError::ResourceNotFound(errmsg, vec![]);
-            Err(err)
-
-        }
-    }
-
-    pub fn get_preload_mut(&mut self, key: &K) -> GameResult<&mut Rc<V>> {
-        if let Some(val) = self.contents.get_mut(key) {
-            Ok(val)
-        } else {
-            let errmsg = format!("Tried to get asset {:?} but it was not preloaded!", key);
-            let err = GameError::ResourceNotFound(errmsg, vec![]);
-            Err(err)
-
-        }
-    }
-}
-
-
-
-impl<K: AsRef<Path>> StateLoadable<K, GameError, ggez::Context> for ggez::graphics::Image {
-    fn load_state(key: &K, ctx: &mut Context) -> GameResult<Self> {
-        graphics::Image::new(ctx, key)
-    }
-}
-
-
-
 /// An opaque asset handle that can be used for O(1) fetches
 /// of assets.
 // TODO: Add a UUID or something to this....
@@ -214,7 +66,7 @@ pub struct AssetHandle(usize);
 // But it wouldn't get us all the way because we'd still need to maintain
 // the Key -> Handle association ourselves.
 #[derive(Debug, Clone)]
-pub struct AssetCache2<K, V>
+pub struct AssetCache<K, V>
     where K: Ord + Clone + Debug
 {
     handles: Vec<Rc<V>>,
@@ -222,13 +74,13 @@ pub struct AssetCache2<K, V>
     next_handle: usize,
 }
 
-impl<K, V> AssetCache2<K, V>
+impl<K, V> AssetCache<K, V>
     where K: Ord + Clone + Debug
 {
     /// Creates a new `AssetCache` that loads assets
     /// when necessary with the given loader function.
     pub fn new() -> Self {
-        AssetCache2 {
+        AssetCache {
             handles: Vec::new(),
             keys: BTreeMap::new(),
             next_handle: 0,
@@ -381,9 +233,6 @@ impl<K, V> AssetCache2<K, V>
 }
 
 
-
-
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -393,19 +242,6 @@ mod tests {
         }
     }
 
-    // It would be nice to get rid of the double references here somehow,
-    // but then AssetCache ends up with a type of <str, String>
-    // and `str` is not sized so it always has to involve a reference.
-    #[test]
-    fn test_assetcache() {
-        let mut a = AssetCache::<&str, String>::new();
-        assert!(!a.loaded(&"foo"));
-        let s1 = a.get(&"foo").unwrap();
-        assert_eq!(*s1, "foo");
-        assert!(a.loaded(&"foo"));
-    }
-
-
     impl<'a> StateLoadable<&'a str, (), i32> for String {
         fn load_state(key: &&str, state: &mut i32) -> Result<String, ()> {
             *state += 1;
@@ -414,20 +250,8 @@ mod tests {
     }
 
     #[test]
-    fn test_stateful_assetcache() {
+    fn test_assetcache() {
         let mut a = AssetCache::<&str, String>::new();
-        let s = &mut 10;
-        assert!(!a.loaded(&"foo"));
-        let s1 = a.get_state(&"foo", s).unwrap();
-        assert_eq!(*s1, "foo");
-        assert_eq!(*s, 11);
-        assert!(a.loaded(&"foo"));
-    }
-
-
-    #[test]
-    fn test_assetcache2() {
-        let mut a = AssetCache2::<&str, String>::new();
         let h;
         {
             assert!(!a.loaded(&"foo"));
@@ -441,8 +265,8 @@ mod tests {
     }
 
     #[test]
-    fn test_stateful_assetcache2() {
-        let mut a = AssetCache2::<&str, String>::new();
+    fn test_stateful_assetcache() {
+        let mut a = AssetCache::<&str, String>::new();
         {
             let s = &mut 10;
             assert!(!a.loaded(&"foo"));
@@ -460,8 +284,8 @@ mod tests {
     }
 
     #[test]
-    fn test_mut_assetcache2() {
-        let mut a = AssetCache2::<&str, String>::new();
+    fn test_mut_assetcache() {
+        let mut a = AssetCache::<&str, String>::new();
         assert!(!a.loaded(&"foo"));
         let (h, _) = a.get_key(&"foo").unwrap();
 
