@@ -1,7 +1,9 @@
 extern crate ggez;
 extern crate rand;
 extern crate nalgebra as na;
-extern crate serde;
+
+#[macro_use]
+extern crate serde_derive;
 extern crate serde_json;
 
 pub mod asset;

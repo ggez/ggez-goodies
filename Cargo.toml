@@ -7,7 +7,6 @@ documentation = "https://docs.rs/ggez-goodies"
 authors = ["Simon Heath <icefoxen@gmail.com>"]
 license = "MIT"
 readme = "README.md"
-build = "build.rs"
 
 
 [dependencies]
@@ -15,9 +14,8 @@ build = "build.rs"
 ggez = { git = "https://github.com/ggez/ggez", branch = "master" }
 rand = "0.3"
 nalgebra = "0.10"
-serde = "0.8"
-serde_json = "0.8" 
+serde = "0.9"
+serde_derive = "0.9"
+serde_json = "0.9" 
 
-# We use serde's codegen so we can target the stable rustc.
-[build-dependencies]
-serde_codegen = "0.8"
+
