@@ -53,7 +53,7 @@ enum InputEffect<Axes, Buttons>
     Button(Buttons),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 struct AxisStatus {
     // Where the axis currently is, in [-1, 1]
     position: f64,
@@ -80,6 +80,12 @@ impl Default for AxisStatus {
     }
 }
 
+#[derive(Debug, Copy, Clone, Default)]
+struct ButtonStatus {
+    pressed: bool,
+    pressed_last_frame: bool,
+}
+
 #[derive(Debug)]
 pub struct InputManager<Axes, Buttons>
     where Axes: Hash + Eq + Clone,
@@ -92,7 +98,7 @@ pub struct InputManager<Axes, Buttons>
     // Input state for axes
     axes: HashMap<Axes, AxisStatus>,
     // Input states for buttons
-    buttons: HashMap<Buttons, bool>,
+    buttons: HashMap<Buttons, ButtonStatus>,
 }
 
 impl<Axes, Buttons> InputManager<Axes, Buttons>
@@ -122,7 +128,7 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
     pub fn bind_key_to_button(mut self, keycode: Keycode, button: Buttons) -> Self {
         self.bindings.insert(InputEvent::KeyEvent(keycode),
                              InputEffect::Button(button.clone()));
-        self.buttons.insert(button, false);
+        self.buttons.insert(button, Default::default());
         self
     }
 
@@ -153,6 +159,9 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
                 };
                 axis_status.position += dx;
             }
+        }
+        for (_button, button_status) in self.buttons.iter_mut() {
+            button_status.pressed_last_frame = button_status.pressed;
         }
     }
 
@@ -194,9 +203,9 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
                 }
             }
             InputEffect::Button(button) => {
-                let button_pressed = self.buttons.entry(button).or_insert(started);
-                *button_pressed = started;
-
+                let f = || ButtonStatus::default();
+                let button_status = self.buttons.entry(button).or_insert_with(f);
+                button_status.pressed = started;
             }
         }
     }
@@ -213,31 +222,54 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
         axis_status.direction
     }
 
-    pub fn get_button(&self, axis: Buttons) -> bool {
-        if let Some(pressed) = self.buttons.get(&axis) {
-            *pressed
-        } else {
-            false
-        }
+    fn get_button(&mut self, button: Buttons) -> ButtonStatus {
+        let f = ButtonStatus::default;
+        let button_status = self.buttons.entry(button).or_insert_with(f);
+        *button_status
     }
 
-    pub fn get_button_down(&self, axis: Buttons) -> bool {
-        self.get_button(axis)
+    pub fn get_button_down(&mut self, axis: Buttons) -> bool {
+        self.get_button(axis).pressed
     }
 
-    pub fn get_button_up(&self, axis: Buttons) -> bool {
-        !self.get_button(axis)
+    pub fn get_button_up(&mut self, axis: Buttons) -> bool {
+        !self.get_button(axis).pressed
     }
 
-    pub fn mouse_position() {}
+    /// Returns whether or not the button was pressed this frame,
+    /// only returning true if the press happened this frame.
+    ///
+    /// Basically, `get_button_down()` and `get_button_up()` are level
+    /// triggers, this and `get_button_released()` are edge triggered.
+    pub fn get_button_pressed(&mut self, axis: Buttons) -> bool {
+        let b = self.get_button(axis);
+        b.pressed && !b.pressed_last_frame
+    }
 
-    pub fn mouse_scroll_delta() {}
+    pub fn get_button_released(&mut self, axis: Buttons) -> bool {
+        let b = self.get_button(axis);
+        !b.pressed && b.pressed_last_frame
+    }
 
-    pub fn get_mouse_button() {}
+    pub fn mouse_position() {
+        unimplemented!()
+    }
 
-    pub fn get_mouse_button_down() {}
+    pub fn mouse_scroll_delta() {
+        unimplemented!()
+    }
 
-    pub fn get_mouse_button_up() {}
+    pub fn get_mouse_button() {
+        unimplemented!()
+    }
+
+    pub fn get_mouse_button_down() {
+        unimplemented!()
+    }
+
+    pub fn get_mouse_button_up() {
+        unimplemented!()
+    }
 
     pub fn reset_input_axes(&mut self) {
         for (_axis, axis_status) in self.axes.iter_mut() {
@@ -266,9 +298,9 @@ mod tests {
         Horz,
         Vert,
     }
-    #[test]
-    fn test_input_events() {
-        let mut im = InputManager::<Axes, Buttons>::new()
+
+    fn make_input_manager() -> InputManager<Axes, Buttons> {
+        let im = InputManager::<Axes, Buttons>::new()
             .bind_key_to_button(Keycode::Z, Buttons::A)
             .bind_key_to_button(Keycode::X, Buttons::B)
             .bind_key_to_button(Keycode::Return, Buttons::Start)
@@ -277,12 +309,15 @@ mod tests {
             .bind_key_to_axis(Keycode::Down, Axes::Vert, false)
             .bind_key_to_axis(Keycode::Left, Axes::Horz, false)
             .bind_key_to_axis(Keycode::Right, Axes::Horz, true);
-
+        im
+    }
+    #[test]
+    fn test_input_events() {
+        let mut im = make_input_manager();
         im.update_keydown(Keycode::Z);
-        assert!(im.get_button(Buttons::A));
         assert!(im.get_button_down(Buttons::A));
         im.update_keyup(Keycode::Z);
-        assert!(!im.get_button(Buttons::A));
+        assert!(!im.get_button_down(Buttons::A));
         assert!(im.get_button_up(Buttons::A));
 
         // Push the 'up' button, watch the axis
@@ -308,5 +343,34 @@ mod tests {
             assert!(im.get_axis(Axes::Vert) <= 0.0);
             assert!(im.get_axis(Axes::Vert) >= -1.0);
         }
+    }
+
+    #[test]
+    fn test_button_edge_transitions() {
+        let mut im = make_input_manager();
+
+        // Push a key, confirm it's transitioned.
+        assert!(!im.get_button_down(Buttons::A));
+        im.update_keydown(Keycode::Z);
+        assert!(im.get_button_down(Buttons::A));
+        assert!(im.get_button_pressed(Buttons::A));
+        assert!(!im.get_button_released(Buttons::A));
+
+        // Update, confirm it's still down but
+        // wasn't pressed this frame
+        im.update(0.1);
+        assert!(im.get_button_down(Buttons::A));
+        assert!(!im.get_button_pressed(Buttons::A));
+        assert!(!im.get_button_released(Buttons::A));
+
+        // Release it
+        im.update_keyup(Keycode::Z);
+        assert!(im.get_button_up(Buttons::A));
+        assert!(!im.get_button_pressed(Buttons::A));
+        assert!(im.get_button_released(Buttons::A));
+        im.update(0.1);
+        assert!(im.get_button_up(Buttons::A));
+        assert!(!im.get_button_pressed(Buttons::A));
+        assert!(!im.get_button_released(Buttons::A));
     }
 }
