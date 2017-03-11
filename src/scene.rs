@@ -37,8 +37,7 @@ pub struct SceneManager {
 }
 
 
-impl EventHandler for SceneManager
-{
+impl EventHandler for SceneManager {
     fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
         // TODO: Get rid of this hacky clone!
         if let Some(ref scene_name) = self.next_scene.clone() {
@@ -74,17 +73,11 @@ impl EventHandler for SceneManager
         self.current.mouse_wheel_event(_x, _y)
     }
 
-    fn key_down_event(&mut self,
-                      _keycode: event::Keycode,
-                      _keymod: event::Mod,
-                      _repeat: bool) {
+    fn key_down_event(&mut self, _keycode: event::Keycode, _keymod: event::Mod, _repeat: bool) {
         self.current.key_down_event(_keycode, _keymod, _repeat)
     }
 
-    fn key_up_event(&mut self,
-                    _keycode: event::Keycode,
-                    _keymod: event::Mod,
-                    _repeat: bool) {
+    fn key_up_event(&mut self, _keycode: event::Keycode, _keymod: event::Mod, _repeat: bool) {
         self.current.key_up_event(_keycode, _keymod, _repeat)
     }
 
@@ -118,7 +111,7 @@ impl SceneManager {
         self.states.insert(scene_state.name().to_string(), Box::new(scene_state));
     }
 
-    
+
     pub fn current(&self) -> &Scene {
         &*self.current
     }
@@ -174,27 +167,21 @@ mod tests {
     #[derive(Clone, Debug)]
     struct TestScene(TestSavedScene);
 
-    impl EventHandler for TestScene {        
-        fn update(&mut self,
-                  _ctx: &mut ggez::Context,
-                  _dt: Duration)
-                  -> GameResult<()> {
+    impl EventHandler for TestScene {
+        fn update(&mut self, _ctx: &mut ggez::Context, _dt: Duration) -> GameResult<()> {
             Ok(())
         }
 
-        fn draw(&mut self,
-                _ctx: &mut ggez::Context)
-                -> GameResult<()> {
+        fn draw(&mut self, _ctx: &mut ggez::Context) -> GameResult<()> {
             Ok(())
         }
-
     }
 
     impl Scene for TestScene {
         fn unload(&mut self) -> Box<SavedScene> {
             Box::new(self.0.clone())
         }
-        
+
         fn next_scene(&self) -> Option<String> {
             None
         }

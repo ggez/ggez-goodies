@@ -558,10 +558,7 @@ impl ParticleSystem {
 }
 
 impl graphics::Drawable for ParticleSystem {
-    fn draw_ex(&self,
-               context: &mut Context,
-               param: graphics::DrawParam)
-               -> GameResult<()> {
+    fn draw_ex(&self, context: &mut Context, param: graphics::DrawParam) -> GameResult<()> {
         // BUGGO: Width and height here should be the max bounds of the
         // particle system...?
         // It'd be consistent with our drawing API, but would require
@@ -576,7 +573,7 @@ impl graphics::Drawable for ParticleSystem {
         //                                    dst_rect.y() + p.pos.y,
         //                                    size,
         //                                    size as u32);
-        //     graphics::draw(&self.image, 
+        //     graphics::draw(&self.image,
         //     self.image
         //         .draw_ex(context,
         //                  None,

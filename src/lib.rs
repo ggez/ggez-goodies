@@ -5,6 +5,7 @@ extern crate nalgebra as na;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+extern crate serde_xml_rs;
 
 pub mod asset;
 pub mod camera;
@@ -13,6 +14,7 @@ pub mod particle;
 pub mod scene;
 pub mod sprite;
 pub mod sprite_loader;
+pub mod tiled_loader;
 
 type Point2 = na::Point2<f64>;
 type Vector2 = na::Vector2<f64>;
