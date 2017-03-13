@@ -56,13 +56,13 @@ impl Camera {
     /// not know how large the thing that might be drawn is;
     /// that's not its job.
     pub fn world_to_screen_coords(&self, from: Vector2) -> (i32, i32) {
-        let pixels_per_unit = self.screen_size / self.view_size;
+        let pixels_per_unit = self.screen_size.component_div(&self.view_size);
         let view_offset = from - self.view_center;
-        let view_scale = view_offset * pixels_per_unit;
+        let view_scale = view_offset.component_mul(&pixels_per_unit);
 
 
-        let x = view_scale.x + self.screen_size.x / 2.0;
-        let y = self.screen_size.y - (view_scale.y + self.screen_size.y / 2.0);
+        let x = (*view_scale).x + (*self.screen_size).x / 2.0;
+        let y = (*self.screen_size).y - ((*view_scale).y + (*self.screen_size).y / 2.0);
         (x as i32, y as i32)
     }
 
@@ -75,11 +75,11 @@ impl Camera {
         let (sx, sy) = from;
         let sx = sx as f64;
         let sy = sy as f64;
-        let flipped_x = sx - (self.screen_size.x / 2.0);
-        let flipped_y = -sy + self.screen_size.y / 2.0;
+        let flipped_x = sx - ((*self.screen_size).x / 2.0);
+        let flipped_y = -sy + (*self.screen_size).y / 2.0;
         let screen_coords = Vector2::new(flipped_x, flipped_y);
-        let units_per_pixel = self.view_size / self.screen_size;
-        let view_scale = screen_coords * units_per_pixel;
+        let units_per_pixel = self.view_size.component_div(&self.screen_size);
+        let view_scale = screen_coords.component_mul(&units_per_pixel);
         let view_offset = self.view_center + view_scale;
 
         view_offset

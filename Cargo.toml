@@ -13,7 +13,7 @@ readme = "README.md"
 #ggez = { path = "/home/icefox/src/ggez" }
 ggez = { git = "https://github.com/ggez/ggez", branch = "master" }
 rand = "0.3"
-nalgebra = "0.10"
+nalgebra = "0.11"
 serde = "0.9"
 serde_derive = "0.9"
 serde_json = "0.9" 
