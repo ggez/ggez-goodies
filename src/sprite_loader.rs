@@ -8,7 +8,7 @@
 
 use serde_derive;
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Rect {
     x: u32,
     y: u32,
@@ -17,14 +17,14 @@ pub struct Rect {
 }
 
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
 pub struct Dimensions {
     w: u32,
     h: u32,
 }
 
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Frame {
     filename: String,
     frame: Rect,
@@ -38,7 +38,7 @@ pub struct Frame {
 }
 
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Frametag {
     name: String,
     from: u32,
@@ -47,7 +47,7 @@ pub struct Frametag {
 }
 
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Layer {
     name: String,
     opacity: u32,
@@ -56,7 +56,7 @@ pub struct Layer {
 }
 
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct Metadata {
     app: String,
     version: String,
@@ -69,7 +69,7 @@ pub struct Metadata {
 }
 
 
-#[derive(Serialize, Deserialize, Debug, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone)]
 pub struct SpritesheetData {
     frames: Vec<Frame>,
     meta: Metadata,
