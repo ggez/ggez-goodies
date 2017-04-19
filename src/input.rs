@@ -44,8 +44,8 @@ enum InputEvent {
     KeyEvent(Keycode), // MouseButtonEvent,
 }
 
-#[derive(Debug, Copy, Clone)]
-enum InputEffect<Axes, Buttons>
+#[derive(Debug, Copy, Clone, PartialEq)]
+pub enum InputEffect<Axes, Buttons>
     where Axes: Eq + Hash + Clone,
           Buttons: Eq + Hash + Clone
 {
@@ -86,15 +86,56 @@ struct ButtonStatus {
     pressed_last_frame: bool,
 }
 
+/// A struct that contains a mapping from physical input events
+/// (currently just `Keycode`s) to whatever your logical Axis/Button
+/// types are.
+pub struct InputBinding<Axes, Buttons>
+    where Axes: Hash + Eq + Clone,
+          Buttons: Hash + Eq + Clone {
+    // Once EnumSet is stable it should be used for these
+    // instead of BTreeMap. ♥?
+    // Binding of keys to input values.
+    bindings: HashMap<InputEvent, InputEffect<Axes, Buttons>>,
+}
+
+impl<Axes, Buttons> InputBinding<Axes, Buttons>
+    where Axes: Hash + Eq + Clone,
+          Buttons: Hash + Eq + Clone {
+    
+    fn new() -> Self {
+        InputBinding {
+            bindings: HashMap::new(),
+        }
+    }
+
+    /// Adds a key binding connecting the given keycode to the given
+    /// logical axis.
+    pub fn bind_key_to_axis(mut self, keycode: Keycode, axis: Axes, positive: bool) -> Self {
+        
+        self.bindings.insert(InputEvent::KeyEvent(keycode),
+                             InputEffect::Axis(axis.clone(), positive));
+        self
+    }
+
+    /// Adds a key binding connecting the given keycode to the given
+    /// logical button.
+    pub fn bind_key_to_button(mut self, keycode: Keycode, button: Buttons) -> Self {
+        self.bindings.insert(InputEvent::KeyEvent(keycode),
+                             InputEffect::Button(button.clone()));
+        self
+    }
+
+    /// Takes an physical input type and turns it into a logical input type (keycode -> axis/button).
+    pub fn resolve(&self, keycode: Keycode) -> Option<InputEffect<Axes, Buttons>> {
+        self.bindings.get(&InputEvent::KeyEvent(keycode)).cloned()
+    }
+}
+
 #[derive(Debug)]
 pub struct InputManager<Axes, Buttons>
     where Axes: Hash + Eq + Clone,
           Buttons: Hash + Eq + Clone
 {
-    // Once EnumSet is stable it should be used for these
-    // instead of BTreeMap. ♥?
-    // Binding of keys to input values.
-    bindings: HashMap<InputEvent, InputEffect<Axes, Buttons>>,
     // Input state for axes
     axes: HashMap<Axes, AxisStatus>,
     // Input states for buttons
@@ -107,29 +148,9 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
 {
     pub fn new() -> Self {
         InputManager {
-            bindings: HashMap::new(),
             axes: HashMap::new(),
             buttons: HashMap::new(),
         }
-    }
-
-    /// Adds a key binding connecting the given keycode to the given
-    /// logical axis.
-    pub fn bind_key_to_axis(mut self, keycode: Keycode, axis: Axes, positive: bool) -> Self {
-
-        self.bindings.insert(InputEvent::KeyEvent(keycode),
-                             InputEffect::Axis(axis.clone(), positive));
-        self.axes.insert(axis, AxisStatus::default());
-        self
-    }
-
-    /// Adds a key binding connecting the given keycode to the given
-    /// logical button.
-    pub fn bind_key_to_button(mut self, keycode: Keycode, button: Buttons) -> Self {
-        self.bindings.insert(InputEvent::KeyEvent(keycode),
-                             InputEffect::Button(button.clone()));
-        self.buttons.insert(button, Default::default());
-        self
     }
 
     /// Updates the logical input state based on the actual
@@ -166,31 +187,27 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
     }
 
     /// This method should get called by your key_down_event handler.
-    pub fn update_keydown(&mut self, keycode: Keycode) {
-        let effect = {
-            if let Some(e) = self.bindings.get(&InputEvent::KeyEvent(keycode)) {
-                e.clone()
-            } else {
-                return;
-            }
-        };
-        self.update_effect(effect, true);
+    pub fn update_button_down(&mut self, button: Buttons) {
+        self.update_effect(InputEffect::Button(button), true);
     }
 
     /// This method should get called by your key_up_event handler.
-    pub fn update_keyup(&mut self, keycode: Keycode) {
-        let effect = {
-            if let Some(e) = self.bindings.get(&InputEvent::KeyEvent(keycode)) {
-                e.clone()
-            } else {
-                return;
-            }
-        };
-        self.update_effect(effect, false);
+    pub fn update_button_up(&mut self, button: Buttons) {
+        self.update_effect(InputEffect::Button(button), false);
     }
 
+    /// This method should get called by your key_up_event handler.
+    pub fn update_axis_start(&mut self, axis: Axes, positive: bool) {
+        self.update_effect(InputEffect::Axis(axis, positive), true);
+    }
+
+    pub fn update_axis_stop(&mut self, axis: Axes, positive: bool) {
+        self.update_effect(InputEffect::Axis(axis, positive), false);
+    }
+
+
     /// Takes an InputEffect and actually applies it.
-    fn update_effect(&mut self, effect: InputEffect<Axes, Buttons>, started: bool) {
+    pub fn update_effect(&mut self, effect: InputEffect<Axes, Buttons>, started: bool) {
         match effect {
             InputEffect::Axis(axis, direction) => {
                 let f = || AxisStatus::default();
@@ -299,30 +316,50 @@ mod tests {
         Vert,
     }
 
-    fn make_input_manager() -> InputManager<Axes, Buttons> {
-        let im = InputManager::<Axes, Buttons>::new()
+    fn make_input_binding() -> InputBinding<Axes, Buttons> {
+        let ib = InputBinding::<Axes, Buttons>::new()
             .bind_key_to_button(Keycode::Z, Buttons::A)
             .bind_key_to_button(Keycode::X, Buttons::B)
             .bind_key_to_button(Keycode::Return, Buttons::Start)
             .bind_key_to_button(Keycode::RShift, Buttons::Select)
+            .bind_key_to_button(Keycode::LShift, Buttons::Select)
             .bind_key_to_axis(Keycode::Up, Axes::Vert, true)
             .bind_key_to_axis(Keycode::Down, Axes::Vert, false)
             .bind_key_to_axis(Keycode::Left, Axes::Horz, false)
             .bind_key_to_axis(Keycode::Right, Axes::Horz, true);
-        im
+        ib
     }
+    
+    #[test]
+    fn test_input_bindings() {
+        let ib = make_input_binding();
+        assert_eq!(ib.resolve(Keycode::Z), Some(InputEffect::Button(Buttons::A)));
+        assert_eq!(ib.resolve(Keycode::X), Some(InputEffect::Button(Buttons::B)));
+        assert_eq!(ib.resolve(Keycode::Return), Some(InputEffect::Button(Buttons::Start)));
+        assert_eq!(ib.resolve(Keycode::RShift), Some(InputEffect::Button(Buttons::Select)));
+        assert_eq!(ib.resolve(Keycode::LShift), Some(InputEffect::Button(Buttons::Select)));
+
+        assert_eq!(ib.resolve(Keycode::Up), Some(InputEffect::Axis(Axes::Vert, true)));
+        assert_eq!(ib.resolve(Keycode::Down), Some(InputEffect::Axis(Axes::Vert, false)));
+        assert_eq!(ib.resolve(Keycode::Left), Some(InputEffect::Axis(Axes::Horz, false)));
+        assert_eq!(ib.resolve(Keycode::Right), Some(InputEffect::Axis(Axes::Horz, true)));
+
+        assert_eq!(ib.resolve(Keycode::Q), None);
+        assert_eq!(ib.resolve(Keycode::W), None);
+    }
+    
     #[test]
     fn test_input_events() {
-        let mut im = make_input_manager();
-        im.update_keydown(Keycode::Z);
+        let mut im = InputManager::new();
+        im.update_button_down(Buttons::A);
         assert!(im.get_button_down(Buttons::A));
-        im.update_keyup(Keycode::Z);
+        im.update_button_up(Buttons::A);
         assert!(!im.get_button_down(Buttons::A));
         assert!(im.get_button_up(Buttons::A));
 
         // Push the 'up' button, watch the axis
         // increase to 1.0 but not beyond
-        im.update_keydown(Keycode::Up);
+        im.update_axis_start(Axes::Vert, true);
         assert!(im.get_axis_raw(Axes::Vert) > 0.0);
         while im.get_axis(Axes::Vert) < 0.99 {
             im.update(0.16);
@@ -330,14 +367,14 @@ mod tests {
             assert!(im.get_axis(Axes::Vert) <= 1.0);
         }
         // Release it, watch it wind down
-        im.update_keyup(Keycode::Up);
+        im.update_axis_stop(Axes::Vert, true);
         while im.get_axis(Axes::Vert) > 0.01 {
             im.update(0.16);
             assert!(im.get_axis(Axes::Vert) >= 0.0)
         }
 
         // Do the same with the 'down' button.
-        im.update_keydown(Keycode::Down);
+        im.update_axis_start(Axes::Vert, false);
         while im.get_axis(Axes::Vert) > -0.99 {
             im.update(0.16);
             assert!(im.get_axis(Axes::Vert) <= 0.0);
@@ -347,11 +384,11 @@ mod tests {
 
     #[test]
     fn test_button_edge_transitions() {
-        let mut im = make_input_manager();
+        let mut im: InputManager<Axis, Buttons> = InputManager::new();
 
         // Push a key, confirm it's transitioned.
         assert!(!im.get_button_down(Buttons::A));
-        im.update_keydown(Keycode::Z);
+        im.update_button_down(Buttons::A);
         assert!(im.get_button_down(Buttons::A));
         assert!(im.get_button_pressed(Buttons::A));
         assert!(!im.get_button_released(Buttons::A));
@@ -364,7 +401,7 @@ mod tests {
         assert!(!im.get_button_released(Buttons::A));
 
         // Release it
-        im.update_keyup(Keycode::Z);
+        im.update_button_up(Buttons::A);
         assert!(im.get_button_up(Buttons::A));
         assert!(!im.get_button_pressed(Buttons::A));
         assert!(im.get_button_released(Buttons::A));
