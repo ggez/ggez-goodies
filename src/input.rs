@@ -102,7 +102,7 @@ impl<Axes, Buttons> InputBinding<Axes, Buttons>
     where Axes: Hash + Eq + Clone,
           Buttons: Hash + Eq + Clone {
     
-    fn new() -> Self {
+    pub fn new() -> Self {
         InputBinding {
             bindings: HashMap::new(),
         }
