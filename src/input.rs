@@ -288,10 +288,15 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
         unimplemented!()
     }
 
-    pub fn reset_input_axes(&mut self) {
+    pub fn reset_input_state(&mut self) {
         for (_axis, axis_status) in self.axes.iter_mut() {
             axis_status.position = 0.0;
             axis_status.direction = 0.0;
+        }
+
+        for (_button, button_status) in self.buttons.iter_mut() {
+            button_status.pressed = false;
+            button_status.pressed_last_frame = false;
         }
     }
 }
