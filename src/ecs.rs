@@ -91,11 +91,18 @@ mod tests {
         println!("Bar");
         let mut inputs = Vec::new();
         inputs.resize(entity_count, 1u32);
+        // Event input just being a vector is tricksy because it may not
+        // be the same length as the entities vector.  It needs to be a particular
+        // per-entity mapping of one kind or another.
+        // Making it efficient so we don't need to always re-allocate a new vector
+        // for returning new events will be a little wacky too.
         let results = w.run(inputs, |(x1, x2): (&u32, &u32)| {
-            println!("Xs are is {:?} {:?}", x1, x1);
+            println!("Xs are is {:?} {:?}", x1, x2);
             x1 + x2
         });
         println!("Results are {:?}", results);
-        assert!(false);
+        let mut desired_results: Vec<u32> = Vec::new();
+        desired_results.extend(&[2, 3, 4, 5, 6, 7, 8, 9, 10, 11][..]);
+        assert_eq!(results, desired_results);
     }
 }
