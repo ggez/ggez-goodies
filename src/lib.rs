@@ -5,9 +5,12 @@ extern crate nalgebra as na;
 #[macro_use]
 extern crate serde_derive;
 extern crate serde_json;
+extern crate rayon;
+extern crate anymap;
 
 pub mod asset;
 pub mod camera;
+pub mod ecs;
 pub mod input;
 pub mod particle;
 pub mod scene;

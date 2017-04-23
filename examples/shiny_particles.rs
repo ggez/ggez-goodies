@@ -80,7 +80,7 @@ pub fn main() {
     c.window_title = "Shiny particles".to_string();
     c.window_width = WINDOW_WIDTH as u32;
     c.window_height = WINDOW_HEIGHT as u32;
-    let ctx = &mut Context::load_from_conf("shiny_particles", c).unwrap();
+    let ctx = &mut Context::load_from_conf("shiny_particles", "test", c).unwrap();
     let game = &mut MainState::new(ctx).unwrap();
     
     if let Err(e) = event::run(ctx, game) {
