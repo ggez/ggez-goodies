@@ -103,14 +103,14 @@ impl<E> World<E> where E: Send + Sync {
         }
     }
 
-    fn register<T>(&mut self)
+    pub fn register<T>(&mut self)
         where T: Default + 'static
     {
         self.current_components.insert(T::default());
         self.next_components.insert(T::default());
     }
 
-    fn run1<F, C>(&mut self, f: F)
+    pub fn run1<F, C>(&mut self, f: F)
         where F: Fn(&C, &[E], &EventSender<E>) -> C + Sync,
               C: Debug + Send + Sync + 'static
     {
@@ -134,7 +134,7 @@ impl<E> World<E> where E: Send + Sync {
         }
     }
 
-    fn run2<F, C1, C2>(&mut self, f: F)
+    pub fn run2<F, C1, C2>(&mut self, f: F)
         where F: Fn(&C1, &C2, &[E], &EventSender<E>) -> (C1, C2) + Sync,
               C1: Debug + Send + Sync + 'static,
               C2: Debug + Send + Sync + 'static
@@ -178,7 +178,7 @@ impl<E> World<E> where E: Send + Sync {
 
     // This function finalizes the end of the frame.
     // Delivers events, flips the current and next components, etc.
-    fn finish(&mut self) {
+    pub fn finish(&mut self) {
         // Switch components
         {
             let m1 = &mut self.current_components;
@@ -203,7 +203,7 @@ impl<E> World<E> where E: Send + Sync {
         Entity(self.entities.len() as u32)
     }
 
-    fn create_entity<C1, C2>(&mut self, component1: C1, component2: C2) -> Entity
+    pub fn create_entity<C1, C2>(&mut self, component1: C1, component2: C2) -> Entity
         where C1: Debug + Send + Sync + Clone + 'static,
               C2: Debug + Send + Sync + Clone + 'static,
     {
@@ -245,7 +245,7 @@ How does specs do it?
 */
 
 
-    fn send_to_entity(&mut self, entity: Entity, event: E) {
+    pub fn send_to_entity(&mut self, entity: Entity, event: E) {
         self.next_events.send_to_entity(entity, event);
     }
 }
