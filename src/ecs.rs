@@ -63,12 +63,12 @@ impl<E> World<E> where E: Send + Sync {
         self.components.insert(T::default());
     }
 
-    fn run<F, T>(&mut self, inputs: Vec<E>, f: F) -> Vec<E>
-        where F: Fn((&T, &E)) -> E + Sync,
-              T: Debug + Send + Sync + 'static
+    fn run<F, C>(&mut self, inputs: Vec<E>, f: F) -> Vec<C>
+        where F: Fn((&C, &E)) -> C + Sync,
+              C: Debug + Send + Sync + 'static
     {
-        if let Some(resource) = self.components.get::<VecResource<T>>() {
-            let d: &[T] = &resource.data;
+        if let Some(resource) = self.components.get::<VecResource<C>>() {
+            let d: &[C] = &resource.data;
             let mut v = Vec::new();
             d.par_iter().zip(&inputs).map(f).collect_into(&mut v);
             v
@@ -83,11 +83,11 @@ impl<E> World<E> where E: Send + Sync {
         Entity(self.entities.len() as u32)
     }
 
-    fn create_entity(&mut self) {
+    fn create_entity<T>(&mut self, component: T) where T: Debug + Send + Sync + 'static {
         let e = self.next_entity();
         self.entities.push(e);
-        let vr: &mut VecResource<u32> = self.components.entry().or_insert_with(VecResource::new);
-        vr.data.push(self.entities.len() as u32);
+        let vr: &mut VecResource<T> = self.components.entry().or_insert_with(VecResource::new);
+        vr.data.push(component);
 
         let (tx, rx) = mpsc::channel();
         self.inputs.push(rx);
@@ -109,19 +109,18 @@ mod tests {
         let entity_count = 10;
         let mut w = World::new();
         for i in 0..entity_count {
-            w.create_entity();
+            w.create_entity(i*i);
         }
-        println!("Bar");
         let mut inputs = Vec::new();
-        inputs.resize(entity_count, 1u32);
+        inputs.resize(entity_count, 1usize);
         // Event input just being a vector is tricksy because it may not
         // be the same length as the entities vector.  It needs to be a particular
         // per-entity mapping of one kind or another.
         // Making it efficient so we don't need to always re-allocate a new vector
         // for returning new events will be a little wacky too.
-        let results = w.run(inputs, |(x1, x2): (&u32, &u32)| {
-            println!("Xs are is {:?} {:?}", x1, x2);
-            x1 + x2
+        let results = w.run(inputs, |(comp, event): (&u32, &usize)| {
+            println!("Component: {} Event: {}", comp, event);
+            comp + (*event as u32)
         });
         println!("Results are {:?}", results);
         let mut desired_results: Vec<u32> = Vec::new();
