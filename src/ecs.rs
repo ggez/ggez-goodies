@@ -46,7 +46,7 @@ pub struct EventSender<E> {
 
 // We never clone the channel senders, so I'm not sure if this is
 // really better than just having a Vec<RwLock<E>>, but...
-impl<E> EventSender<E> where E: Send {
+impl<E> EventSender<E> where E: Send + Sync {
     fn new() -> Self {
         EventSender {
             channels: Vec::new(),
@@ -63,17 +63,21 @@ impl<E> EventSender<E> where E: Send {
         // Might as well parallelize?
         // Overhead might not make it worth it.
         // Try it later, see if it matters.
-        /*
-        self.channels.par_iter_mut()
+        
+        self.channels.par_iter()
             .for_each(|q| {
-                let q_write = q.try_write().expect("Tried to clear event queues while in use; should never happen!");
-                *q_write.clear()
+                // Not sure if this is actually an optimization but it might be?
+                // Depends on how expensive getting a write lock is.
+                // ...Probably not more expensive than getting a read lock, tbh.
+                let to_clear = {
+                    let q_read = &mut q.try_read().unwrap();
+                    q_read.len() > 0
+                };
+                if to_clear {
+                    let q_write = &mut q.try_write().expect("Tried to clear event queues while in use; should never happen!");
+                    q_write.clear();
+                }
             });
-         */
-        for q in self.channels.iter_mut() {
-            let q_write = &mut q.try_write().expect("Tried to clear event queues while in use; should never happen!");
-            q_write.clear()
-        }
     }
 }
 
@@ -179,21 +183,28 @@ impl<E> World<E> where E: Send + Sync {
 mod tests {
 
     use super::*;
+    use rand;
 
     #[test]
     fn test_world_thingy() {
-        let entity_count = 10;
-        let loops = 10;
+        let entity_count = 100;
+        let message_count = 1000;
+        let loops = 100;
         let mut w = World::new();
         for i in 0..entity_count {
             w.create_entity(i as usize);
         }
-        w.send_to_entity(Entity(3), 0);
+        for i in 0..message_count {
+            let dest = rand::random::<u32>() % (entity_count as u32);
+            w.send_to_entity(Entity(dest), 0);
+        }
         for _ in 0..loops {
             // Call finish to make the event routing happen.
             w.finish();
-            let results = w.run(|comp: &usize, events: &[usize], writer: &EventSender<usize>| {
-                println!("Component: {} Event: {:?}", comp, events);
+            w.run(|comp: &usize, events: &[usize], writer: &EventSender<usize>| {
+                // println!("Component: {} Event: {:?}", comp, events);
+                // Just send any event you get to the next entity index;
+                // the event number is how many times it's been sent.
                 for e in events {
                     writer.send_to_entity(Entity(((*comp+1) % entity_count) as u32), *e + 1);
                 }
