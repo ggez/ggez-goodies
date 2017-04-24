@@ -1,4 +1,5 @@
 use std::fmt::Debug;
+use std::sync::mpsc;
 
 use rayon::prelude::*;
 use rayon;
@@ -32,18 +33,27 @@ impl<T> VecResource<T>
 }
 
 
-pub struct Entity((u32, u32));
+pub struct Entity(u32);
 
-pub struct World {
+// I feel a little ghetto making one global event type for everything,
+// but we'll roll with it for now.
+pub struct World<E> {
     entities: Vec<Entity>,
     components: anymap::AnyMap,
+    inputs: Vec<InputChannel<E>>,
+    outputs: Vec<OutputChannel<E>>
 }
 
-impl World {
+pub type InputChannel<T> = mpsc::Receiver<T>;
+pub type OutputChannel<T> = mpsc::Sender<T>;
+
+impl<E> World<E> where E: Send + Sync {
     pub fn new() -> Self {
         World {
             entities: Vec::new(),
             components: anymap::AnyMap::new(),
+            inputs: Vec::new(),
+            outputs: Vec::new(),
         }
     }
 
@@ -53,11 +63,9 @@ impl World {
         self.components.insert(T::default());
     }
 
-    fn run<F, T, Eoutput, Einput>(&mut self, inputs: Vec<Einput>, f: F) -> Vec<Eoutput>
-        where F: Fn((&T, &Einput)) -> Eoutput + Sync,
-              T: Debug + Send + Sync + 'static,
-              Eoutput: Send + Sync,
-              Einput: Send + Sync
+    fn run<F, T>(&mut self, inputs: Vec<E>, f: F) -> Vec<E>
+        where F: Fn((&T, &E)) -> E + Sync,
+              T: Debug + Send + Sync + 'static
     {
         if let Some(resource) = self.components.get::<VecResource<T>>() {
             let d: &[T] = &resource.data;
@@ -69,11 +77,26 @@ impl World {
         }
     }
 
+    fn next_entity(&self) -> Entity {
+        use std::u32;
+        assert!(self.entities.len() < u32::MAX as usize);
+        Entity(self.entities.len() as u32)
+    }
+
     fn create_entity(&mut self) {
-        self.entities.push(Entity((0, 0)));
+        let e = self.next_entity();
+        self.entities.push(e);
         let vr: &mut VecResource<u32> = self.components.entry().or_insert_with(VecResource::new);
         vr.data.push(self.entities.len() as u32);
+
+        let (tx, rx) = mpsc::channel();
+        self.inputs.push(rx);
+        self.outputs.push(tx);
     }
+
+    // fn send_to_entity(&self, entity: Entity, event: E) {
+    //     self.
+    // }
 }
 
 #[cfg(test)]
