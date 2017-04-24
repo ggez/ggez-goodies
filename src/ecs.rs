@@ -110,7 +110,7 @@ impl<E> World<E> where E: Send + Sync {
         self.next_components.insert(T::default());
     }
 
-    fn run<F, C>(&mut self, f: F)
+    fn run1<F, C>(&mut self, f: F)
         where F: Fn(&C, &[E], &EventSender<E>) -> C + Sync,
               C: Debug + Send + Sync + 'static
     {
@@ -133,6 +133,48 @@ impl<E> World<E> where E: Send + Sync {
             panic!("Tried to run a system on an unknown component type");
         }
     }
+
+    fn run2<F, C1, C2>(&mut self, f: F)
+        where F: Fn(&C1, &C2, &[E], &EventSender<E>) -> (C1, C2) + Sync,
+              C1: Debug + Send + Sync + 'static,
+              C2: Debug + Send + Sync + 'static
+    {
+        let current1 = self.current_components.get::<VecResource<C1>>().expect("Tried to run a system on an unknown component type");
+        let current2 = self.current_components.get::<VecResource<C2>>().expect("Tried to run a system on an unknown component type");            
+        let c1: &[C1] = &current1.data;
+        let c2: &[C2] = &current2.data;
+        
+        let next_events = &self.next_events;
+        // BUGGO: Aieee, my perfect non-allocating system is now poisoned!
+        let mut next_hax: Vec<(C1, C2)> = Vec::with_capacity(c1.len());
+        c1.par_iter()
+            .zip(c2)
+            .zip(&self.current_events.channels)
+            .map(|((comp1, comp2), e)| {
+                let event_queue = e.read().expect("Aiee event queue is poisoned in World::run(); did a system crash?");
+                f(comp1, comp2, &event_queue[..], next_events)
+            })
+            .collect_into(&mut next_hax);
+        //.enumerate()
+        // This doesn't seem to work 'cause it gets pesky about the closure altering self,
+        // for some reason.  Hmm.
+        //.for_each(|(i, (comp1, comp2))| {
+            //    next1.data[i] = comp1;
+            //});
+        //.collect_into(v);
+        let (r1, r2): (Vec<C1>, Vec<C2>) = next_hax.into_iter().unzip();
+        {
+            let next1 = self.next_components.get_mut::<VecResource<C1>>().expect("current_components exists but next_components does not, this should never happen!");
+            let n1 = &mut next1.data;
+            *n1 = r1;
+        }
+        {
+            let next2 = self.next_components.get_mut::<VecResource<C2>>().expect("current_components exists but next_components does not, this should never happen!");
+            let n2 = &mut next2.data;
+            *n2 = r2;
+        }
+    }
+
 
     // This function finalizes the end of the frame.
     // Delivers events, flips the current and next components, etc.
@@ -201,7 +243,7 @@ mod tests {
         for _ in 0..loops {
             // Call finish to make the event routing happen.
             w.finish();
-            w.run(|comp: &usize, events: &[usize], writer: &EventSender<usize>| {
+            w.run1(|comp: &usize, events: &[usize], writer: &EventSender<usize>| {
                 // println!("Component: {} Event: {:?}", comp, events);
                 // Just send any event you get to the next entity index;
                 // the event number is how many times it's been sent.
