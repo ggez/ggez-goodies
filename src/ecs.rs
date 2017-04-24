@@ -34,7 +34,7 @@ impl<T> VecResource<T>
     }
 }
 
-
+#[derive(Clone, Debug)]
 pub struct Entity(u32);
 
 pub type InputChannel<T> = Vec<T>;
@@ -203,18 +203,47 @@ impl<E> World<E> where E: Send + Sync {
         Entity(self.entities.len() as u32)
     }
 
-    fn create_entity<T>(&mut self, component: T) where T: Debug + Send + Sync + Clone + 'static {
+    fn create_entity<C1, C2>(&mut self, component1: C1, component2: C2) -> Entity
+        where C1: Debug + Send + Sync + Clone + 'static,
+              C2: Debug + Send + Sync + Clone + 'static,
+    {
         let e = self.next_entity();
-        self.entities.push(e);
+        self.entities.push(e.clone());
+        self.current_events.channels.push(RwLock::new(Vec::new()));
+        self.next_events.channels.push(RwLock::new(Vec::new()));
+
+        {
+            let nc: &mut VecResource<C1> = self.next_components.entry().or_insert_with(VecResource::new);
+            nc.data.push(component1.clone());
+            let components: &mut VecResource<C1> = self.current_components.entry().or_insert_with(VecResource::new);
+            components.data.push(component1);
+        }
+        {
+            let nc: &mut VecResource<C2> = self.next_components.entry().or_insert_with(VecResource::new);
+            nc.data.push(component2.clone());
+            let components: &mut VecResource<C2> = self.current_components.entry().or_insert_with(VecResource::new);
+            components.data.push(component2);
+        }
+
         
+        e
+    }
+
+    /*
+Uninitialized components makes this tricky,
+as does making sure we register all component types
+before adding them.
+Not impossible, just takes a little finesse.
+How does specs do it?
+    fn add_component<C>(&mut self, entity: Entity, component: C)
+        where C: Debug + Send + Sync + Clone + 'static {
         let nc: &mut VecResource<T> = self.next_components.entry().or_insert_with(VecResource::new);
         nc.data.push(component.clone());
         let components: &mut VecResource<T> = self.current_components.entry().or_insert_with(VecResource::new);
         components.data.push(component);
-
-        self.current_events.channels.push(RwLock::new(Vec::new()));
-        self.next_events.channels.push(RwLock::new(Vec::new()));
     }
+*/
+
 
     fn send_to_entity(&mut self, entity: Entity, event: E) {
         self.next_events.send_to_entity(entity, event);
@@ -234,7 +263,7 @@ mod tests {
         let loops = 100;
         let mut w = World::new();
         for i in 0..entity_count {
-            w.create_entity(i as usize);
+            w.create_entity(i as usize, ());
         }
         for i in 0..message_count {
             let dest = rand::random::<u32>() % (entity_count as u32);
