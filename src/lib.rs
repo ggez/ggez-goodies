@@ -13,7 +13,6 @@ pub mod input;
 pub mod particle;
 pub mod scene;
 pub mod sprite;
-pub mod sprite_loader;
 
 type Point2 = na::Point2<f64>;
 type Vector2 = na::Vector2<f64>;
