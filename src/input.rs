@@ -227,14 +227,14 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
         }
     }
 
-    pub fn get_axis(&mut self, axis: Axes) -> f64 {
-        let f = || AxisStatus::default();
-        let axis_status = self.axes.entry(axis).or_insert_with(f);
+    pub fn get_axis(&self, axis: Axes) -> f64 {
+        let d = AxisStatus::default();
+        let axis_status = self.axes.get(&axis).unwrap_or(&d);
         axis_status.position
     }
 
     pub fn get_axis_raw(&mut self, axis: Axes) -> f64 {
-        let f = || AxisStatus::default();
+        let d = AxisStatus::default();
         let axis_status = self.axes.entry(axis).or_insert_with(f);
         axis_status.direction
     }
