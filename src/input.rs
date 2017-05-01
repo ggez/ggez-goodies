@@ -233,23 +233,23 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
         axis_status.position
     }
 
-    pub fn get_axis_raw(&mut self, axis: Axes) -> f64 {
+    pub fn get_axis_raw(&self, axis: Axes) -> f64 {
         let d = AxisStatus::default();
-        let axis_status = self.axes.entry(axis).or_insert_with(f);
+        let axis_status = self.axes.get(&axis).unwrap_or(&d);
         axis_status.direction
     }
 
-    fn get_button(&mut self, button: Buttons) -> ButtonStatus {
-        let f = ButtonStatus::default;
-        let button_status = self.buttons.entry(button).or_insert_with(f);
+    fn get_button(&self, button: Buttons) -> ButtonStatus {
+        let d = ButtonStatus::default();
+        let button_status = self.buttons.get(&button).unwrap_or(&d);
         *button_status
     }
 
-    pub fn get_button_down(&mut self, axis: Buttons) -> bool {
+    pub fn get_button_down(&self, axis: Buttons) -> bool {
         self.get_button(axis).pressed
     }
 
-    pub fn get_button_up(&mut self, axis: Buttons) -> bool {
+    pub fn get_button_up(&self, axis: Buttons) -> bool {
         !self.get_button(axis).pressed
     }
 
@@ -258,12 +258,12 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
     ///
     /// Basically, `get_button_down()` and `get_button_up()` are level
     /// triggers, this and `get_button_released()` are edge triggered.
-    pub fn get_button_pressed(&mut self, axis: Buttons) -> bool {
+    pub fn get_button_pressed(&self, axis: Buttons) -> bool {
         let b = self.get_button(axis);
         b.pressed && !b.pressed_last_frame
     }
 
-    pub fn get_button_released(&mut self, axis: Buttons) -> bool {
+    pub fn get_button_released(&self, axis: Buttons) -> bool {
         let b = self.get_button(axis);
         !b.pressed && b.pressed_last_frame
     }
