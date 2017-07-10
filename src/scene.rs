@@ -43,17 +43,14 @@ impl<C, Ev> SceneSwitch<C, Ev> {
     ///
     /// Slightly nicer than writing
     /// `SceneSwitch::Replace(Box::new(x))` all the damn time.
-    fn replace<S>(scene: S) -> Self
-        where S: Scene<C, Ev> + 'static {
-        SceneSwitch::Replace(Box::new(scene))
+    fn replace(scene: Box<Scene<C, Ev>>) -> Self {
+        SceneSwitch::Replace(scene)
     }
 
     /// Same as `replace()` but returns SceneSwitch::Push
-    fn push<S>(scene: S) -> Self
-        where S: Scene<C, Ev> + 'static {
-        SceneSwitch::Push(Box::new(scene))
+    fn push(scene: Box<Scene<C, Ev>>) -> Self {
+        SceneSwitch::Push(scene)
     }
-
 }
 
 
