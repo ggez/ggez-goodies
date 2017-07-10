@@ -1,219 +1,158 @@
+//! The Scene system is basically for transitioning between
+//! *completely* different states that have entirely different game
+//! loops and but which all share a state.  It operates as a stack, with new
+//! scenes getting pushed to the stack (while the old ones stay in
+//! memory unchanged).  Apparently this is basically a push-down automata.
+//!
+//! Also there's no reason you can't have a Scene contain its own
+//! Scene subsystem to do its own indirection.  With a different state
+//! type, as well!  What fun!  Though whether you want to go that deep
+//! down the rabbit-hole is up to you.  I haven't found it necessary
+//! yet.
+//!
+//! This is basically identical in concept to the Amethyst engine's scene
+//! system, the only difference is the details of how the pieces are put
+//! together.
 
 use ggez;
-use ggez::GameResult;
-use ggez::conf;
-use ggez::event;
-use ggez::event::EventHandler;
 
-use std::collections::BTreeMap;
-use std::time::Duration;
+use input;
 
+pub enum SceneSwitch<C, Ev> {
+    None,
+    Push(Box<Scene<C, Ev>>),
+    Replace(Box<Scene<C, Ev>>),
+    Pop,
+}
 
-pub trait SavedScene {
-    fn load(&self) -> Box<Scene>;
+pub trait Scene<C, Ev> {
+    fn update(&mut self, gameworld: &mut C) -> SceneSwitch<C, Ev>;
+    fn draw(&mut self, gameworld: &mut C, ctx: &mut ggez::Context) -> ggez::GameResult<()>;
+    fn input(&mut self, gameworld: &mut C, event: Ev, started: bool);
+    /// Only used for human-readable convenience (or not at all, tbh)
     fn name(&self) -> &str;
+    /// Whether or not to draw the next lowest scene on the stack as well;
+    /// this is useful for GUI stuff that only partially covers the screen.
+    fn draw_previous(&self) -> bool {
+        false
+    }
 }
 
-// Perhaps next_scene() should really return a command
-// to manipulate the scene state?
-// It would be nicer to do this via a callback maybe but
-// that's quite Hard since the SceneManager owns the
-// current Scene.
-//
-// But I could certainly imagine it returning:
-// Nothing, Push(NewScene), Pop, Switch(NewScene)
-pub trait Scene: EventHandler {
-    fn unload(&mut self) -> Box<SavedScene>;
-    fn next_scene(&self) -> Option<String>;
-}
+impl<C, Ev> SceneSwitch<C, Ev> {
+    /// Convenient shortcut function for boxing scenes.
+    ///
+    /// Slightly nicer than writing
+    /// `SceneSwitch::Replace(Box::new(x))` all the damn time.
+    fn replace<S>(scene: S) -> Self
+        where S: Scene<C, Ev> + 'static {
+        SceneSwitch::Replace(Box::new(scene))
+    }
 
-/// A SceneManager is a GameState that handles Scene's
-/// and switches from one to another when requested.
-pub struct SceneManager {
-    states: BTreeMap<String, Box<SavedScene>>,
-    //pub game_data: T,
-    current: Box<Scene>,
-    next_scene: Option<String>,
+    /// Same as `replace()` but returns SceneSwitch::Push
+    fn push<S>(scene: S) -> Self
+        where S: Scene<C, Ev> + 'static {
+        SceneSwitch::Push(Box::new(scene))
+    }
+
 }
 
 
-impl EventHandler for SceneManager {
-    fn update(&mut self, ctx: &mut ggez::Context, dt: Duration) -> GameResult<()> {
-        // TODO: Get rid of this hacky clone!
-        if let Some(ref scene_name) = self.next_scene.clone() {
-            self.switch_scene(&scene_name)?;
+pub struct SceneStack<C, Ev> {
+    pub world: C,
+    scenes: Vec<Box<Scene<C, Ev>>>,
+}
+
+
+impl<C, Ev> SceneStack<C, Ev> {
+    pub fn new<F>(ctx: &mut ggez::Context, creator: F) -> Self
+        where F: Fn(&mut ggez::Context) -> C
+    {
+        let c = creator(ctx);
+        Self {
+            world: c,
+            scenes: Vec::new(),
         }
-        self.current.update(ctx, dt)?;
-        self.next_scene = self.current.next_scene();
-        Ok(())
     }
 
-    fn draw(&mut self, ctx: &mut ggez::Context) -> GameResult<()> {
-        self.current.draw(ctx)
+    pub fn push(&mut self, scene: Box<Scene<C, Ev>>) {
+        self.scenes.push(scene)
     }
 
-    fn mouse_button_down_event(&mut self, button: event::MouseButton, x: i32, y: i32) {
-        self.current.mouse_button_down_event(button, x, y)
+    pub fn pop(&mut self) -> Box<Scene<C, Ev>> {
+        self.scenes
+            .pop()
+            .expect("ERROR: Popped an empty scene stack.")
     }
 
-    fn mouse_button_up_event(&mut self, button: event::MouseButton, x: i32, y: i32) {
-        self.current.mouse_button_up_event(button, x, y)
+    pub fn current(&self) -> &Scene<C, Ev> {
+        &**self.scenes
+            .last()
+            .expect("ERROR: Tried to get current scene of an empty scene stack.")
     }
 
-    fn mouse_motion_event(&mut self,
-                          _state: event::MouseState,
-                          _x: i32,
-                          _y: i32,
-                          _xrel: i32,
-                          _yrel: i32) {
-        self.current.mouse_motion_event(_state, _x, _y, _xrel, _yrel)
+    pub fn switch(&mut self, next_scene: SceneSwitch<C, Ev>) -> Option<Box<Scene<C, Ev>>> {
+        // let operation = self.current_mut().next();
+        match next_scene {
+            SceneSwitch::None => None,
+            SceneSwitch::Pop => {
+                let s = self.pop();
+                let current_name = self.current().name();
+                Some(s)
+            }
+            SceneSwitch::Push(s) => {
+                self.push(s);
+                None
+            }
+            SceneSwitch::Replace(s) => {
+                let old_scene = self.pop();
+                self.push(s);
+                Some(old_scene)
+
+            }
+        }
     }
 
-    fn mouse_wheel_event(&mut self, _x: i32, _y: i32) {
-        self.current.mouse_wheel_event(_x, _y)
-    }
-
-    fn key_down_event(&mut self, _keycode: event::Keycode, _keymod: event::Mod, _repeat: bool) {
-        self.current.key_down_event(_keycode, _keymod, _repeat)
-    }
-
-    fn key_up_event(&mut self, _keycode: event::Keycode, _keymod: event::Mod, _repeat: bool) {
-        self.current.key_up_event(_keycode, _keymod, _repeat)
-    }
-
-    fn focus_event(&mut self, _gained: bool) {
-        self.current.focus_event(_gained)
-    }
-
-    /// Called upon a quit event.  If it returns true,
-    /// the game does not exit.
-    fn quit_event(&mut self) -> bool {
-        self.current.quit_event()
-    }
-}
-
-impl SceneManager {
-    /// This lets us create a SceneManager by providing the data for it.
-    fn new<T>(starting_scene_state: Box<SavedScene>, game_data: T) -> Self {
-        let starting_scene = starting_scene_state.load();
-        let mut scenes: BTreeMap<String, Box<SavedScene>> = BTreeMap::new();
-        scenes.insert(starting_scene_state.name().to_string(),
-                      starting_scene_state);
-        let sm = SceneManager {
-            states: scenes,
-            current: starting_scene,
-            next_scene: None,
+    // These functions must be on the SceneStack because otherwise
+    // if you try to get the current scene and the world to call
+    // update() on the current scene it causes a double-borrow.  :/
+    pub fn update(&mut self) {
+        let next_scene = {
+            let current_scene = &mut **self.scenes
+                .last_mut()
+                .expect("Tried to update empty scene stack");
+            current_scene.update(&mut self.world)
         };
-        sm
+        self.switch(next_scene);
     }
 
-    pub fn add<S: SavedScene + 'static>(&mut self, scene_state: S) {
-        self.states.insert(scene_state.name().to_string(), Box::new(scene_state));
-    }
+    // We walk down the scene stack until we find a scene where we aren't
+    // supposed to draw the previous one, then draw them from the bottom up.
+    //
+    // This allows for layering GUI's and such.
+    fn draw_scenes(scenes: &mut [Box<Scene<C, Ev>>], world: &mut C, ctx: &mut ggez::Context) {
+        if scenes.len() > 0 {
+            if let Some((current, rest)) = scenes.split_last_mut() {
+                if current.draw_previous() {
+                    SceneStack::draw_scenes(rest, world, ctx);
+                }
+                current.draw(world, ctx)
+                    .expect("I would hope drawing a scene never fails!");
 
-
-    pub fn current(&self) -> &Scene {
-        &*self.current
-    }
-
-    pub fn current_mut(&mut self) -> &mut Scene {
-        &mut *self.current
-    }
-
-    pub fn switch_scene(&mut self, scene_name: &str) -> GameResult<()> {
-        // Save current scene
-        let old_scene_state = self.current.unload();
-        let old_scene_name = old_scene_state.name().to_string();
-        self.states.insert(old_scene_name, old_scene_state);
-        // Then load the new one.
-        if let Some(scene_state) = self.states.get_mut(scene_name) {
-            let new_scene = scene_state.load();
-            self.current = new_scene;
-            Ok(())
-        } else {
-            let msg = format!("SceneManager: Asked to load scene {} but it did not exist?",
-                              scene_name);
-            Err(ggez::GameError::ResourceNotFound(msg, vec![]))
+            }
         }
+    }
+
+
+    pub fn draw(&mut self, ctx: &mut ggez::Context) {
+        SceneStack::draw_scenes(&mut self.scenes, &mut self.world, ctx)
+    }
+
+    pub fn input(&mut self, event: Ev, started: bool) {
+        let current_scene = &mut **self.scenes
+            .last_mut()
+            .expect("Tried to do input for empty scene stack");
+        current_scene.input(&mut self.world, event, started);
     }
 }
 
-#[cfg(test)]
-mod tests {
 
-    use ggez;
-    use ggez::GameResult;
-    use ggez::event::EventHandler;
-
-    use std::time::Duration;
-
-    use super::{Scene, SavedScene, SceneManager};
-
-    #[derive(Clone, Debug)]
-    struct TestSavedScene {
-        value: i32,
-        name: String,
-    }
-
-    impl SavedScene for TestSavedScene {
-        fn load(&self) -> Box<Scene> {
-            Box::new(TestScene(self.clone()))
-        }
-        fn name(&self) -> &str {
-            &self.name
-        }
-    }
-
-    #[derive(Clone, Debug)]
-    struct TestScene(TestSavedScene);
-
-    impl EventHandler for TestScene {
-        fn update(&mut self, _ctx: &mut ggez::Context, _dt: Duration) -> GameResult<()> {
-            Ok(())
-        }
-
-        fn draw(&mut self, _ctx: &mut ggez::Context) -> GameResult<()> {
-            Ok(())
-        }
-    }
-
-    impl Scene for TestScene {
-        fn unload(&mut self) -> Box<SavedScene> {
-            Box::new(self.0.clone())
-        }
-
-        fn next_scene(&self) -> Option<String> {
-            None
-        }
-    }
-
-    #[test]
-    fn test_scene_switching() {
-        let default_scene = TestSavedScene {
-            name: "default scene".to_string(),
-            value: 42,
-        };
-        let new_scene = TestSavedScene {
-            name: "other scene".to_string(),
-            value: 23,
-        };
-        let mut sm = SceneManager::new(Box::new(default_scene), ());
-        sm.add(new_scene);
-
-        {
-            let s = sm.current_mut().unload();
-            assert_eq!(s.name(), "default scene");
-        }
-        let res = sm.switch_scene("other scene");
-        assert!(res.is_ok());
-
-        {
-            let s = sm.current_mut().unload();
-            assert_eq!(s.name(), "other scene");
-        }
-
-        let res = sm.switch_scene("non existent scene");
-        assert!(res.is_err());
-    }
-
-}

@@ -2,8 +2,6 @@ extern crate ggez;
 extern crate rand;
 extern crate nalgebra as na;
 
-#[macro_use]
-extern crate serde_derive;
 extern crate serde_json;
 
 
@@ -14,10 +12,8 @@ pub mod particle;
 pub mod scene;
 pub mod sprite;
 
-type Point2 = na::Point2<f64>;
-type Vector2 = na::Vector2<f64>;
-type IPoint2 = na::Point2<u32>;
-type IVector2 = na::Vector2<u32>;
+pub type Point2 = na::Point2<f64>;
+pub type Vector2 = na::Vector2<f64>;
 
 #[cfg(test)]
 mod tests {

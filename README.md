@@ -11,13 +11,16 @@ Or if it does rely on others, it will be in a strictly incremental fashion.
 
 CURRENTLY this is massively unstable and is basically changing fluidly as I discover what the API needs to be like.
 
-# Modules that exist
+# Moduels that are actually useful/useable:
+
+* Input indirection layer and state tracking
+* Scene manager
+* Camera
+
+# Other modules that exist
 
 * Resource loader/cache (though it's a little janky)
-* Input indirection layer and state tracking -- TODO: Have pressed/released states that tell you if the key state changed *this frame*.
 * Particle system (incomplete)
-* Scene manager (still to do: scene stack?)
-* Camera!
 
 # Modules to create
 
@@ -36,10 +39,3 @@ CURRENTLY this is massively unstable and is basically changing fluidly as I disc
 * https://github.com/Gekkio/imgui-rs
 * https://github.com/BourgondAries/TileNet
 * There's a couple crates for loading Tiled maps, check 'em out
-
-# Random thoughts
-
-* Multithreading the particle system would be pretty cool!  split_at_mut seems the way.  (Nope,
-this is harder than it looks and doesn't work as well as you hope at least with Rayon.  I've
-been told to look into scoped threading crates for it.)
-

@@ -1,7 +1,8 @@
 //! An abstract input state object that gets fed user
 //! events and updates itself based on a set of key
 //! bindings.
-//! The idea is threefold:
+//! 
+//! The goals are:
 //!
 //! * Have a layer of abstract key bindings rather than
 //! looking at concrete event types
@@ -9,10 +10,11 @@
 //! between keyboards, joysticks and game controllers
 //! (rather based on Unity3D),
 //! * Do some tweening of input axes and stuff just for
-//! fun maybe.
-//!
-//! Right now ggez doesn't handle joysticks or controllers
-//! anyway, so.
+//! fun.
+//! * Take ggez's event-based input API, and present event- or
+//! state-based API so you can do whichever you want.
+
+// TODO: Handle mice, game pads, joysticks
 
 use std::hash::Hash;
 use std::collections::HashMap;
@@ -40,7 +42,7 @@ use ggez::event::*;
 // Easy way?  Hash map of event -> axis/button bindings.
 
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
-enum InputEvent {
+enum InputType {
     KeyEvent(Keycode), // MouseButtonEvent,
 }
 
@@ -95,7 +97,7 @@ pub struct InputBinding<Axes, Buttons>
     // Once EnumSet is stable it should be used for these
     // instead of BTreeMap. ♥?
     // Binding of keys to input values.
-    bindings: HashMap<InputEvent, InputEffect<Axes, Buttons>>,
+    bindings: HashMap<InputType, InputEffect<Axes, Buttons>>,
 }
 
 impl<Axes, Buttons> InputBinding<Axes, Buttons>
@@ -112,7 +114,7 @@ impl<Axes, Buttons> InputBinding<Axes, Buttons>
     /// logical axis.
     pub fn bind_key_to_axis(mut self, keycode: Keycode, axis: Axes, positive: bool) -> Self {
         
-        self.bindings.insert(InputEvent::KeyEvent(keycode),
+        self.bindings.insert(InputType::KeyEvent(keycode),
                              InputEffect::Axis(axis.clone(), positive));
         self
     }
@@ -120,14 +122,14 @@ impl<Axes, Buttons> InputBinding<Axes, Buttons>
     /// Adds a key binding connecting the given keycode to the given
     /// logical button.
     pub fn bind_key_to_button(mut self, keycode: Keycode, button: Buttons) -> Self {
-        self.bindings.insert(InputEvent::KeyEvent(keycode),
+        self.bindings.insert(InputType::KeyEvent(keycode),
                              InputEffect::Button(button.clone()));
         self
     }
 
     /// Takes an physical input type and turns it into a logical input type (keycode -> axis/button).
     pub fn resolve(&self, keycode: Keycode) -> Option<InputEffect<Axes, Buttons>> {
-        self.bindings.get(&InputEvent::KeyEvent(keycode)).cloned()
+        self.bindings.get(&InputType::KeyEvent(keycode)).cloned()
     }
 }
 
