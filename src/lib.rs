@@ -6,6 +6,7 @@ extern crate serde_json;
 
 
 pub mod asset;
+pub mod asset2;
 pub mod camera;
 pub mod input;
 pub mod particle;
