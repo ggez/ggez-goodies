@@ -9,19 +9,26 @@
 
 use std::collections::HashMap;
 use std::any::{Any, TypeId};
+use ggez;
 
 pub type AssetId = usize;
 
 pub struct AssetCache {
-    loaders: HashMap<TypeId, Box<Any>>,
+    loaders: HashMap<TypeId, Box<AssetLoader<Box<Any>>>>,
     asset_ids: HashMap<String, AssetId>,
     assets: Vec<Box<Any>>,
 }
 
 /// Describes an abstract asset loader type.
-pub trait AssetLoader<A, E> {
-    fn from_data(assets: &mut AssetCache, data: Self) -> Result<A, E>;
-}
+///
+/// This is what Amethyst uses but is weirdly not-what-we-want for
+/// this application, so idk.
+//pub trait AssetLoader<A, E> {
+//    fn from_data(assets: &mut AssetCache, data: Self) -> Result<A, E>;
+//}
+
+/// This isn't what we want either though, apparently.  So!
+pub type AssetLoader<A> = Fn(&mut ggez::Context, &str) -> ggez::GameResult<A>;
 
 impl AssetCache {
     pub fn new() -> Self {
@@ -32,21 +39,23 @@ impl AssetCache {
         }
     }
     
-    pub fn add_loader<T: Any>(&mut self, loader: T) {
-        let loader = Box::new(loader);
-        self.loaders.insert(TypeId::of::<T>(), loader);
+    pub fn add_loader<T: Any>(&mut self, loader: Box<AssetLoader<T>>) {
+        //let loader = Box::new(loader);
+        self.loaders.insert(TypeId::of::<T>(), loader as Box<AssetLoader<Box<Any>>>);
     }
 
     /// Load an asset from data
-    pub fn load_asset_from_data<A, S, E>(&mut self,
-                                      name: &str,
-                                      data: S)
-                                      -> Result<AssetId, E>
-        where A: Any,
-              S: AssetLoader<A, E>
+    pub fn load_asset_from_data<A>(&mut self,
+                                   ctx: &mut ggez::Context,
+                                   name: &str)
+                                   -> ggez::GameResult<AssetId>
+        where A: Any
     {
-        let asset = AssetLoader::<A, E>::from_data(self, data)?;
-        Ok(self.add_asset(name, asset))
+        //let asset = AssetLoader::<A, E>::from_data(self, data)?;
+        let loader = self.loaders.get(&TypeId::of::<A>()).unwrap();
+        let asset = loader(ctx, name)?;
+        let id = self.add_asset(name, asset);
+        Ok(id)
     }
 
     pub fn id_from_name(&self, name: &str) -> Option<AssetId> {
