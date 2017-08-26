@@ -19,34 +19,51 @@
 use ggez;
 use ggez::GameResult;
 use ggez::graphics;
-use na;
-use Vector2;
+use {Point2, Vector2, Matrix3, Similarity2, Translation2, Projective2};
+use na::UnitComplex;
 
-// Hmm.  Could, instead, use a 2d transformation
-// matrix, or create one of such.
+// Now uses Similarity and Projective transforms
 pub struct Camera {
-    screen_size: Vector2,
-    view_size: Vector2,
-    view_center: Vector2,
+    transform: Similarity2,
+    screen_transform: Projective2
 }
 
 impl Camera {
     pub fn new(screen_width: u32, screen_height: u32, view_width: f64, view_height: f64) -> Self {
         let screen_size = Vector2::new(screen_width as f64, screen_height as f64);
         let view_size = Vector2::new(view_width as f64, view_height as f64);
+        let units_per_pixel = view_size.component_div(&screen_size);
+        // Similarities only support uniform scaling
+        assert_eq!(units_per_pixel.x, units_per_pixel.y);
+        let transform = Similarity2::new(Vector2::new(0.0, 0.0), 0.0, units_per_pixel.x);
+        let screen_transform_matrix = Matrix3::new(1.0,  0.0, screen_size.x / 2.0,
+                                                  0.0, -1.0, screen_size.y / 2.0,
+                                                  0.0,  0.0, 1.0);
+        let screen_transform = Projective2::from_matrix_unchecked(screen_transform_matrix);
         Camera {
-            screen_size: screen_size,
-            view_size: view_size,
-            view_center: na::zero(),
+            transform,
+            screen_transform
         }
     }
 
     pub fn move_by(&mut self, by: Vector2) {
-        self.view_center += by;
+        self.transform.append_translation_mut(&Translation2::from_vector(by));
+    }
+
+    pub fn rotate_wrt_center_by(&mut self, by: f64) {
+        self.transform.append_rotation_wrt_center_mut(&UnitComplex::new(by));
+    }
+
+    pub fn rotate_wrt_point_by(&mut self, point: Point2, by: f64) {
+        self.transform.append_rotation_wrt_point_mut(&UnitComplex::new(by), &point);
     }
 
     pub fn move_to(&mut self, to: Vector2) {
-        self.view_center = to;
+        self.transform.isometry.translation = Translation2::from_vector(to);
+    }
+
+    pub fn zoom_wrt_center_by(&mut self, by: isize) {
+        self.transform.prepend_scaling_mut(by as f64);
     }
 
     /// Translates a point in world-space to a point in
@@ -56,14 +73,11 @@ impl Camera {
     /// not know how large the thing that might be drawn is;
     /// that's not its job.
     pub fn world_to_screen_coords(&self, from: Vector2) -> (i32, i32) {
-        let pixels_per_unit = self.screen_size.component_div(&self.view_size);
-        let view_offset = from - self.view_center;
-        let view_scale = view_offset.component_mul(&pixels_per_unit);
-
-
-        let x = (*view_scale).x + (*self.screen_size).x / 2.0;
-        let y = (*self.screen_size).y - ((*view_scale).y + (*self.screen_size).y / 2.0);
-        (x as i32, y as i32)
+        let point = Point2::from_coordinates(from);
+        let camera_transform = self.transform.inverse();
+        let point_camera = camera_transform * point;
+        let point_screen = self.screen_transform * point_camera;
+        (point_screen.x as i32, point_screen.y as i32)
     }
 
 
@@ -72,22 +86,14 @@ impl Camera {
     // p_screen - max_p/2 + max_p = -p
     // -p_screen - max_p/2 + max_p = p
     pub fn screen_to_world_coords(&self, from: (i32, i32)) -> Vector2 {
-        let (sx, sy) = from;
-        let sx = sx as f64;
-        let sy = sy as f64;
-        let flipped_x = sx - ((*self.screen_size).x / 2.0);
-        let flipped_y = -sy + (*self.screen_size).y / 2.0;
-        let screen_coords = Vector2::new(flipped_x, flipped_y);
-        let units_per_pixel = self.view_size.component_div(&self.screen_size);
-        let view_scale = screen_coords.component_mul(&units_per_pixel);
-        let view_offset = self.view_center + view_scale;
-
-        view_offset
-
+        let point = Point2::new(from.0 as f64, from.1 as f64);
+        let point_world = self.screen_transform.inverse() * point;
+        let point_camera = self.transform * point_world;
+        Vector2::new(point_camera.x, point_camera.y)
     }
 
     pub fn location(&self) -> Vector2 {
-        self.view_center
+        self.transform.isometry.translation.vector
     }
 
     fn calculate_dest_point(&self, location: Vector2) -> graphics::Point {

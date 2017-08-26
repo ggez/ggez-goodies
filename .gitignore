@@ -7,3 +7,5 @@
 Cargo.lock
 target
 Cargo.lock
+
+/*.dll
