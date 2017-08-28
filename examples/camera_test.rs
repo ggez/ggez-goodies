@@ -32,7 +32,7 @@ impl MainState {
         println!("Camera test instructions; WASD move the object, arrow keys move the camera.");
         println!("The red dots are drawn on every integer point in the camera's coordinate \
                   system.");
-        let image = graphics::Image::new(ctx, "player.png")?;
+        let image = graphics::Image::new(ctx, "/player.png")?;
         graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
         let state = MainState {
             camera: camera,
@@ -94,6 +94,8 @@ impl event::EventHandler for MainState {
             event::Keycode::Left => self.camera.move_by(Vector2::new(-0.1, 0.0)),
             event::Keycode::Down => self.camera.move_by(Vector2::new(0.0, -0.1)),
             event::Keycode::Right => self.camera.move_by(Vector2::new(0.1, 0.0)),
+            event::Keycode::Q => self.camera.rotate_wrt_center_by(-0.01),
+            event::Keycode::E => self.camera.rotate_wrt_center_by(0.01),
             _ => (),
         };
         println!("Camera position is now {}, object position is {:?}",

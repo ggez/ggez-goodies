@@ -62,8 +62,26 @@ impl Camera {
         self.transform.isometry.translation = Translation2::from_vector(to);
     }
 
-    pub fn zoom_wrt_center_by(&mut self, by: isize) {
-        self.transform.prepend_scaling_mut(by as f64);
+    pub fn zoom_wrt_center_by(&mut self, by: f64) {
+        self.transform.prepend_scaling_mut(by);
+    }
+
+    pub fn zoom_wrt_world_point_by(&mut self, point: Point2, by: f64) {
+        let dif = point - self.location();
+        let dif_vec = Vector2::new(dif.x, dif.y);
+        let translation = Translation2::from_vector(dif_vec);
+        self.transform.append_translation_mut(&translation);
+        self.transform.append_scaling_mut(by);
+        self.transform.append_translation_mut(&translation.inverse())
+    }
+
+    pub fn zoom_wrt_screen_point_by(&mut self, point: (i32, i32), by: f64) {
+        let world_point = self.screen_to_world_coords(point);
+        let dif_vec = world_point - self.location();
+        let translation = Translation2::from_vector(dif_vec);
+        self.transform.append_translation_mut(&translation);
+        self.transform.append_scaling_mut(by);
+        self.transform.append_translation_mut(&translation.inverse())
     }
 
     /// Translates a point in world-space to a point in
