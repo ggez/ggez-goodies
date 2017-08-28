@@ -75,16 +75,15 @@ impl Camera {
     }
 
     pub fn zoom_wrt_world_point_by(&mut self, point: Point2, by: f64) {
-        let new_zoom = self.zoom * by;
-        let scale_change = 1.0 / new_zoom - 1.0 / self.zoom;
-        self.zoom = new_zoom;
+        let new_scale = self.transform.scaling() / by;
+        let scale_change = new_scale - self.transform.scaling();
         let dif = point - self.location();
         let dif = -dif * scale_change;
         let dif_vec = Vector2::new(dif.x, dif.y);
         let translation = Translation2::from_vector(dif_vec);
-        self.transform.append_scaling_mut(1.0 / by);
+        self.transform.set_scaling(new_scale);
         self.transform.append_translation_mut(&translation);
-        self.zoom = new_zoom;
+        self.zoom *= by;
     }
 
     pub fn zoom_wrt_screen_point_by(&mut self, point: (i32, i32), by: f64) {
