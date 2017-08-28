@@ -14,10 +14,10 @@ use std::time::Duration;
 
 
 extern crate nalgebra as na;
-type Vector2 = na::Vector2<f64>;
 
 extern crate ggez_goodies;
 use ggez_goodies::camera::*;
+use ggez_goodies::{Vector2, Point2};
 
 struct MainState {
     camera: Camera,
@@ -29,7 +29,13 @@ impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
         let camera = Camera::new(WINDOW_WIDTH, WINDOW_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT);
 
-        println!("Camera test instructions; WASD move the object, arrow keys move the camera.");
+        println!("Camera test instructions:");
+        println!("WASD to move the player");
+        println!("IJKL to move the camera with respect to global axes");
+        println!("Arrow keys to move the camera with respect to local camera axes");
+        println!("QE to rotate the camera with respect to its center");
+        println!("RT to rotate the camera with respect to the player center");
+        println!("ZX to zoom the camera with respect to the camera center");
         println!("The red dots are drawn on every integer point in the camera's coordinate \
                   system.");
         let image = graphics::Image::new(ctx, "/player.png")?;
@@ -90,12 +96,22 @@ impl event::EventHandler for MainState {
             event::Keycode::D => {
                 self.image_location.x += 0.1;
             }
-            event::Keycode::Up => self.camera.move_by(Vector2::new(0.0, 0.1)),
-            event::Keycode::Left => self.camera.move_by(Vector2::new(-0.1, 0.0)),
-            event::Keycode::Down => self.camera.move_by(Vector2::new(0.0, -0.1)),
-            event::Keycode::Right => self.camera.move_by(Vector2::new(0.1, 0.0)),
+            event::Keycode::I => self.camera.move_by_global(Vector2::new(0.0, 0.1)),
+            event::Keycode::J => self.camera.move_by_global(Vector2::new(-0.1, 0.0)),
+            event::Keycode::K => self.camera.move_by_global(Vector2::new(0.0, -0.1)),
+            event::Keycode::L => self.camera.move_by_global(Vector2::new(0.1, 0.0)),
+            event::Keycode::Up => self.camera.move_by_local(Vector2::new(0.0, 0.1)),
+            event::Keycode::Left => self.camera.move_by_local(Vector2::new(-0.1, 0.0)),
+            event::Keycode::Down => self.camera.move_by_local(Vector2::new(0.0, -0.1)),
+            event::Keycode::Right => self.camera.move_by_local(Vector2::new(0.1, 0.0)),
             event::Keycode::Q => self.camera.rotate_wrt_center_by(-0.01),
             event::Keycode::E => self.camera.rotate_wrt_center_by(0.01),
+            event::Keycode::R => self.camera.rotate_wrt_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), -0.01),
+            event::Keycode::T => self.camera.rotate_wrt_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 0.01),
+            event::Keycode::Z => self.camera.zoom_wrt_center_by(1.25),
+            event::Keycode::X => self.camera.zoom_wrt_center_by(0.8),
+            event::Keycode::C => self.camera.zoom_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 2.0),
+            event::Keycode::V => self.camera.zoom_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 0.5),
             _ => (),
         };
         println!("Camera position is now {}, object position is {:?}",

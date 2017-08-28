@@ -25,7 +25,8 @@ use na::UnitComplex;
 // Now uses Similarity and Projective transforms
 pub struct Camera {
     transform: Similarity2,
-    screen_transform: Projective2
+    screen_transform: Projective2,
+    zoom: f64
 }
 
 impl Camera {
@@ -42,12 +43,18 @@ impl Camera {
         let screen_transform = Projective2::from_matrix_unchecked(screen_transform_matrix);
         Camera {
             transform,
-            screen_transform
+            screen_transform,
+            zoom: 1.0
         }
     }
 
-    pub fn move_by(&mut self, by: Vector2) {
+    pub fn move_by_global(&mut self, by: Vector2) {
         self.transform.append_translation_mut(&Translation2::from_vector(by));
+    }
+
+    pub fn move_by_local(&mut self, by: Vector2) {
+        let vec = self.transform.isometry.rotation * by;
+        self.move_by_global(vec);
     }
 
     pub fn rotate_wrt_center_by(&mut self, by: f64) {
@@ -63,25 +70,26 @@ impl Camera {
     }
 
     pub fn zoom_wrt_center_by(&mut self, by: f64) {
-        self.transform.prepend_scaling_mut(by);
+        self.zoom *= by;
+        self.transform.prepend_scaling_mut(1.0 / by);
     }
 
     pub fn zoom_wrt_world_point_by(&mut self, point: Point2, by: f64) {
+        let new_zoom = self.zoom * by;
+        let scale_change = 1.0 / new_zoom - 1.0 / self.zoom;
+        self.zoom = new_zoom;
         let dif = point - self.location();
+        let dif = -dif * scale_change;
         let dif_vec = Vector2::new(dif.x, dif.y);
         let translation = Translation2::from_vector(dif_vec);
+        self.transform.append_scaling_mut(1.0 / by);
         self.transform.append_translation_mut(&translation);
-        self.transform.append_scaling_mut(by);
-        self.transform.append_translation_mut(&translation.inverse())
+        self.zoom = new_zoom;
     }
 
     pub fn zoom_wrt_screen_point_by(&mut self, point: (i32, i32), by: f64) {
-        let world_point = self.screen_to_world_coords(point);
-        let dif_vec = world_point - self.location();
-        let translation = Translation2::from_vector(dif_vec);
-        self.transform.append_translation_mut(&translation);
-        self.transform.append_scaling_mut(by);
-        self.transform.append_translation_mut(&translation.inverse())
+        let world_point = Point2::origin() + self.screen_to_world_coords(point);
+        self.zoom_wrt_world_point_by(world_point, by);
     }
 
     /// Translates a point in world-space to a point in
@@ -132,6 +140,9 @@ pub trait CameraDraw
         let dest = camera.calculate_dest_point(dest);
         let mut my_p = p;
         my_p.dest = dest;
+        my_p.rotation = my_p.rotation + camera.transform.isometry.rotation.angle() as f32;
+        let scale = camera.zoom as f32;
+        my_p.scale = graphics::Point::new(scale * my_p.scale.x, scale * my_p.scale.y);
         self.draw_ex(ctx, my_p)
     }
 
@@ -143,7 +154,10 @@ pub trait CameraDraw
                    -> GameResult<()> {
         let dest = Vector2::new(dest.x as f64, dest.y as f64);
         let dest = camera.calculate_dest_point(dest);
-        self.draw(ctx, dest, rotation)
+        let rotation = rotation + camera.transform.isometry.rotation.angle() as f32;
+        let scale = camera.zoom as f32;
+        let scale = graphics::Point::new(scale, scale);
+        self.draw_ex(ctx, graphics::DrawParam{dest, rotation, scale, .. Default::default()})
     }
 }
 

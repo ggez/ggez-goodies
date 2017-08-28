@@ -21,6 +21,7 @@ pub type Matrix3 = na::Matrix3<f64>;
 pub type Similarity2 = na::Similarity2<f64>;
 pub type Translation2 = na::Translation2<f64>;
 pub type Projective2 = na::Projective2<f64>;
+pub type Isometry2 = na::Isometry2<f64>;
 
 #[cfg(test)]
 mod tests {
