@@ -27,7 +27,6 @@ struct MainState {
 }
 
 struct PointField {
-    points: Vec<graphics::Point>,
     image: graphics::Image
 }
 
@@ -45,7 +44,6 @@ impl PointField {
         let image = graphics::Image::from_rgba8(ctx, width as u16, height as u16, &buffer)?;
 
         let field = PointField {
-            points,
             image
         };
         Ok(field)
@@ -116,7 +114,7 @@ impl event::EventHandler for MainState {
         clear(ctx);
 
         set_color(ctx, Color::from((255, 0, 0)))?;
-        self.field.image
+        self.field
             .draw_camera(&self.camera, ctx, Point::zero(), 0.0)?;
         self.image
             .draw_camera(&self.camera, ctx, self.image_location, 0.0)?;
