@@ -57,7 +57,7 @@ impl Camera {
         self.move_by_global(vec);
     }
 
-    fn ease_in_out_cub(start: f64, change: f64, t: f64) -> f64 {
+    pub fn ease_in_out_cub(start: f64, change: f64, t: f64) -> f64 {
         let t = t * 2.0;
         if t < 1.0 {
             change/2.0*t*t*t + start
@@ -67,7 +67,7 @@ impl Camera {
         }
     }
 
-    fn ease_in_out_quad(start: f64, change: f64, t: f64) -> f64 {
+    pub fn ease_in_out_quad(start: f64, change: f64, t: f64) -> f64 {
         let t = t * 2.0;
         if t < 1.0 {
             change/2.0*t*t + start
@@ -94,14 +94,11 @@ impl Camera {
         self.transform.append_translation_mut(&Translation2::from_vector(vec));
     }
     pub fn move_towards_local_ease_cub(&mut self, to: (f64, f64), t: f64) {
-        let dif = self.screen_to_world_coords(to) - self.location();
-        let mut vec = Vector2::new(dif.x, dif.y);
-        vec.x = Camera::ease_in_out_cub(0.0, vec.x, t);
-        vec.y = Camera::ease_in_out_cub(0.0, vec.y, t);
-        self.transform.append_translation_mut(&Translation2::from_vector(vec));
+        let global = self.screen_to_world_coords(to);
+        self.move_towards_global_ease_cub(Point2::new(global.x, global.y), t);
     }
 
-    pub fn move_towards_global_ease_quad(&mut self, to: Vector2, t: f64) {
+    pub fn move_towards_global_ease_quad(&mut self, to: Point2, t: f64) {
         let dif = to - self.location();
         let mut vec = Vector2::new(dif.x, dif.y);
         vec.x = Camera::ease_in_out_quad(0.0, vec.x, t);
@@ -109,11 +106,20 @@ impl Camera {
         self.transform.append_translation_mut(&Translation2::from_vector(vec));
     }
     pub fn move_towards_local_ease_quad(&mut self, to: (f64, f64), t: f64) {
-        let dif = self.screen_to_world_coords(to) - self.location();
+        let global = self.screen_to_world_coords(to);
+        self.move_towards_global_ease_quad(Point2::new(global.x, global.y), t);
+    }
+
+    pub fn move_towards_global_ease(&mut self, to: Point2, t: f64, ease_function: &Fn(f64, f64, f64) -> f64) {
+        let dif = to - self.location();
         let mut vec = Vector2::new(dif.x, dif.y);
-        vec.x = Camera::ease_in_out_cub(0.0, vec.x, t);
-        vec.y = Camera::ease_in_out_cub(0.0, vec.y, t);
+        vec.x = ease_function(0.0, vec.x, t);
+        vec.y = ease_function(0.0, vec.y, t);
         self.transform.append_translation_mut(&Translation2::from_vector(vec));
+    }
+    pub fn move_towards_local_ease(&mut self, to: (f64, f64), t: f64, ease_function: &Fn(f64, f64, f64) -> f64) {
+        let global = self.screen_to_world_coords(to);
+        self.move_towards_global_ease(Point2::new(global.x, global.y), t, ease_function);
     }
 
     pub fn rotate_wrt_center_by(&mut self, by: f64) {
