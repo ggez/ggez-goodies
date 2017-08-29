@@ -57,6 +57,65 @@ impl Camera {
         self.move_by_global(vec);
     }
 
+    fn ease_in_out_cub(start: f64, change: f64, t: f64) -> f64 {
+        let t = t * 2.0;
+        if t < 1.0 {
+            change/2.0*t*t*t + start
+        } else {
+            let t = t - 2.0;
+            change/2.0*(t*t*t + 2.0) + start
+        }
+    }
+
+    fn ease_in_out_quad(start: f64, change: f64, t: f64) -> f64 {
+        let t = t * 2.0;
+        if t < 1.0 {
+            change/2.0*t*t + start
+        } else {
+            let t = t - 1.0;
+            -change/2.0 * (t*(t-2.0) - 1.0) + start
+        }
+    }
+
+    pub fn move_towards_global_lerp(&mut self, to: Point2, t: f64) {
+        let dif = (to - self.location()) * t;
+        self.transform.append_translation_mut(&Translation2::new(dif.x, dif.y));
+    }
+    pub fn move_towards_local_lerp(&mut self, to: (f64, f64), t: f64) {
+        let vec = (self.screen_to_world_coords(to) - self.location()) * t;
+        self.transform.append_translation_mut(&Translation2::from_vector(vec));
+    }
+
+    pub fn move_towards_global_ease_cub(&mut self, to: Point2, t: f64) {
+        let dif = to - self.location();
+        let mut vec = Vector2::new(dif.x, dif.y);
+        vec.x = Camera::ease_in_out_cub(0.0, vec.x, t);
+        vec.y = Camera::ease_in_out_cub(0.0, vec.y, t);
+        self.transform.append_translation_mut(&Translation2::from_vector(vec));
+    }
+    pub fn move_towards_local_ease_cub(&mut self, to: (f64, f64), t: f64) {
+        let dif = self.screen_to_world_coords(to) - self.location();
+        let mut vec = Vector2::new(dif.x, dif.y);
+        vec.x = Camera::ease_in_out_cub(0.0, vec.x, t);
+        vec.y = Camera::ease_in_out_cub(0.0, vec.y, t);
+        self.transform.append_translation_mut(&Translation2::from_vector(vec));
+    }
+
+    pub fn move_towards_global_ease_quad(&mut self, to: Vector2, t: f64) {
+        let dif = to - self.location();
+        let mut vec = Vector2::new(dif.x, dif.y);
+        vec.x = Camera::ease_in_out_quad(0.0, vec.x, t);
+        vec.y = Camera::ease_in_out_quad(0.0, vec.y, t);
+        self.transform.append_translation_mut(&Translation2::from_vector(vec));
+    }
+    pub fn move_towards_local_ease_quad(&mut self, to: (f64, f64), t: f64) {
+        let dif = self.screen_to_world_coords(to) - self.location();
+        let mut vec = Vector2::new(dif.x, dif.y);
+        vec.x = Camera::ease_in_out_cub(0.0, vec.x, t);
+        vec.y = Camera::ease_in_out_cub(0.0, vec.y, t);
+        self.transform.append_translation_mut(&Translation2::from_vector(vec));
+    }
+
     pub fn rotate_wrt_center_by(&mut self, by: f64) {
         self.transform.append_rotation_wrt_center_mut(&UnitComplex::new(by));
     }
@@ -196,7 +255,7 @@ mod tests {
         }
         {
             let p2_screen = c.world_to_screen_coords(p2);
-            assert_eq!(p2_screen, (560, 160));
+            assert_eq!(p2_screen, (560.0, 160.0));
             let p2_world = c.screen_to_world_coords(p2_screen);
             assert_eq!(p2_world, p2);
         }
