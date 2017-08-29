@@ -22,7 +22,43 @@ use ggez_goodies::{Vector2, Point2};
 struct MainState {
     camera: Camera,
     image: graphics::Image,
+    field: PointField,
     image_location: graphics::Point,
+}
+
+struct PointField {
+    points: Vec<graphics::Point>,
+    image: graphics::Image
+}
+
+impl PointField {
+    fn new(ctx: &mut Context, points: Vec<graphics::Point>, width: u32, height: u32, color: [u8; 4]) -> GameResult<Self> {
+        let len = (width * (height + 1) * 4) as usize;
+        let mut buffer: Vec<u8> = vec![0; len];
+        for point in &points {
+            let start_index = (point.y as u32 * width * 4 + point.x as u32 * 4) as usize;
+            buffer[start_index] = color[0];
+            buffer[start_index + 1] = color[1];
+            buffer[start_index + 2] = color[2];
+            buffer[start_index + 3] = color[3];
+        }
+        let image = graphics::Image::from_rgba8(ctx, width as u16, height as u16, &buffer)?;
+
+        let field = PointField {
+            points,
+            image
+        };
+        Ok(field)
+    }
+}
+
+impl graphics::Drawable for PointField {
+    fn draw_ex(&self, ctx: &mut Context, param: graphics::DrawParam) -> GameResult<()> {
+        self.image.draw_ex(ctx, param)
+    }
+    fn draw(&self, ctx: &mut Context, dest: graphics::Point, rotation: f32) -> GameResult<()> {
+        self.image.draw(ctx, dest, rotation)
+    }
 }
 
 impl MainState {
@@ -41,9 +77,23 @@ impl MainState {
                   system.");
         let image = graphics::Image::new(ctx, "/player.png")?;
         graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
+        let half_width = (CAMERA_WIDTH / 2.0) as i32;
+        let half_height = (CAMERA_HEIGHT / 2.0) as i32;
+        let num_points = CAMERA_WIDTH * CAMERA_HEIGHT;
+        let mut points: Vec<graphics::Point> = Vec::with_capacity(num_points as usize);
+        for y in -half_height..half_height {
+            for x in -half_width..half_width {
+                let fromvec = Vector2::new(x as f64, y as f64);
+                let (px, py) = camera.world_to_screen_coords(fromvec);
+                let pt = graphics::Point::new(px as f32, py as f32);
+                points.push(pt);
+            }
+        }
+        let field = PointField::new(ctx, points, WINDOW_WIDTH, WINDOW_HEIGHT, [255,255,255,255])?;
         let state = MainState {
-            camera: camera,
-            image: image,
+            camera,
+            image,
+            field,
             image_location: graphics::Point::zero(),
         };
         Ok(state)
@@ -62,22 +112,15 @@ impl event::EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        graphics::clear(ctx);
+        use graphics::*;
+        clear(ctx);
 
-        let half_width = (CAMERA_WIDTH / 2.0) as i32;
-        let half_height = (CAMERA_HEIGHT / 2.0) as i32;
-        graphics::set_color(ctx, graphics::Color::from((255, 0, 0)));
-        for y in -half_height..half_height {
-            for x in -half_width..half_width {
-                let fromvec = Vector2::new(x as f64, y as f64);
-                let (px, py) = self.camera.world_to_screen_coords(fromvec);
-                let to = graphics::Point::new(px as f32, py as f32);
-                graphics::points(ctx, &[to])?;
-            }
-        }
+        set_color(ctx, Color::from((255, 0, 0)))?;
+        self.field.image
+            .draw_camera(&self.camera, ctx, Point::zero(), 0.0)?;
         self.image
             .draw_camera(&self.camera, ctx, self.image_location, 0.0)?;
-        graphics::present(ctx);
+        present(ctx);
         timer::sleep_until_next_frame(ctx, 60);
         Ok(())
     }
@@ -111,8 +154,8 @@ impl event::EventHandler for MainState {
             event::Keycode::T => self.camera.rotate_wrt_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 0.01),
             event::Keycode::Z => self.camera.zoom_wrt_center_by(1.25),
             event::Keycode::X => self.camera.zoom_wrt_center_by(0.8),
-            event::Keycode::C => self.camera.zoom_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 2.0),
-            event::Keycode::V => self.camera.zoom_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 0.5),
+            event::Keycode::C => self.camera.zoom_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 1.25),
+            event::Keycode::V => self.camera.zoom_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 0.8),
             _ => (),
         };
         // println!("Camera position is now {}, object position is {:?}",
