@@ -36,6 +36,7 @@ impl MainState {
         println!("QE to rotate the camera with respect to its center");
         println!("RT to rotate the camera with respect to the player center");
         println!("ZX to zoom the camera with respect to the camera center");
+        println!("CV to zoom the camera with respect to the player center");
         println!("The red dots are drawn on every integer point in the camera's coordinate \
                   system.");
         let image = graphics::Image::new(ctx, "/player.png")?;
@@ -114,9 +115,9 @@ impl event::EventHandler for MainState {
             event::Keycode::V => self.camera.zoom_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 0.5),
             _ => (),
         };
-        println!("Camera position is now {}, object position is {:?}",
-                 self.camera.location(),
-                 self.image_location);
+        // println!("Camera position is now {}, object position is {:?}",
+        //          self.camera.location(),
+        //          self.image_location);
     }
 }
 
