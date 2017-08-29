@@ -77,18 +77,14 @@ impl Camera {
     pub fn zoom_wrt_world_point_by(&mut self, point: Point2, by: f64) {
         self.zoom *= by;
         let by = 1.0 / by;
-        let new_scale = self.transform.scaling() * by;
-        let scale_change = new_scale / self.transform.scaling();
-        let scale_change = if scale_change > 1.0 {-0.5 * scale_change} else {scale_change};
-        let dif = point - self.location();
-        let dif = dif * scale_change;
-        let dif_vec = Vector2::new(dif.x, dif.y);
-        let translation = Translation2::from_vector(dif_vec);
-        self.transform.set_scaling(new_scale);
+        let scale_change = 1.0 - by;
+        let dif = (point - self.location()) * scale_change;
+        let translation = Translation2::new(dif.x, dif.y);
+        self.transform.prepend_scaling_mut(by);
         self.transform.append_translation_mut(&translation);
     }
 
-    pub fn zoom_wrt_screen_point_by(&mut self, point: (i32, i32), by: f64) {
+    pub fn zoom_wrt_screen_point_by(&mut self, point: (f64, f64), by: f64) {
         let world_point = Point2::origin() + self.screen_to_world_coords(point);
         self.zoom_wrt_world_point_by(world_point, by);
     }
@@ -99,12 +95,12 @@ impl Camera {
     /// Does not do any clipping or anything, since it does
     /// not know how large the thing that might be drawn is;
     /// that's not its job.
-    pub fn world_to_screen_coords(&self, from: Vector2) -> (i32, i32) {
+    pub fn world_to_screen_coords(&self, from: Vector2) -> (f64, f64) {
         let point = Point2::from_coordinates(from);
         let camera_transform = self.transform.inverse();
         let point_camera = camera_transform * point;
         let point_screen = self.screen_transform * point_camera;
-        (point_screen.x as i32, point_screen.y as i32)
+        (point_screen.x, point_screen.y)
     }
 
 
@@ -112,7 +108,7 @@ impl Camera {
     // p_screen - max_p/2 = max_p - p
     // p_screen - max_p/2 + max_p = -p
     // -p_screen - max_p/2 + max_p = p
-    pub fn screen_to_world_coords(&self, from: (i32, i32)) -> Vector2 {
+    pub fn screen_to_world_coords(&self, from: (f64, f64)) -> Vector2 {
         let point = Point2::new(from.0 as f64, from.1 as f64);
         let point_world = self.screen_transform.inverse() * point;
         let point_camera = self.transform * point_world;
@@ -173,7 +169,7 @@ mod tests {
     #[test]
     fn test_coord_round_trip() {
         let mut c = Camera::new(640, 480, 40.0, 30.0);
-        let p1 = (200, 300);
+        let p1 = (200.0, 300.0);
         {
             let p1_world = c.screen_to_world_coords(p1);
             assert_eq!(p1_world, Vector2::new(-7.5, -3.75));
@@ -185,7 +181,7 @@ mod tests {
         let p2 = Vector2::new(20.0, 10.0);
         {
             let p2_screen = c.world_to_screen_coords(p2);
-            assert_eq!(p2_screen, (640, 80));
+            assert_eq!(p2_screen, (640.0, 80.0));
             let p2_world = c.screen_to_world_coords(p2_screen);
             assert_eq!(p2_world, p2);
         }
