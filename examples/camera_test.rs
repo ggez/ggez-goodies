@@ -81,8 +81,8 @@ impl MainState {
         let mut points: Vec<graphics::Point> = Vec::with_capacity(num_points as usize);
         for y in -half_height..half_height {
             for x in -half_width..half_width {
-                let fromvec = Vector2::new(x as f64, y as f64);
-                let (px, py) = camera.world_to_screen_coords(fromvec);
+                let from = Point2::new(x as f64, y as f64);
+                let (px, py) = camera.world_to_screen_coords(from);
                 let pt = graphics::Point::new(px as f32, py as f32);
                 points.push(pt);
             }
@@ -148,8 +148,8 @@ impl event::EventHandler for MainState {
             event::Keycode::Right => self.camera.move_by_local(Vector2::new(0.1, 0.0)),
             event::Keycode::Q => self.camera.rotate_wrt_center_by(-0.01),
             event::Keycode::E => self.camera.rotate_wrt_center_by(0.01),
-            event::Keycode::R => self.camera.rotate_wrt_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), -0.01),
-            event::Keycode::T => self.camera.rotate_wrt_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 0.01),
+            event::Keycode::R => self.camera.rotate_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), -0.01),
+            event::Keycode::T => self.camera.rotate_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 0.01),
             event::Keycode::Z => self.camera.zoom_wrt_center_by(1.25),
             event::Keycode::X => self.camera.zoom_wrt_center_by(0.8),
             event::Keycode::C => self.camera.zoom_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 1.25),
