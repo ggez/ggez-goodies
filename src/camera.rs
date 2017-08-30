@@ -76,15 +76,15 @@ impl Camera {
         Ok(())
     }
 
-    // Move the camera by the vector based on the global axes
+    // Move the camera by the world vector
     pub fn move_by_world(&mut self, by: Vector2) {
         self.transform
             .append_translation_mut(&Translation2::from_vector(by));
     }
 
-    // Move the camera by the vector based on the local camera transformation axes
-    pub fn move_by_screen(&mut self, by: Vector2) {
-        let vec = self.transform.isometry.rotation * by;
+    // Move the camera by the screen-space vector
+    pub fn move_by_screen(&mut self, by: (f64, f64)) {
+        let vec = self.screen_to_world_coords(by);
         self.move_by_world(vec);
     }
 
