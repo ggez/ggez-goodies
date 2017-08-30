@@ -14,7 +14,7 @@
 //! easing and movement functions.
 //! 
 //! A great source for how such things work is this:
-//! http://www.gamasutra.com/blogs/ItayKeren/20150511/243083/Scroll_Back_The_Theory_and_Practice_of_Cameras_in_SideScrollers.php
+//! `http://www.gamasutra.com/blogs/ItayKeren/20150511/243083/Scroll_Back_The_Theory_and_Practice_of_Cameras_in_SideScrollers.php`
 
 // TODO: Debug functions to draw world and camera grid!
 
@@ -41,7 +41,10 @@ impl Camera {
         let view_size = Vector2::new(view_width as f64, view_height as f64);
         let units_per_pixel = view_size.component_div(&screen_size);
         // Similarities only support uniform scaling, in case scale factor is not uniform, use the smaller one
-        let units_per_pixel = match units_per_pixel.x.partial_cmp(&units_per_pixel.y).unwrap_or(cmp::Ordering::Less) {
+        let units_per_pixel = match units_per_pixel.x
+            .partial_cmp(&units_per_pixel.y)
+            .unwrap_or(cmp::Ordering::Less) 
+        {
             cmp::Ordering::Equal => units_per_pixel.x,
             cmp::Ordering::Greater => units_per_pixel.y,
             cmp::Ordering::Less => units_per_pixel.x
@@ -60,30 +63,23 @@ impl Camera {
     }
 
     pub fn update(&mut self) -> GameResult<()> {
-        let mut point: Option<Point2> =  None;
-        let mut done: bool = false;
+        let mut action_status: Option<ActionStatus> = None;
         if let Some(ref mut action) = self.ease_action {
-            match action.update() {
-                ActionStatus::Running(pt) => {
-                    point = Some(pt)
-                },
-                ActionStatus::Done => {
-                    done = true;
-                }
-            };
+            action_status = Some(action.update());
         }
-        if let Some(p) = point {
-            self.move_to_world(p);
-        }
-        if done {
-            self.ease_action = None;
+        if let Some(status) = action_status {
+            match status {
+                ActionStatus::Running(p) => self.move_to_world(p),
+                ActionStatus::Done => self.ease_action = None
+            }
         }
         Ok(())
     }
 
     // Move the camera by the vector based on the global axes
     pub fn move_by_world(&mut self, by: Vector2) {
-        self.transform.append_translation_mut(&Translation2::from_vector(by));
+        self.transform
+            .append_translation_mut(&Translation2::from_vector(by));
     }
 
     // Move the camera by the vector based on the local camera transformation axes
@@ -103,14 +99,14 @@ impl Camera {
         self.move_to_world(pt);
     }
 
-    // Linearly interpolate between the camera's current position and a world-space Point
+    // Ease between the camera's current position and a world-space Point
     // using the selected Ease function over a duration
     pub fn move_towards_world_ease(&mut self, to: Point2, ease: Ease, duration: Duration) {
         let action = EaseAction::new(self.location(), to, ease, duration);
         self.ease_action = Some(action);
     }
 
-    // Linearly interpolate between the camera's current position and a world-space Point
+    // Ease between the camera's current position and a screen-space Point
     // using the selected Ease function over a duration
     pub fn move_towards_screen_ease(&mut self, to: (f64, f64), ease: Ease, duration: Duration) {
         let to = self.screen_to_world_coords(to);
@@ -120,12 +116,14 @@ impl Camera {
 
     // Rotate the camera about its center by by radians
     pub fn rotate_wrt_center_by(&mut self, by: f64) {
-        self.transform.append_rotation_wrt_center_mut(&UnitComplex::new(by));
+        self.transform
+            .append_rotation_wrt_center_mut(&UnitComplex::new(by));
     }
 
     // Rotate the camera about a world-space Point by by radians
     pub fn rotate_wrt_world_point_by(&mut self, point: Point2, by: f64) {
-        self.transform.append_rotation_wrt_point_mut(&UnitComplex::new(by), &point);
+        self.transform
+            .append_rotation_wrt_point_mut(&UnitComplex::new(by), &point);
     }
 
     // Rotate the camera about a screen-space Point by by radians
@@ -134,13 +132,15 @@ impl Camera {
         self.rotate_wrt_world_point_by(Point2::new(world_point.x, world_point.y), by);
     }
 
-    // Zoom the camera while keeping the center static  in the view (0.0-1.0 zooms out, > 1.0 zooms in)
+    // Zoom the camera while keeping the center static 
+    // in the view (0.0-1.0 zooms out, > 1.0 zooms in)
     pub fn zoom_wrt_center_by(&mut self, by: f64) {
         self.zoom *= by;
         self.transform.prepend_scaling_mut(1.0 / by);
     }
 
-    // Zoom the camera while a world-space Point static in the view (0.0-1.0 zooms out, > 1.0 zooms in)
+    // Zoom the camera while keeping a world-space Point static
+    // in the view (0.0-1.0 zooms out, > 1.0 zooms in)
     pub fn zoom_wrt_world_point_by(&mut self, point: Point2, by: f64) {
         self.zoom *= by;
         let by = 1.0 / by;
@@ -151,7 +151,8 @@ impl Camera {
         self.transform.append_translation_mut(&translation);
     }
 
-    // Zoom the camera while a screen-space Point static in the view (0.0-1.0 zooms out, > 1.0 zooms in)
+    // Zoom the camera while keeping a screen-space Point static
+    // in the view (0.0-1.0 zooms out, > 1.0 zooms in)
     pub fn zoom_wrt_screen_point_by(&mut self, point: (f64, f64), by: f64) {
         let world_point = self.screen_to_world_coords(point);
         self.zoom_wrt_world_point_by(world_point, by);
@@ -197,8 +198,8 @@ pub trait CameraDraw
     fn draw_ex_camera(&self,
                       camera: &Camera,
                       ctx: &mut ggez::Context,
-                      p: ggez::graphics::DrawParam)
-                      -> GameResult<()> {
+                      p: ggez::graphics::DrawParam
+    ) -> GameResult<()> {
         let dest = Point2::new(p.dest.x as f64, p.dest.y as f64);
         let dest = camera.calculate_dest_point(dest);
         let mut my_p = p;
@@ -213,14 +214,22 @@ pub trait CameraDraw
                    camera: &Camera,
                    ctx: &mut ggez::Context,
                    dest: ggez::graphics::Point,
-                   rotation: f32)
-                   -> GameResult<()> {
+                   rotation: f32
+    ) -> GameResult<()> {
         let dest = Point2::new(dest.x as f64, dest.y as f64);
         let dest = camera.calculate_dest_point(dest);
         let rotation = rotation + camera.transform.isometry.rotation.angle() as f32;
         let scale = camera.zoom as f32;
         let scale = graphics::Point::new(scale, scale);
-        self.draw_ex(ctx, graphics::DrawParam{dest, rotation, scale, .. Default::default()})
+        self.draw_ex(
+            ctx,
+            graphics::DrawParam{
+                dest,
+                rotation,
+                scale,
+                .. Default::default()
+            }
+        )
     }
 }
 
@@ -230,16 +239,21 @@ impl<T> CameraDraw for T where T: graphics::Drawable {}
 struct EaseAction {
     start_point: Point2,
     change_vec: Vector2,
-    interpolation: Vector2,
+    interpolation: Point2,
     ease_type: Ease,
     start_time: Instant,
     duration: f64
 }
 
 impl EaseAction {
-    pub fn new(start_point: Point2, end_point: Point2, ease_type: Ease, duration: Duration) -> Self {
+    pub fn new(
+        start_point: Point2,
+        end_point: Point2,
+        ease_type: Ease,
+        duration: Duration
+    ) -> Self {
         let change_vec = end_point - start_point;
-        let interpolation = Vector2::identity();
+        let interpolation = start_point;
         let duration = timer::duration_to_f64(duration);
         EaseAction {
             start_point,
@@ -255,16 +269,22 @@ impl EaseAction {
         let t = timer::duration_to_f64(self.start_time.elapsed()) / self.duration;
         match self.ease_type {
             Ease::InOutCubic => {
-                self.interpolation.x = EaseAction::ease_in_out_cubic(self.start_point.x, self.change_vec.x, t);
-                self.interpolation.y = EaseAction::ease_in_out_cubic(self.start_point.y, self.change_vec.y, t);
+                self.interpolation.x =
+                    EaseAction::ease_in_out_cubic(self.start_point.x, self.change_vec.x, t);
+                self.interpolation.y =
+                    EaseAction::ease_in_out_cubic(self.start_point.y, self.change_vec.y, t);
             },
             Ease::InOutQuadratic => {
-                self.interpolation.x = EaseAction::ease_in_out_quadratic(self.start_point.x, self.change_vec.x, t);
-                self.interpolation.y = EaseAction::ease_in_out_quadratic(self.start_point.y, self.change_vec.y, t);
+                self.interpolation.x =
+                    EaseAction::ease_in_out_quadratic(self.start_point.x, self.change_vec.x, t);
+                self.interpolation.y =
+                    EaseAction::ease_in_out_quadratic(self.start_point.y, self.change_vec.y, t);
             },
             Ease::Linear => {
-                self.interpolation.x = EaseAction::ease_linear(self.start_point.x, self.change_vec.x, t);
-                self.interpolation.y = EaseAction::ease_linear(self.start_point.y, self.change_vec.y, t);
+                self.interpolation.x =
+                    EaseAction::ease_linear(self.start_point.x, self.change_vec.x, t);
+                self.interpolation.y =
+                    EaseAction::ease_linear(self.start_point.y, self.change_vec.y, t);
             },
             Ease::Custom(easer) => {
                 self.interpolation.x = easer(self.start_point.x, self.change_vec.x, t);
@@ -272,9 +292,10 @@ impl EaseAction {
             }
         }
         if t >= 1.0 {
+            self.interpolation = self.start_point + self.change_vec;
             ActionStatus::Done
         } else {
-            ActionStatus::Running(Point2::origin() + self.interpolation)
+            ActionStatus::Running(self.interpolation)
         }
     }
 
