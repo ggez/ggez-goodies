@@ -71,6 +71,8 @@ impl MainState {
         println!("RT to rotate the camera with respect to the player center");
         println!("ZX to zoom the camera with respect to the camera center");
         println!("CV to zoom the camera with respect to the player center");
+        println!("Left click to move the camera to the mouse cursor with cubic-in-out easing");
+        println!("Right click to move the camera to the mouse cursor with linear easing");
         println!("The red dots are drawn on every integer point in the camera's coordinate \
                   system.");
         let image = graphics::Image::new(ctx, "/player.png")?;
@@ -106,7 +108,7 @@ const CAMERA_HEIGHT: f64 = 30.0;
 
 impl event::EventHandler for MainState {
     fn update(&mut self, _ctx: &mut Context, _dt: Duration) -> GameResult<()> {
-        Ok(())
+        self.camera.update()
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
@@ -138,14 +140,14 @@ impl event::EventHandler for MainState {
             event::Keycode::D => {
                 self.image_location.x += 0.1;
             }
-            event::Keycode::I => self.camera.move_by_global(Vector2::new(0.0, 0.1)),
-            event::Keycode::J => self.camera.move_by_global(Vector2::new(-0.1, 0.0)),
-            event::Keycode::K => self.camera.move_by_global(Vector2::new(0.0, -0.1)),
-            event::Keycode::L => self.camera.move_by_global(Vector2::new(0.1, 0.0)),
-            event::Keycode::Up => self.camera.move_by_local(Vector2::new(0.0, 0.1)),
-            event::Keycode::Left => self.camera.move_by_local(Vector2::new(-0.1, 0.0)),
-            event::Keycode::Down => self.camera.move_by_local(Vector2::new(0.0, -0.1)),
-            event::Keycode::Right => self.camera.move_by_local(Vector2::new(0.1, 0.0)),
+            event::Keycode::I => self.camera.move_by_world(Vector2::new(0.0, 0.1)),
+            event::Keycode::J => self.camera.move_by_world(Vector2::new(-0.1, 0.0)),
+            event::Keycode::K => self.camera.move_by_world(Vector2::new(0.0, -0.1)),
+            event::Keycode::L => self.camera.move_by_world(Vector2::new(0.1, 0.0)),
+            event::Keycode::Up => self.camera.move_by_screen(Vector2::new(0.0, 0.1)),
+            event::Keycode::Left => self.camera.move_by_screen(Vector2::new(-0.1, 0.0)),
+            event::Keycode::Down => self.camera.move_by_screen(Vector2::new(0.0, -0.1)),
+            event::Keycode::Right => self.camera.move_by_screen(Vector2::new(0.1, 0.0)),
             event::Keycode::Q => self.camera.rotate_wrt_center_by(-0.01),
             event::Keycode::E => self.camera.rotate_wrt_center_by(0.01),
             event::Keycode::R => self.camera.rotate_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), -0.01),
@@ -156,9 +158,14 @@ impl event::EventHandler for MainState {
             event::Keycode::V => self.camera.zoom_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 0.8),
             _ => (),
         };
-        // println!("Camera position is now {}, object position is {:?}",
-        //          self.camera.location(),
-        //          self.image_location);
+    }
+
+    fn mouse_button_down_event(&mut self, btn: event::MouseButton, x: i32, y: i32) {
+        match btn {
+            event::MouseButton::Left => self.camera.move_towards_screen_ease((x as f64, y as f64), Ease::InOutCubic, Duration::from_millis(500)),
+            event::MouseButton::Right => self.camera.move_towards_screen_ease((x as f64, y as f64), Ease::Linear, Duration::from_millis(500)),
+            _ => ()
+        }
     }
 }
 

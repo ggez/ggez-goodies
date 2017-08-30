@@ -21,14 +21,17 @@
 use ggez;
 use ggez::GameResult;
 use ggez::graphics;
+use ggez::timer;
 use {Point2, Vector2, Matrix3, Similarity2, Translation2, Projective2};
 use na::UnitComplex;
 use std::cmp;
+use std::time::{Duration, Instant};
 
 // Now uses Similarity and Projective transforms
 pub struct Camera {
     transform: Similarity2,
     screen_transform: Projective2,
+    ease_action: Option<EaseAction>,
     zoom: f64
 }
 
@@ -51,101 +54,68 @@ impl Camera {
         Camera {
             transform,
             screen_transform,
+            ease_action: None,
             zoom: 1.0
         }
     }
 
+    pub fn update(&mut self) -> GameResult<()> {
+        let mut point: Option<Point2> =  None;
+        let mut done: bool = false;
+        if let Some(ref mut action) = self.ease_action {
+            match action.update() {
+                ActionStatus::Running(pt) => {
+                    point = Some(pt)
+                },
+                ActionStatus::Done => {
+                    done = true;
+                }
+            };
+        }
+        if let Some(p) = point {
+            self.move_to_world(p);
+        }
+        if done {
+            self.ease_action = None;
+        }
+        Ok(())
+    }
+
     // Move the camera by the vector based on the global axes
-    pub fn move_by_global(&mut self, by: Vector2) {
+    pub fn move_by_world(&mut self, by: Vector2) {
         self.transform.append_translation_mut(&Translation2::from_vector(by));
     }
 
     // Move the camera by the vector based on the local camera transformation axes
-    pub fn move_by_local(&mut self, by: Vector2) {
+    pub fn move_by_screen(&mut self, by: Vector2) {
         let vec = self.transform.isometry.rotation * by;
-        self.move_by_global(vec);
+        self.move_by_world(vec);
     }
 
-    // Interpolate with a cubic ease-in-out algorithm from start to start + change where the x axis is from 0.0 - 1.0 represented by t
-    pub fn ease_in_out_cub(start: f64, change: f64, t: f64) -> f64 {
-        let t = t * 2.0;
-        if t < 1.0 {
-            change/2.0*t*t*t + start
-        } else {
-            let t = t - 2.0;
-            change/2.0*(t*t*t + 2.0) + start
-        }
+    // Move the camera by the vector based on the global axes
+    pub fn move_to_world(&mut self, to: Point2) {
+        self.transform.isometry.translation = Translation2::from_vector(to.coords);
     }
 
-    // Interpolate with a quadratic ease-in-out algorithm from start to start + change where the x axis is from 0.0 - 1.0 represented by t
-    pub fn ease_in_out_quad(start: f64, change: f64, t: f64) -> f64 {
-        let t = t * 2.0;
-        if t < 1.0 {
-            change/2.0*t*t + start
-        } else {
-            let t = t - 1.0;
-            -change/2.0 * (t*(t-2.0) - 1.0) + start
-        }
+    // Move the camera by the vector based on the local camera transformation axes
+    pub fn move_to_screen(&mut self, to: (f64, f64)) {
+        let pt = self.screen_to_world_coords(to);
+        self.move_to_world(pt);
     }
 
-    // Linearly interpolate between the camera's current position and a world-space Point by t where t is 0.0 - 1.0
-    pub fn move_towards_world_lerp(&mut self, to: Point2, t: f64) {
-        let dif = (to - self.location()) * t;
-        self.transform.append_translation_mut(&Translation2::new(dif.x, dif.y));
-    }
-    // Linearly interpolate between the camera's current position and a screen-space Point by t where t is 0.0 - 1.0
-    pub fn move_towards_screen_lerp(&mut self, to: (f64, f64), t: f64) {
-        let vec = (self.screen_to_world_coords(to) - self.location().coords) * t;
-        self.transform.append_translation_mut(&Translation2::from_vector(vec.coords));
+    // Linearly interpolate between the camera's current position and a world-space Point
+    // using the selected Ease function over a duration
+    pub fn move_towards_world_ease(&mut self, to: Point2, ease: Ease, duration: Duration) {
+        let action = EaseAction::new(self.location(), to, ease, duration);
+        self.ease_action = Some(action);
     }
 
-    // Interpolate between the camera's current position and a world-space Point with a cubic ease-in-out curve
-    // where progress of the interpolation is represented by t from 0.0 - 1.0
-    pub fn move_towards_world_ease_cub(&mut self, to: Point2, t: f64) {
-        let dif = to - self.location();
-        let mut vec = Vector2::new(dif.x, dif.y);
-        vec.x = Camera::ease_in_out_cub(0.0, vec.x, t);
-        vec.y = Camera::ease_in_out_cub(0.0, vec.y, t);
-        self.transform.append_translation_mut(&Translation2::from_vector(vec));
-    }
-    // Interpolate between the camera's current position and a screen-space Point with a cubic ease-in-out curve
-    // where progress of the interpolation is represented by t from 0.0 - 1.0
-    pub fn move_towards_screen_ease_cub(&mut self, to: (f64, f64), t: f64) {
-        let global = self.screen_to_world_coords(to);
-        self.move_towards_world_ease_cub(Point2::new(global.x, global.y), t);
-    }
-
-    // Interpolate between the camera's current position and a world-space Point with a quadratic ease-in-out curve
-    // where progress of the interpolation is represented by t from 0.0 - 1.0
-    pub fn move_towards_world_ease_quad(&mut self, to: Point2, t: f64) {
-        let mut dif = to - self.location();
-        dif.x = Camera::ease_in_out_quad(0.0, dif.x, t);
-        dif.y = Camera::ease_in_out_quad(0.0, dif.y, t);
-        self.transform.append_translation_mut(&Translation2::from_vector(dif));
-    }
-    // Interpolate between the camera's current position and a screen-space Point with a quadratic ease-in-out curve
-    // where progress of the interpolation is represented by t from 0.0 - 1.0
-    pub fn move_towards_screen_ease_quad(&mut self, to: (f64, f64), t: f64) {
-        let global = self.screen_to_world_coords(to);
-        self.move_towards_world_ease_quad(Point2::new(global.x, global.y), t);
-    }
-
-    // Interpolate between the camera's current position and a world-space Point with a given ease function where
-    // the easing function has signature fn(start: f64, change: f64, t: f64) -> f64
-    // where progress of the interpolation is represented by t from 0.0 - 1.0
-    pub fn move_towards_world_ease(&mut self, to: Point2, t: f64, ease_function: &Fn(f64, f64, f64) -> f64) {
-        let dif = to - self.location();
-        let mut vec = Vector2::new(dif.x, dif.y);
-        vec.x = ease_function(0.0, vec.x, t);
-        vec.y = ease_function(0.0, vec.y, t);
-        self.transform.append_translation_mut(&Translation2::from_vector(vec));
-    }
-    // Interpolate between the camera's current position and a screen-space Point with a given ease function where
-    // the easing function has signature fn(start: f64, change: f64, t: f64) -> f64
-    // where progress of the interpolation is represented by t from 0.0 - 1.0
-    pub fn move_towards_screen_ease(&mut self, to: (f64, f64), t: f64, ease_function: &Fn(f64, f64, f64) -> f64) {
-        let global = self.screen_to_world_coords(to);
-        self.move_towards_world_ease(Point2::new(global.x, global.y), t, ease_function);
+    // Linearly interpolate between the camera's current position and a world-space Point
+    // using the selected Ease function over a duration
+    pub fn move_towards_screen_ease(&mut self, to: (f64, f64), ease: Ease, duration: Duration) {
+        let to = self.screen_to_world_coords(to);
+        let action = EaseAction::new(self.location(), to, ease, duration);
+        self.ease_action = Some(action);
     }
 
     // Rotate the camera about its center by by radians
@@ -162,9 +132,6 @@ impl Camera {
     pub fn rotate_wrt_screen_point_by(&mut self, point: (f64, f64), by: f64) {
         let world_point = self.screen_to_world_coords(point);
         self.rotate_wrt_world_point_by(Point2::new(world_point.x, world_point.y), by);
-    }
-    pub fn move_to(&mut self, to: Vector2) {
-        self.transform.isometry.translation = Translation2::from_vector(to);
     }
 
     // Zoom the camera while keeping the center static  in the view (0.0-1.0 zooms out, > 1.0 zooms in)
@@ -260,6 +227,96 @@ pub trait CameraDraw
 
 impl<T> CameraDraw for T where T: graphics::Drawable {}
 
+struct EaseAction {
+    start_point: Point2,
+    change_vec: Vector2,
+    interpolation: Vector2,
+    ease_type: Ease,
+    start_time: Instant,
+    duration: f64
+}
+
+impl EaseAction {
+    pub fn new(start_point: Point2, end_point: Point2, ease_type: Ease, duration: Duration) -> Self {
+        let change_vec = end_point - start_point;
+        let interpolation = Vector2::identity();
+        let duration = timer::duration_to_f64(duration);
+        EaseAction {
+            start_point,
+            change_vec,
+            interpolation,
+            ease_type,
+            start_time: Instant::now(),
+            duration
+        }
+    }
+
+    pub fn update(&mut self) -> ActionStatus {
+        let t = timer::duration_to_f64(self.start_time.elapsed()) / self.duration;
+        match self.ease_type {
+            Ease::InOutCubic => {
+                self.interpolation.x = EaseAction::ease_in_out_cubic(self.start_point.x, self.change_vec.x, t);
+                self.interpolation.y = EaseAction::ease_in_out_cubic(self.start_point.y, self.change_vec.y, t);
+            },
+            Ease::InOutQuadratic => {
+                self.interpolation.x = EaseAction::ease_in_out_quadratic(self.start_point.x, self.change_vec.x, t);
+                self.interpolation.y = EaseAction::ease_in_out_quadratic(self.start_point.y, self.change_vec.y, t);
+            },
+            Ease::Linear => {
+                self.interpolation.x = EaseAction::ease_linear(self.start_point.x, self.change_vec.x, t);
+                self.interpolation.y = EaseAction::ease_linear(self.start_point.y, self.change_vec.y, t);
+            },
+            Ease::Custom(easer) => {
+                self.interpolation.x = easer(self.start_point.x, self.change_vec.x, t);
+                self.interpolation.y = easer(self.start_point.y, self.change_vec.y, t);
+            }
+        }
+        if t >= 1.0 {
+            ActionStatus::Done
+        } else {
+            ActionStatus::Running(Point2::origin() + self.interpolation)
+        }
+    }
+
+    fn ease_in_out_cubic(start: f64, change: f64, t: f64) -> f64 {
+        let t = t * 2.0;
+        if t < 1.0 {
+            change/2.0*t*t*t + start
+        } else {
+            let t = t - 2.0;
+            change/2.0*(t*t*t + 2.0) + start
+        }
+    }
+
+    fn ease_in_out_quadratic(start: f64, change: f64, t: f64) -> f64 {
+        let t = t * 2.0;
+        if t < 1.0 {
+            change/2.0*t*t + start
+        } else {
+            let t = t - 1.0;
+            -change/2.0 * (t*(t-2.0) - 1.0) + start
+        }
+    }
+
+    fn ease_linear(start: f64, change: f64, t: f64) -> f64 {
+        start + change * t
+    }
+}
+
+enum ActionStatus {
+    Running(Point2),
+    Done
+}
+
+pub type Easer = &'static Fn(f64, f64, f64) -> f64;
+
+pub enum Ease {
+    InOutCubic,
+    InOutQuadratic,
+    Linear,
+    Custom(Easer)
+}
+
 #[cfg(test)]
 mod tests {
     use Vector2;
@@ -285,7 +342,7 @@ mod tests {
             assert_eq!(p2_world, p2);
         }
 
-        c.move_to(Vector2::new(5.0, 5.0));
+        c.move_to_world(Point2::new(5.0, 5.0));
 
         {
             let p1_world = c.screen_to_world_coords(p1);
