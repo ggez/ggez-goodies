@@ -9,9 +9,11 @@
 //!
 //! Because that makes sense, darn it.
 //!
-//! However, does not yet do any actual camera movements like
-//! easing, pinning, etc.
-//! But a great source for how such things work is this:
+//! Does easing, but no pinning or other advanced camera techniques.
+//! These should be relatively easy to implement given the built in
+//! easing and movement functions.
+//! 
+//! A great source for how such things work is this:
 //! http://www.gamasutra.com/blogs/ItayKeren/20150511/243083/Scroll_Back_The_Theory_and_Practice_of_Cameras_in_SideScrollers.php
 
 // TODO: Debug functions to draw world and camera grid!
@@ -21,6 +23,7 @@ use ggez::GameResult;
 use ggez::graphics;
 use {Point2, Vector2, Matrix3, Similarity2, Translation2, Projective2};
 use na::UnitComplex;
+use std::cmp;
 
 // Now uses Similarity and Projective transforms
 pub struct Camera {
@@ -34,9 +37,13 @@ impl Camera {
         let screen_size = Vector2::new(screen_width as f64, screen_height as f64);
         let view_size = Vector2::new(view_width as f64, view_height as f64);
         let units_per_pixel = view_size.component_div(&screen_size);
-        // Similarities only support uniform scaling
-        assert_eq!(units_per_pixel.x, units_per_pixel.y);
-        let transform = Similarity2::new(Vector2::new(0.0, 0.0), 0.0, units_per_pixel.x);
+        // Similarities only support uniform scaling, in case scale factor is not uniform, use the smaller one
+        let units_per_pixel = match units_per_pixel.x.partial_cmp(&units_per_pixel.y).unwrap_or(cmp::Ordering::Less) {
+            cmp::Ordering::Equal => units_per_pixel.x,
+            cmp::Ordering::Greater => units_per_pixel.y,
+            cmp::Ordering::Less => units_per_pixel.x
+        };
+        let transform = Similarity2::new(Vector2::new(0.0, 0.0), 0.0, units_per_pixel);
         let screen_transform_matrix = Matrix3::new(1.0,  0.0, screen_size.x / 2.0,
                                                   0.0, -1.0, screen_size.y / 2.0,
                                                   0.0,  0.0, 1.0);
