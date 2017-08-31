@@ -37,7 +37,12 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(screen_width: u32, screen_height: u32, view_width: f64, view_height: f64) -> Self {
+    pub fn new(
+        screen_width: u32, 
+        screen_height: u32, 
+        view_width: f64, 
+        view_height: f64
+    ) -> Self {
         let screen_size = Vector2::new(screen_width as f64, screen_height as f64);
         let view_size = Vector2::new(view_width as f64, view_height as f64);
         let units_per_pixel = view_size.component_div(&screen_size);
@@ -64,88 +69,6 @@ impl Camera {
             start_scale: 1.0 / units_per_pixel,
             zoom: 1.0
         }
-    }
-
-    pub fn update(&mut self) -> GameResult<()> {
-        let mut action_status: Option<ActionStatus> = None;
-        if let Some(ref mut action) = self.ease_action {
-            action_status = Some(action.update());
-        }
-        if let Some(status) = action_status {
-            match status {
-                ActionStatus::Running(p) => self.move_to_world(p),
-                ActionStatus::Done => self.ease_action = None
-            }
-        }
-        Ok(())
-    }
-
-    pub fn debug_draw(
-        &mut self, 
-        ctx: &mut Context,
-        screen_grid: bool,
-        world_grid: bool
-    ) -> GameResult<()> {
-        graphics::set_color(ctx, graphics::Color::from((255, 0, 0)))?;
-        if world_grid {
-            let min_world_coords = self.location() - self.view_size;
-            let min_world_coords = (min_world_coords.x as i64, min_world_coords.y as i64);
-            let max_world_coords = self.location() + self.view_size;
-            let max_world_coords = (max_world_coords.x as i64, max_world_coords.y as i64);
-            for x in (min_world_coords.0)..(max_world_coords.0 + 1) {
-                let scale = if x % 10 == 0 { 3.0 } else { 1.0 };
-                let scale = if scale * self.zoom < 1.0 { 1.0 } else { scale * self.zoom };
-                graphics::set_line_width(ctx, scale as f32);
-
-                let points = [
-                    self.calculate_dest_point(Point2::new(x as f64, self.view_size.y * 2.0)),
-                    self.calculate_dest_point(Point2::new(x as f64, -self.view_size.y * 2.0))
-                ];
-                graphics::line(ctx, &points)?;
-            }
-            for y in (min_world_coords.1)..(max_world_coords.1 + 1) {
-                let scale = if y % 10 == 0 { 3.0 } else { 1.0 };
-                let scale = if scale * self.zoom < 1.0 { 1.0 } else { scale * self.zoom };
-                graphics::set_line_width(ctx, scale as f32);
-
-                let points = [
-                    self.calculate_dest_point(Point2::new(-self.view_size.x * 2.0, y as f64)),
-                    self.calculate_dest_point(Point2::new(self.view_size.x * 2.0, y as f64))
-                ];
-                graphics::line(ctx, &points)?;
-            }
-        }
-        graphics::set_color(ctx, graphics::Color::from((100, 120, 255)))?;
-        if screen_grid {
-            let scaling = self.start_scale as u64;
-            for x in 0..self.screen_size.x as u64 {
-                if x % scaling == 0 {
-                    let px = x as f32;
-                    let scale = if x % (scaling * 10) == 0 { 3.0 } else { 1.0 };
-                    graphics::set_line_width(ctx, scale as f32);
-
-                    let points = [
-                        graphics::Point::new(px, 0.0),
-                        graphics::Point::new(px, self.screen_size.y as f32)
-                    ];
-                    graphics::line(ctx, &points)?;
-                }
-            }
-            for y in 0..self.screen_size.y as u64 {
-                if y % scaling == 0 {
-                    let py = y as f32;
-                    let scale = if y % (scaling * 10) == 0 { 3.0 } else { 1.0 };
-                    graphics::set_line_width(ctx, scale as f32);
-
-                    let points = [
-                        graphics::Point::new(0.0, py),
-                        graphics::Point::new(self.screen_size.x as f32, py)
-                    ];
-                    graphics::line(ctx, &points)?;
-                }
-            }
-        }
-        Ok(())
     }
 
     // Move the camera by the world vector
@@ -264,6 +187,88 @@ impl Camera {
     fn calculate_dest_point(&self, location: Point2) -> graphics::Point {
         let (sx, sy) = self.world_to_screen_coords(location);
         graphics::Point::new(sx as f32, sy as f32)
+    }
+
+    pub fn update(&mut self) -> GameResult<()> {
+        let mut action_status: Option<ActionStatus> = None;
+        if let Some(ref mut action) = self.ease_action {
+            action_status = Some(action.update());
+        }
+        if let Some(status) = action_status {
+            match status {
+                ActionStatus::Running(p) => self.move_to_world(p),
+                ActionStatus::Done => self.ease_action = None
+            }
+        }
+        Ok(())
+    }
+
+    pub fn debug_draw(
+        &mut self, 
+        ctx: &mut Context,
+        screen_grid: bool,
+        world_grid: bool
+    ) -> GameResult<()> {
+        graphics::set_color(ctx, graphics::Color::from((255, 0, 0)))?;
+        if world_grid {
+            let min_world_coords = self.location() - self.view_size;
+            let min_world_coords = (min_world_coords.x as i64, min_world_coords.y as i64);
+            let max_world_coords = self.location() + self.view_size;
+            let max_world_coords = (max_world_coords.x as i64, max_world_coords.y as i64);
+            for x in (min_world_coords.0)..(max_world_coords.0 + 1) {
+                let scale = if x % 10 == 0 { 3.0 } else { 1.0 };
+                let scale = if scale * self.zoom < 1.0 { 1.0 } else { scale * self.zoom };
+                graphics::set_line_width(ctx, scale as f32);
+
+                let points = [
+                    self.calculate_dest_point(Point2::new(x as f64, self.view_size.y * 2.0)),
+                    self.calculate_dest_point(Point2::new(x as f64, -self.view_size.y * 2.0))
+                ];
+                graphics::line(ctx, &points)?;
+            }
+            for y in (min_world_coords.1)..(max_world_coords.1 + 1) {
+                let scale = if y % 10 == 0 { 3.0 } else { 1.0 };
+                let scale = if scale * self.zoom < 1.0 { 1.0 } else { scale * self.zoom };
+                graphics::set_line_width(ctx, scale as f32);
+
+                let points = [
+                    self.calculate_dest_point(Point2::new(-self.view_size.x * 2.0, y as f64)),
+                    self.calculate_dest_point(Point2::new(self.view_size.x * 2.0, y as f64))
+                ];
+                graphics::line(ctx, &points)?;
+            }
+        }
+        graphics::set_color(ctx, graphics::Color::from((100, 120, 255)))?;
+        if screen_grid {
+            let scaling = self.start_scale as u64;
+            for x in 0..self.screen_size.x as u64 {
+                if x % scaling == 0 {
+                    let px = x as f32;
+                    let scale = if x % (scaling * 10) == 0 { 3.0 } else { 1.0 };
+                    graphics::set_line_width(ctx, scale as f32);
+
+                    let points = [
+                        graphics::Point::new(px, 0.0),
+                        graphics::Point::new(px, self.screen_size.y as f32)
+                    ];
+                    graphics::line(ctx, &points)?;
+                }
+            }
+            for y in 0..self.screen_size.y as u64 {
+                if y % scaling == 0 {
+                    let py = y as f32;
+                    let scale = if y % (scaling * 10) == 0 { 3.0 } else { 1.0 };
+                    graphics::set_line_width(ctx, scale as f32);
+
+                    let points = [
+                        graphics::Point::new(0.0, py),
+                        graphics::Point::new(self.screen_size.x as f32, py)
+                    ];
+                    graphics::line(ctx, &points)?;
+                }
+            }
+        }
+        Ok(())
     }
 }
 
