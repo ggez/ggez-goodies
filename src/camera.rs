@@ -16,8 +16,6 @@
 //! A great source for how such things work is this:
 //! `http://www.gamasutra.com/blogs/ItayKeren/20150511/243083/Scroll_Back_The_Theory_and_Practice_of_Cameras_in_SideScrollers.php`
 
-// TODO: Debug functions to draw world and camera grid!
-
 use ggez;
 use ggez::{GameResult, Context};
 use ggez::graphics;
