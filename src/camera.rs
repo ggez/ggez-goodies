@@ -86,24 +86,36 @@ impl Camera {
         screen_grid: bool,
         world_grid: bool
     ) -> GameResult<()> {
+        graphics::set_color(ctx, graphics::Color::from((255, 0, 0, 255)))?;
         if world_grid {
             let min_world_coords = self.screen_to_world_coords((0.0, 0.0));
+            let min_world_coords = (min_world_coords.x as i64, min_world_coords.y as i64);
             let max_world_coords = self
                 .screen_to_world_coords((self.screen_size.x, self.screen_size.y));
-            for x in min_world_coords.x as u64..max_world_coords.x as u64 {
-                let points = [ graphics::Point::new(x as f32, 0.0),
-                    graphics::Point::new(x as f32, self.screen_size.y as f32)
-                ];
-                graphics::line(ctx, &points)?;
+            let max_world_coords = (max_world_coords.x as i64, max_world_coords.y as i64);
+            for x in (min_world_coords.0)..(max_world_coords.0 + 1) {
+                let (px, _) = self.world_to_screen_coords(
+                    Point2::new(x as f64, 0.0)
+                );
+                let rect = graphics::Rect::new(
+                    px as f32, 0.0,
+                    1.0, self.screen_size.y as f32
+                );
+                graphics::rectangle(ctx, graphics::DrawMode::Fill, rect)?;
             }
-            for y in min_world_coords.y as u64..max_world_coords.y as u64 {
-                let points = [
-                    graphics::Point::new(0.0, y as f32),
-                    graphics::Point::new(self.screen_size.x as f32, y as f32)
-                ];
-                graphics::line(ctx, &points)?;
+            for y in (min_world_coords.1)..(max_world_coords.1 + 1) {
+                let (_, py) = self.world_to_screen_coords(
+                    Point2::new(0.0, y as f64)
+                );
+                println!(" y: {}\n", py);
+                let rect = graphics::Rect::new(
+                    0.0, py as f32, 
+                    self.screen_size.x as f32, 0.0
+                );
+                graphics::rectangle(ctx, graphics::DrawMode::Fill, rect)?;
             }
         }
+        graphics::set_color(ctx, graphics::Color::from((100, 120, 255, 255)))?;
         if screen_grid {
             for x in 0..self.screen_size.x as u64 {
                 if x % 10 == 0 {

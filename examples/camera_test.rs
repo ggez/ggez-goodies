@@ -116,11 +116,12 @@ impl event::EventHandler for MainState {
         clear(ctx);
 
         set_color(ctx, Color::from((255, 0, 0)))?;
-        self.field
-            .draw_camera(&self.camera, ctx, Point::zero(), 0.0)?;
+        // self.field
+        //     .draw_camera(&self.camera, ctx, Point::zero(), 0.0)?;
         self.image
             .draw_camera(&self.camera, ctx, self.image_location, 0.0)?;
         present(ctx);
+        self.camera.debug_draw(ctx, true, true)?;
         timer::sleep_until_next_frame(ctx, 60);
         Ok(())
     }
