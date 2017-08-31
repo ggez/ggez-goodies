@@ -19,16 +19,18 @@
 // TODO: Debug functions to draw world and camera grid!
 
 use ggez;
-use ggez::GameResult;
+use ggez::{GameResult, Context};
 use ggez::graphics;
 use ggez::timer;
-use {Point2, Vector2, Matrix3, Similarity2, Translation2, Projective2};
+use {Point2, Vector2, Matrix3, Similarity2, Translation2, Projective2, Isometry2};
 use na::UnitComplex;
 use std::cmp;
 use std::time::{Duration, Instant};
 
 // Now uses Similarity and Projective transforms
 pub struct Camera {
+    screen_size: Vector2,
+    view_size: Vector2,
     transform: Similarity2,
     screen_transform: Projective2,
     ease_action: Option<EaseAction>,
@@ -55,6 +57,8 @@ impl Camera {
                                                   0.0,  0.0, 1.0);
         let screen_transform = Projective2::from_matrix_unchecked(screen_transform_matrix);
         Camera {
+            screen_size,
+            view_size,
             transform,
             screen_transform,
             ease_action: None,
@@ -76,6 +80,53 @@ impl Camera {
         Ok(())
     }
 
+    pub fn debug_draw(
+        &mut self, 
+        ctx: &mut Context,
+        screen_grid: bool,
+        world_grid: bool
+    ) -> GameResult<()> {
+        if world_grid {
+            let min_world_coords = self.screen_to_world_coords((0.0, 0.0));
+            let max_world_coords = self
+                .screen_to_world_coords((self.screen_size.x, self.screen_size.y));
+            for x in min_world_coords.x as u64..max_world_coords.x as u64 {
+                let points = [ graphics::Point::new(x as f32, 0.0),
+                    graphics::Point::new(x as f32, self.screen_size.y as f32)
+                ];
+                graphics::line(ctx, &points)?;
+            }
+            for y in min_world_coords.y as u64..max_world_coords.y as u64 {
+                let points = [
+                    graphics::Point::new(0.0, y as f32),
+                    graphics::Point::new(self.screen_size.x as f32, y as f32)
+                ];
+                graphics::line(ctx, &points)?;
+            }
+        }
+        if screen_grid {
+            for x in 0..self.screen_size.x as u64 {
+                if x % 10 == 0 {
+                    let points = [
+                        graphics::Point::new(x as f32, 0.0),
+                        graphics::Point::new(x as f32, self.screen_size.y as f32)
+                    ];
+                    graphics::line(ctx, &points)?;
+                }
+            }
+            for y in 0..self.screen_size.y as u64 {
+                if y & 10 == 0 {
+                    let points = [
+                        graphics::Point::new(0.0, y as f32),
+                        graphics::Point::new(self.screen_size.x as f32, y as f32)
+                    ];
+                    graphics::line(ctx, &points)?;
+                }
+            }
+        }
+        Ok(())
+    }
+
     // Move the camera by the world vector
     pub fn move_by_world(&mut self, by: Vector2) {
         self.transform
@@ -84,7 +135,7 @@ impl Camera {
 
     // Move the camera by the screen-space vector
     pub fn move_by_screen(&mut self, by: (f64, f64)) {
-        let vec = self.screen_to_world_coords(by);
+        let vec = self.transform * Vector2::new(by.0, by.1);
         self.move_by_world(vec);
     }
 
@@ -347,6 +398,7 @@ mod tests {
     fn test_coord_round_trip() {
         let mut c = Camera::new(640, 480, 40.0, 30.0);
         let p1 = (200.0, 300.0);
+        let p2 = Point2::new(20.0, 10.0);
         {
             let p1_world = c.screen_to_world_coords(p1);
             assert_eq!(p1_world, Point2::new(-7.5, -3.75));
@@ -355,16 +407,21 @@ mod tests {
         }
 
 
-        let p2 = Point2::new(20.0, 10.0);
         {
             let p2_screen = c.world_to_screen_coords(p2);
             assert_eq!(p2_screen, (640.0, 80.0));
             let p2_world = c.screen_to_world_coords(p2_screen);
             assert_eq!(p2_world, p2);
         }
+    }
+
+    #[test]
+    fn test_move_to_round_trip() {
+        let mut c = Camera::new(640, 480, 40.0, 30.0);
+        let p1 = (200.0, 300.0);
+        let p2 = Point2::new(20.0, 10.0);
 
         c.move_to_world(Point2::new(5.0, 5.0));
-
         {
             let p1_world = c.screen_to_world_coords(p1);
             assert_eq!(p1_world, Point2::new(-2.5, 1.25));
@@ -374,6 +431,55 @@ mod tests {
         {
             let p2_screen = c.world_to_screen_coords(p2);
             assert_eq!(p2_screen, (560.0, 160.0));
+            let p2_world = c.screen_to_world_coords(p2_screen);
+            assert_eq!(p2_world, p2);
+        }
+        
+        c.move_to_screen((240.0, 320.0));
+        {
+            let p1_world = c.screen_to_world_coords(p1);
+            assert_eq!(p1_world, Point2::new(-7.5, -3.75));
+            let p1_screen = c.world_to_screen_coords(p1_world);
+            assert_eq!(p1, p1_screen);
+        }
+        {
+            let p2_screen = c.world_to_screen_coords(p2);
+            assert_eq!(p2_screen, (640.0, 80.0));
+            let p2_world = c.screen_to_world_coords(p2_screen);
+            assert_eq!(p2_world, p2);
+        }
+    }
+
+    #[test]
+    fn test_move_by_round_trip() {
+        let mut c = Camera::new(640, 480, 40.0, 30.0);
+        let p1 = (200.0, 300.0);
+        let p2 = Point2::new(20.0, 10.0);
+
+        c.move_by_world(Vector2::new(5.0, 5.0));
+        {
+            let p1_world = c.screen_to_world_coords(p1);
+            assert_eq!(p1_world, Point2::new(-2.5, 1.25));
+            let p1_screen = c.world_to_screen_coords(p1_world);
+            assert_eq!(p1, p1_screen);
+        }
+        {
+            let p2_screen = c.world_to_screen_coords(p2);
+            assert_eq!(p2_screen, (560.0, 160.0));
+            let p2_world = c.screen_to_world_coords(p2_screen);
+            assert_eq!(p2_world, p2);
+        }
+
+        c.move_by_screen((-80.0, -80.0));
+        {
+            let p1_world = c.screen_to_world_coords(p1);
+            assert_eq!(p1_world, Point2::new(-7.5, -3.75));
+            let p1_screen = c.world_to_screen_coords(p1_world);
+            assert_eq!(p1, p1_screen);
+        }
+        {
+            let p2_screen = c.world_to_screen_coords(p2);
+            assert_eq!(p2_screen, (640.0, 80.0));
             let p2_world = c.screen_to_world_coords(p2_screen);
             assert_eq!(p2_world, p2);
         }
