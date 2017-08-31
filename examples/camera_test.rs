@@ -22,41 +22,7 @@ use ggez_goodies::{Vector2, Point2};
 struct MainState {
     camera: Camera,
     image: graphics::Image,
-    field: PointField,
     image_location: graphics::Point,
-}
-
-struct PointField {
-    image: graphics::Image
-}
-
-impl PointField {
-    fn new(ctx: &mut Context, points: Vec<graphics::Point>, width: u32, height: u32, color: [u8; 4]) -> GameResult<Self> {
-        let len = (width * (height + 1) * 4) as usize;
-        let mut buffer: Vec<u8> = vec![0; len];
-        for point in &points {
-            let start_index = (point.y as u32 * width * 4 + point.x as u32 * 4) as usize;
-            buffer[start_index] = color[0];
-            buffer[start_index + 1] = color[1];
-            buffer[start_index + 2] = color[2];
-            buffer[start_index + 3] = color[3];
-        }
-        let image = graphics::Image::from_rgba8(ctx, width as u16, height as u16, &buffer)?;
-
-        let field = PointField {
-            image
-        };
-        Ok(field)
-    }
-}
-
-impl graphics::Drawable for PointField {
-    fn draw_ex(&self, ctx: &mut Context, param: graphics::DrawParam) -> GameResult<()> {
-        self.image.draw_ex(ctx, param)
-    }
-    fn draw(&self, ctx: &mut Context, dest: graphics::Point, rotation: f32) -> GameResult<()> {
-        self.image.draw(ctx, dest, rotation)
-    }
 }
 
 impl MainState {
@@ -73,8 +39,10 @@ impl MainState {
         println!("CV to zoom the camera with respect to the player center");
         println!("Left click to move the camera to the mouse cursor with cubic-in-out easing");
         println!("Right click to move the camera to the mouse cursor with linear easing");
-        println!("The red dots are drawn on every integer point in the camera's coordinate \
+        println!("The red lines are drawn on every integer point in the world coordinate \
                   system.");
+        println!("The blue lines represent the screen coordinate system and are drawn based \
+                  on the integer world points contained in the camera's original field of view");
         let image = graphics::Image::new(ctx, "/player.png")?;
         graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
         let half_width = (CAMERA_WIDTH / 2.0) as i32;
@@ -89,11 +57,9 @@ impl MainState {
                 points.push(pt);
             }
         }
-        let field = PointField::new(ctx, points, WINDOW_WIDTH, WINDOW_HEIGHT, [255,255,255,255])?;
         let state = MainState {
             camera,
             image,
-            field,
             image_location: graphics::Point::zero(),
         };
         Ok(state)
@@ -116,12 +82,10 @@ impl event::EventHandler for MainState {
         clear(ctx);
 
         set_color(ctx, Color::from((255, 0, 0)))?;
-        // self.field
-        //     .draw_camera(&self.camera, ctx, Point::zero(), 0.0)?;
-        self.image
-            .draw_camera(&self.camera, ctx, self.image_location, 0.0)?;
-        present(ctx);
+        self.image.draw_camera(&self.camera, ctx, self.image_location, 0.0)?;
         self.camera.debug_draw(ctx, true, true)?;
+
+        present(ctx);
         timer::sleep_until_next_frame(ctx, 60);
         Ok(())
     }
