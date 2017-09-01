@@ -20,12 +20,18 @@ use ggez;
 use ggez::{GameResult, Context};
 use ggez::graphics;
 use ggez::timer;
-use {Point2, Vector2, Matrix3, Similarity2, Translation2, Projective2, Isometry2};
+use {Point2, Vector2, Matrix3, Similarity2, Translation2, Projective2};
 use na::UnitComplex;
 use std::cmp;
 use std::time::{Duration, Instant};
 
-// Now uses Similarity and Projective transforms
+/// Represents a virtual camera in the game world.
+/// The camera uses its own world coordinate system
+/// that is distinct from the default ggez screen
+/// coordinate system. These coordinates have their
+/// origin at the center of the camera's original frame
+/// and use a +Y-Up model, opposite of the screen
+/// coordinates. 
 pub struct Camera {
     screen_size: Vector2,
     view_size: Vector2,
@@ -37,6 +43,19 @@ pub struct Camera {
 }
 
 impl Camera {
+    /// Creates a new Camera given specified screen dimensions
+    /// and camera view dimensions. It can often be useful to 
+    /// define the camera world coordinate system in terms of
+    /// your game's tile size, meaning that the view size would
+    /// be the number of tiles on the screen at once.
+    ///
+    /// Scaling should be uniform on the X and Y axes, meaning
+    /// that if you have a screen size of 640 x 360, your view
+    /// size should be something like 40 x 30 or 80 x 60 as they
+    /// use the same scale factor on both X and Y. If you don't
+    /// do this, the camera will use "fit" scaling and automatically
+    /// select the one with the smaller number of world units per
+    /// pixel.
     pub fn new(
         screen_width: u32, 
         screen_height: u32, 
@@ -71,64 +90,64 @@ impl Camera {
         }
     }
 
-    // Move the camera by the world vector
+    /// Moves the camera by a world vector
     pub fn move_by_world(&mut self, by: Vector2) {
         self.transform
             .append_translation_mut(&Translation2::from_vector(by));
     }
 
-    // Move the camera by the screen-space vector
+    /// Moves the camera by a screen-space vector
     pub fn move_by_screen(&mut self, by: (f64, f64)) {
         let vec = self.transform * Vector2::new(by.0, by.1);
         self.move_by_world(vec);
     }
 
-    // Move the camera by the vector based on the global axes
+    /// Moves the camera to a world-space point
     pub fn move_to_world(&mut self, to: Point2) {
         self.transform.isometry.translation = Translation2::from_vector(to.coords);
     }
 
-    // Move the camera by the vector based on the local camera transformation axes
+    /// Moves the camera to a screen-space point.
     pub fn move_to_screen(&mut self, to: (f64, f64)) {
         let pt = self.screen_to_world_coords(to);
         self.move_to_world(pt);
     }
 
-    // Ease between the camera's current position and a world-space Point
-    // using the selected Ease function over a duration
+    /// Eases between the camera's current position and a world-space Point
+    /// using the selected Ease function over a duration
     pub fn move_towards_world_ease(&mut self, to: Point2, ease: Ease, duration: Duration) {
         let action = EaseAction::new(self.location(), to, ease, duration);
         self.ease_action = Some(action);
     }
 
-    // Ease between the camera's current position and a screen-space Point
-    // using the selected Ease function over a duration
+    /// Eases between the camera's current position and a screen-space Point
+    /// using the selected Ease function over a duration
     pub fn move_towards_screen_ease(&mut self, to: (f64, f64), ease: Ease, duration: Duration) {
         let to = self.screen_to_world_coords(to);
         let action = EaseAction::new(self.location(), to, ease, duration);
         self.ease_action = Some(action);
     }
 
-    // Rotate the camera about its center by by radians
+    /// Rotates the camera about its center by by radians
     pub fn rotate_wrt_center_by(&mut self, by: f64) {
         self.transform
             .append_rotation_wrt_center_mut(&UnitComplex::new(by));
     }
 
-    // Rotate the camera about a world-space Point by by radians
+    /// Rotates the camera about a world-space Point by by radians
     pub fn rotate_wrt_world_point_by(&mut self, point: Point2, by: f64) {
         self.transform
             .append_rotation_wrt_point_mut(&UnitComplex::new(by), &point);
     }
 
-    // Rotate the camera about a screen-space Point by by radians
+    /// Rotates the camera about a screen-space Point by by radians
     pub fn rotate_wrt_screen_point_by(&mut self, point: (f64, f64), by: f64) {
         let world_point = self.screen_to_world_coords(point);
         self.rotate_wrt_world_point_by(Point2::new(world_point.x, world_point.y), by);
     }
 
-    // Zoom the camera while keeping the center static 
-    // in the view (0.0-1.0 zooms out, > 1.0 zooms in)
+    /// Zooms the camera while keeping the center static 
+    /// in the view (0.0-1.0 zooms out, > 1.0 zooms in)
     pub fn zoom_wrt_center_by(&mut self, by: f64) {
         self.zoom *= by;
         let by = 1.0 / by;
@@ -136,8 +155,8 @@ impl Camera {
         self.view_size *= by;
     }
 
-    // Zoom the camera while keeping a world-space Point static
-    // in the view (0.0-1.0 zooms out, > 1.0 zooms in)
+    /// Zooms the camera while keeping a world-space Point static
+    /// in the view (0.0-1.0 zooms out, > 1.0 zooms in)
     pub fn zoom_wrt_world_point_by(&mut self, point: Point2, by: f64) {
         self.zoom *= by;
         let by = 1.0 / by;
@@ -149,19 +168,19 @@ impl Camera {
         self.view_size *= by;
     }
 
-    // Zoom the camera while keeping a screen-space Point static
-    // in the view (0.0-1.0 zooms out, > 1.0 zooms in)
+    /// Zooms the camera while keeping a screen-space Point static
+    /// in the view (0.0-1.0 zooms out, > 1.0 zooms in)
     pub fn zoom_wrt_screen_point_by(&mut self, point: (f64, f64), by: f64) {
         let world_point = self.screen_to_world_coords(point);
         self.zoom_wrt_world_point_by(world_point, by);
     }
 
-    // Translates a point in world-space to a point in
-    // screen-space.
-    //
-    // Does not do any clipping or anything, since it does
-    // not know how large the thing that might be drawn is;
-    // that's not its job.
+    /// Translates a point in world-space to a point in
+    /// screen-space.
+    ///
+    /// Does not do any clipping or anything, since it does
+    /// not know how large the thing that might be drawn is;
+    /// that's not its job.
     pub fn world_to_screen_coords(&self, from: Point2) -> (f64, f64) {
         let camera_transform = self.transform.inverse();
         let point_camera = camera_transform * from;
@@ -170,20 +189,20 @@ impl Camera {
     }
 
 
-    // Translates a point in screen-space to world-space
+    /// Translates a point in screen-space to world-space
     pub fn screen_to_world_coords(&self, from: (f64, f64)) -> Point2 {
         let point = Point2::new(from.0 as f64, from.1 as f64);
         let point_world = self.screen_transform.inverse() * point;
         self.transform * point_world
     }
 
-    // Returns the camera's current location as a vector with origin at the world-space origin
+    /// Returns the camera's current location as a Point2
     pub fn location(&self) -> Point2 {
         Point2::from_coordinates(self.transform.isometry.translation.vector)
     }
 
-    // Translates a world-space point into screen-space and wraps it as a
-    // graphics::Point
+    /// Translates a world-space point into screen-space and wraps it as a
+    /// graphics::Point
     fn calculate_dest_point(&self, location: Point2) -> graphics::Point {
         let (sx, sy) = self.world_to_screen_coords(location);
         graphics::Point::new(sx as f32, sy as f32)
@@ -316,6 +335,8 @@ pub trait CameraDraw
 
 impl<T> CameraDraw for T where T: graphics::Drawable {}
 
+/// A representaion of the parameters and current state of
+/// a camera ease.
 struct EaseAction {
     start_point: Point2,
     change_vec: Vector2,
@@ -409,8 +430,17 @@ enum ActionStatus {
     Done
 }
 
+/// The function signature required for a custom easing function.
+/// It should take three floats as input:
+///
+/// `start`: the starting value
+///
+/// `change`: the amount of change throughout the ease
+///
+/// `t`: the normalized progress of the ease from 0.0-1.0
 pub type Easer = &'static Fn(f64, f64, f64) -> f64;
 
+/// The easing functin to be used by an EaseAction
 pub enum Ease {
     InOutCubic,
     InOutQuadratic,
