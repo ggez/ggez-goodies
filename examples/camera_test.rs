@@ -66,11 +66,11 @@ impl MainState {
     }
 }
 
-const WINDOW_WIDTH: u32 = 640;
-const WINDOW_HEIGHT: u32 = 480;
+const WINDOW_WIDTH: u32 = 1920;
+const WINDOW_HEIGHT: u32 = 1080;
 
-const CAMERA_WIDTH: f64 = 40.0;
-const CAMERA_HEIGHT: f64 = 30.0;
+const CAMERA_WIDTH: f64 = 64.0;
+const CAMERA_HEIGHT: f64 = 36.0;
 
 impl event::EventHandler for MainState {
     fn update(&mut self, _ctx: &mut Context, _dt: Duration) -> GameResult<()> {
