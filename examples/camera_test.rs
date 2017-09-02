@@ -33,13 +33,14 @@ impl MainState {
         println!("Camera test instructions:");
         println!("WASD to move the player");
         println!("IJKL to move the camera with respect to global axes");
-        println!("Arrow keys to move the camera with respect to local camera axes");
+        println!("Arrow keys to move the camera with respect to local camera axes\n");
         println!("QE to rotate the camera with respect to its center");
         println!("RT to rotate the camera with respect to the player center");
         println!("ZX to zoom the camera with respect to the camera center");
-        println!("CV to zoom the camera with respect to the player center");
+        println!("CV to zoom the camera with respect to the player center\n");
         println!("Left click to move the camera to the mouse cursor with cubic-in-out easing");
-        println!("Right click to move the camera to the mouse cursor with linear easing");
+        println!("Right click to move the camera to the mouse cursor with elastic-out easing");
+        println!("Middle click to move the camera to the mouse cursor with linear easing\n");
         println!("The red lines are drawn on every integer point in the world coordinate \
                   system.");
         println!("The blue lines represent the screen coordinate system and are drawn based \
@@ -129,7 +130,8 @@ impl event::EventHandler for MainState {
     fn mouse_button_down_event(&mut self, btn: event::MouseButton, x: i32, y: i32) {
         match btn {
             event::MouseButton::Left => self.camera.move_towards_screen_ease((x as f64, y as f64), ezing::cubic_inout, Duration::from_millis(500)),
-            event::MouseButton::Right => self.camera.move_towards_screen_ease((x as f64, y as f64), lerp, Duration::from_millis(500)),
+            event::MouseButton::Middle => self.camera.move_towards_screen_ease((x as f64, y as f64), lerp, Duration::from_millis(500)),
+            event::MouseButton::Right => self.camera.move_towards_screen_ease((x as f64, y as f64), ezing::elastic_out, Duration::from_millis(1500)),
             _ => ()
         }
     }
