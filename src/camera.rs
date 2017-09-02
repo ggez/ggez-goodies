@@ -22,12 +22,16 @@ use ggez::graphics;
 use ggez::timer;
 use {Point2, Vector2, Matrix3, Isometry2, Translation2, Projective2};
 use na::UnitComplex;
+use na::{U1, U2};
+use na;
 use std::cmp;
 use std::time::{Duration, Instant};
 
+type Matrix21 = na::Matrix2x1<f64>;
+
 /// Determines how the the projection from the camera
 /// to the screen will be made.
-pub enum StretchMode {
+pub enum FitMode {
     /// Uniformly scales to the longer camera axis
     Fit,
     /// Uniformly scales to the shorter camera axis
@@ -50,7 +54,7 @@ pub struct Camera {
     transform: Isometry2,
     projection: Projective2,
     ease_action: Option<EaseAction>,
-    start_scale: f64,
+    start_scale: Vector2
 }
 
 fn partial_max<T: cmp::PartialOrd>(a: T, b: T) -> T {
@@ -82,28 +86,28 @@ impl Camera {
         screen_height: u32, 
         view_width: f64, 
         view_height: f64,
-        stretch_mode: StretchMode
+        stretch_mode: FitMode
     ) -> Self {
         let screen_size = Vector2::new(screen_width as f64, screen_height as f64);
         let view_size = Vector2::new(view_width as f64, view_height as f64);
-        let units_per_pixel = view_size.component_div(&screen_size);
-        let units_per_pixel = match stretch_mode {
-            StretchMode::Fit => {
-                let u = partial_max(units_per_pixel.x, units_per_pixel.y);
+        let pixels_per_unit = screen_size.component_div(&view_size);
+        let pixels_per_unit = match stretch_mode {
+            FitMode::Fit => {
+                let u = partial_max(pixels_per_unit.x, pixels_per_unit.y);
                 Vector2::new(u, u)
             },
-            StretchMode::Fill => {
-                let u = partial_min(units_per_pixel.x, units_per_pixel.y);
+            FitMode::Fill => {
+                let u = partial_min(pixels_per_unit.x, pixels_per_unit.y);
                 Vector2::new(u, u)
             },
-            StretchMode::Stretch => units_per_pixel
+            FitMode::Stretch => pixels_per_unit
         };
         let projection_matrix = Matrix3::new(
-            units_per_pixel.x,  0.0, screen_size.x / 2.0,
-            0.0, -units_per_pixel.y, screen_size.y / 2.0,
+            pixels_per_unit.x,  0.0, screen_size.x / 2.0,
+            0.0, -pixels_per_unit.y, screen_size.y / 2.0,
             0.0,  0.0, 1.0
         );
-        let projection= Projective2::from_matrix_unchecked(projection_matrix);
+        let projection = Projective2::from_matrix_unchecked(projection_matrix);
         let transform = Isometry2::new(Vector2::new(0.0, 0.0), 0.0);
         Camera {
             screen_size,
@@ -111,7 +115,7 @@ impl Camera {
             transform,
             projection,
             ease_action: None,
-            start_scale: 1.0 / partial_min(units_per_pixel.x, units_per_pixel.y),
+            start_scale: pixels_per_unit
         }
     }
 
@@ -123,7 +127,7 @@ impl Camera {
 
     /// Moves the camera by a screen-space vector
     pub fn move_by_screen(&mut self, by: (f64, f64)) {
-        let vec = self.transform * Vector2::new(by.0, by.1);
+        let vec = self.projection.inverse() * Vector2::new(by.0, -by.1);
         self.move_by_world(vec);
     }
 
@@ -174,21 +178,19 @@ impl Camera {
     /// Zooms the camera while keeping the center static 
     /// in the view (0.0-1.0 zooms out, > 1.0 zooms in)
     pub fn zoom_wrt_center_by(&mut self, by: f64) {
-        let by = 1.0 / by;
         self.projection.matrix_mut_unchecked().prepend_scaling_mut(by);
-        self.view_size *= by;
+        self.view_size /= by;
     }
 
     /// Zooms the camera while keeping a world-space Point static
     /// in the view (0.0-1.0 zooms out, > 1.0 zooms in)
     pub fn zoom_wrt_world_point_by(&mut self, point: Point2, by: f64) {
-        let by = 1.0 / by;
-        let scale_change = 1.0 - by;
+        let scale_change = 1.0 - 1.0 / by;
         let dif = (point - self.location()) * scale_change;
         let translation = Translation2::new(dif.x, dif.y);
         self.projection.matrix_mut_unchecked().prepend_scaling_mut(by);
         self.transform.append_translation_mut(&translation);
-        self.view_size *= by;
+        self.view_size /= by;
     }
 
     /// Zooms the camera while keeping a screen-space Point static
@@ -205,18 +207,16 @@ impl Camera {
     /// not know how large the thing that might be drawn is;
     /// that's not its job.
     pub fn world_to_screen_coords(&self, from: Point2) -> (f64, f64) {
-        let camera_transform = self.transform.inverse();
-        let point_camera = camera_transform * from;
-        let point_screen = self.projection * point_camera;
-        (point_screen.x, point_screen.y)
+        let view = self.transform.inverse();
+        let point = self.projection * view * from;
+        (point.x, point.y)
     }
 
 
     /// Translates a point in screen-space to world-space
     pub fn screen_to_world_coords(&self, from: (f64, f64)) -> Point2 {
-        let point = Point2::new(from.0 as f64, from.1 as f64);
-        let point_camera = self.projection.inverse() * point;
-        self.transform * point_camera
+        let point = Point2::new(from.0, from.1);
+        self.transform * self.projection.inverse() * point
     }
 
     /// Returns the camera's current location as a Point2
@@ -253,14 +253,18 @@ impl Camera {
     ) -> GameResult<()> {
         graphics::set_color(ctx, graphics::Color::from((255, 0, 0)))?;
         if world_grid {
+            let proj_mat = self.projection.to_homogeneous();
+            let zoom = (
+                length(&proj_mat.fixed_slice::<U2, U1>(0, 0).into_owned()) / self.start_scale.y,
+                length(&proj_mat.fixed_slice::<U2, U1>(0, 1).into_owned()) / self.start_scale.x
+            );
             let min_world_coords = self.location() - self.view_size;
             let min_world_coords = (min_world_coords.x as i64, min_world_coords.y as i64);
             let max_world_coords = self.location() + self.view_size;
             let max_world_coords = (max_world_coords.x as i64, max_world_coords.y as i64);
             for x in (min_world_coords.0)..(max_world_coords.0 + 1) {
-                let zoom = self.projection.to_homogeneous();
-                let scale = if x % 10 == 0 { 3.0 } else { 1.0 };
-                let scale = if scale * self.zoom < 1.0 { 1.0 } else { scale * self.zoom };
+                let mut scale = partial_max(1.0, zoom.1);
+                scale *= if x % 10 == 0 { 3.0 } else { 1.0 };
                 graphics::set_line_width(ctx, scale as f32);
 
                 let points = [
@@ -270,8 +274,8 @@ impl Camera {
                 graphics::line(ctx, &points)?;
             }
             for y in (min_world_coords.1)..(max_world_coords.1 + 1) {
-                let scale = if y % 10 == 0 { 3.0 } else { 1.0 };
-                let scale = if scale * self.zoom < 1.0 { 1.0 } else { scale * self.zoom };
+                let mut scale = partial_max(1.0, zoom.0);
+                scale *= if y % 10 == 0 { 3.0 } else { 1.0 };
                 graphics::set_line_width(ctx, scale as f32);
 
                 let points = [
@@ -283,7 +287,7 @@ impl Camera {
         }
         graphics::set_color(ctx, graphics::Color::from((100, 120, 255)))?;
         if screen_grid {
-            let scaling = self.start_scale as u64;
+            let scaling = partial_min(self.start_scale.x, self.start_scale.y) as u64;
             for x in 0..self.screen_size.x as u64 {
                 if x % scaling == 0 {
                     let px = x as f32;
@@ -315,6 +319,9 @@ impl Camera {
     }
 }
 
+fn length(vec: &Matrix21) -> f64 {
+    vec.dot(&vec.normalize())
+}
 pub trait CameraDraw
     where Self: graphics::Drawable
 {
@@ -328,8 +335,12 @@ pub trait CameraDraw
         let mut my_p = p;
         my_p.dest = dest;
         my_p.rotation = my_p.rotation + camera.transform.rotation.angle() as f32;
-        let scale = camera.zoom as f32;
-        my_p.scale = graphics::Point::new(scale * my_p.scale.x, scale * my_p.scale.y);
+        let proj_mat = camera.projection.to_homogeneous();
+        let scale = (
+            length(&proj_mat.fixed_slice::<U2, U1>(0, 0).into_owned()) / camera.start_scale.y, 
+            length(&proj_mat.fixed_slice::<U2, U1>(0, 1).into_owned()) / camera.start_scale.x
+        );
+        my_p.scale = graphics::Point::new(scale.0 as f32 * my_p.scale.x, scale.1 as f32 * my_p.scale.y);
         self.draw_ex(ctx, my_p)
     }
 
@@ -341,9 +352,13 @@ pub trait CameraDraw
     ) -> GameResult<()> {
         let dest = Point2::new(dest.x as f64, dest.y as f64);
         let dest = camera.calculate_dest_point(dest);
-        let rotation = rotation + camera.transform.isometry.rotation.angle() as f32;
-        let scale = camera.zoom as f32;
-        let scale = graphics::Point::new(scale, scale);
+        let rotation = rotation + camera.transform.rotation.angle() as f32;
+        let proj_mat = camera.projection.to_homogeneous();
+        let scale = (
+            length(&proj_mat.fixed_slice::<U2, U1>(0, 0).into_owned()) / camera.start_scale.y, 
+            length(&proj_mat.fixed_slice::<U2, U1>(0, 1).into_owned()) / camera.start_scale.x
+        );
+        let scale = graphics::Point::new(scale.0 as f32, scale.1 as f32);
         self.draw_ex(
             ctx,
             graphics::DrawParam{
@@ -479,7 +494,7 @@ mod tests {
 
     #[test]
     fn test_coord_round_trip() {
-        let mut c = Camera::new(640, 480, 40.0, 30.0);
+        let mut c = Camera::new(640, 480, 40.0, 30.0, FitMode::Fit);
         let p1 = (200.0, 300.0);
         let p2 = Point2::new(20.0, 10.0);
         {
@@ -500,12 +515,13 @@ mod tests {
 
     #[test]
     fn test_move_to_round_trip() {
-        let mut c = Camera::new(640, 480, 40.0, 30.0);
+        let mut c = Camera::new(640, 480, 40.0, 30.0, FitMode::Fit);
         let p1 = (200.0, 300.0);
         let p2 = Point2::new(20.0, 10.0);
 
         c.move_to_world(Point2::new(5.0, 5.0));
         {
+            println!("camera pos: {}", c.location());
             let p1_world = c.screen_to_world_coords(p1);
             assert_eq!(p1_world, Point2::new(-2.5, 1.25));
             let p1_screen = c.world_to_screen_coords(p1_world);
@@ -535,7 +551,7 @@ mod tests {
 
     #[test]
     fn test_move_by_round_trip() {
-        let mut c = Camera::new(640, 480, 40.0, 30.0);
+        let mut c = Camera::new(640, 480, 40.0, 30.0, FitMode::Fit);
         let p1 = (200.0, 300.0);
         let p2 = Point2::new(20.0, 10.0);
 
