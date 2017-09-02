@@ -287,11 +287,11 @@ impl Camera {
         }
         graphics::set_color(ctx, graphics::Color::from((100, 120, 255)))?;
         if screen_grid {
-            let scaling = partial_min(self.start_scale.x, self.start_scale.y) as u64;
+            let scaling = partial_min(self.start_scale.x, self.start_scale.y) as u64 * 5;
             for x in 0..self.screen_size.x as u64 {
                 if x % scaling == 0 {
                     let px = x as f32;
-                    let scale = if x % (scaling * 10) == 0 { 3.0 } else { 1.0 };
+                    let scale = if x % (scaling * 2) == 0 { 3.0 } else { 1.0 };
                     graphics::set_line_width(ctx, scale as f32);
 
                     let points = [
@@ -304,7 +304,7 @@ impl Camera {
             for y in 0..self.screen_size.y as u64 {
                 if y % scaling == 0 {
                     let py = y as f32;
-                    let scale = if y % (scaling * 10) == 0 { 3.0 } else { 1.0 };
+                    let scale = if y % (scaling * 2) == 0 { 3.0 } else { 1.0 };
                     graphics::set_line_width(ctx, scale as f32);
 
                     let points = [

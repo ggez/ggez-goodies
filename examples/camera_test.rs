@@ -56,8 +56,8 @@ impl MainState {
     }
 }
 
-const WINDOW_WIDTH: u32 = 640;
-const WINDOW_HEIGHT: u32 = 480;
+const WINDOW_WIDTH: u32 = 1280;
+const WINDOW_HEIGHT: u32 = 960;
 
 const CAMERA_WIDTH: f64 = 40.0;
 const CAMERA_HEIGHT: f64 = 30.0;
