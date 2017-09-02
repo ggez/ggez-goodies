@@ -47,18 +47,6 @@ impl MainState {
                   on the integer world points contained in the camera's original field of view");
         let image = graphics::Image::new(ctx, "/player.png")?;
         graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
-        let half_width = (CAMERA_WIDTH / 2.0) as i32;
-        let half_height = (CAMERA_HEIGHT / 2.0) as i32;
-        let num_points = CAMERA_WIDTH * CAMERA_HEIGHT;
-        let mut points: Vec<graphics::Point> = Vec::with_capacity(num_points as usize);
-        for y in -half_height..half_height {
-            for x in -half_width..half_width {
-                let from = Point2::new(x as f64, y as f64);
-                let (px, py) = camera.world_to_screen_coords(from);
-                let pt = graphics::Point::new(px as f32, py as f32);
-                points.push(pt);
-            }
-        }
         let state = MainState {
             camera,
             image,
