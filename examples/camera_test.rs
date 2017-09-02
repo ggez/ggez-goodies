@@ -4,6 +4,7 @@
 
 extern crate ggez;
 extern crate rand;
+extern crate ezing;
 
 use ggez::conf;
 use ggez::event;
@@ -127,12 +128,14 @@ impl event::EventHandler for MainState {
 
     fn mouse_button_down_event(&mut self, btn: event::MouseButton, x: i32, y: i32) {
         match btn {
-            event::MouseButton::Left => self.camera.move_towards_screen_ease((x as f64, y as f64), Ease::InOutCubic, Duration::from_millis(500)),
-            event::MouseButton::Right => self.camera.move_towards_screen_ease((x as f64, y as f64), Ease::Linear, Duration::from_millis(500)),
+            event::MouseButton::Left => self.camera.move_towards_screen_ease((x as f64, y as f64), ezing::cubic_inout, Duration::from_millis(500)),
+            event::MouseButton::Right => self.camera.move_towards_screen_ease((x as f64, y as f64), lerp, Duration::from_millis(500)),
             _ => ()
         }
     }
 }
+
+fn lerp(t: f32) -> f32 {t}
 
 pub fn main() {
     let mut c = conf::Conf::new();

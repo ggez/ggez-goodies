@@ -144,16 +144,16 @@ impl Camera {
 
     /// Eases between the camera's current position and a world-space Point
     /// using the selected Ease function over a duration
-    pub fn move_towards_world_ease(&mut self, to: Point2, ease: Ease, duration: Duration) {
-        let action = EaseAction::new(self.location(), to, ease, duration);
+    pub fn move_towards_world_ease(&mut self, to: Point2, easer: Easer, duration: Duration) {
+        let action = EaseAction::new(self.location(), to, easer, duration);
         self.ease_action = Some(action);
     }
 
     /// Eases between the camera's current position and a screen-space Point
     /// using the selected Ease function over a duration
-    pub fn move_towards_screen_ease(&mut self, to: (f64, f64), ease: Ease, duration: Duration) {
+    pub fn move_towards_screen_ease(&mut self, to: (f64, f64), easer: Easer, duration: Duration) {
         let to = self.screen_to_world_coords(to);
-        let action = EaseAction::new(self.location(), to, ease, duration);
+        let action = EaseAction::new(self.location(), to, easer, duration);
         self.ease_action = Some(action);
     }
 
@@ -380,16 +380,24 @@ struct EaseAction {
     start_point: Point2,
     change_vec: Vector2,
     interpolation: Point2,
-    ease_type: Ease,
+    easer: Easer,
     start_time: Instant,
     duration: f64
 }
+
+/// The function signature required for an easing function. This works excellently
+/// with [ezing](https://github.com/michaelfairley/ezing), and we highly recommend
+/// using it with that library, as shown in the example.
+/// 
+/// Expects input ranging from `0.0` to `1.0` and should map `0.0` to `0.0`
+/// and `1.0` to `1.0`.
+pub type Easer = fn(f32) -> f32;
 
 impl EaseAction {
     pub fn new(
         start_point: Point2,
         end_point: Point2,
-        ease_type: Ease,
+        easer: Easer,
         duration: Duration
     ) -> Self {
         let change_vec = end_point - start_point;
@@ -399,7 +407,7 @@ impl EaseAction {
             start_point,
             change_vec,
             interpolation,
-            ease_type,
+            easer,
             start_time: Instant::now(),
             duration
         }
@@ -407,60 +415,13 @@ impl EaseAction {
 
     pub fn update(&mut self) -> ActionStatus {
         let t = timer::duration_to_f64(self.start_time.elapsed()) / self.duration;
-        match self.ease_type {
-            Ease::InOutCubic => {
-                self.interpolation.x =
-                    EaseAction::ease_in_out_cubic(self.start_point.x, self.change_vec.x, t);
-                self.interpolation.y =
-                    EaseAction::ease_in_out_cubic(self.start_point.y, self.change_vec.y, t);
-            },
-            Ease::InOutQuadratic => {
-                self.interpolation.x =
-                    EaseAction::ease_in_out_quadratic(self.start_point.x, self.change_vec.x, t);
-                self.interpolation.y =
-                    EaseAction::ease_in_out_quadratic(self.start_point.y, self.change_vec.y, t);
-            },
-            Ease::Linear => {
-                self.interpolation.x =
-                    EaseAction::ease_linear(self.start_point.x, self.change_vec.x, t);
-                self.interpolation.y =
-                    EaseAction::ease_linear(self.start_point.y, self.change_vec.y, t);
-            },
-            Ease::Custom(easer) => {
-                self.interpolation.x = easer(self.start_point.x, self.change_vec.x, t);
-                self.interpolation.y = easer(self.start_point.y, self.change_vec.y, t);
-            }
-        }
         if t >= 1.0 {
             self.interpolation = self.start_point + self.change_vec;
             ActionStatus::Done
         } else {
+            self.interpolation = self.start_point + self.change_vec * (self.easer)(t as f32) as f64;
             ActionStatus::Running(self.interpolation)
         }
-    }
-
-    fn ease_in_out_cubic(start: f64, change: f64, t: f64) -> f64 {
-        let t = t * 2.0;
-        if t < 1.0 {
-            change/2.0*t*t*t + start
-        } else {
-            let t = t - 2.0;
-            change/2.0*(t*t*t + 2.0) + start
-        }
-    }
-
-    fn ease_in_out_quadratic(start: f64, change: f64, t: f64) -> f64 {
-        let t = t * 2.0;
-        if t < 1.0 {
-            change/2.0*t*t + start
-        } else {
-            let t = t - 1.0;
-            -change/2.0 * (t*(t-2.0) - 1.0) + start
-        }
-    }
-
-    fn ease_linear(start: f64, change: f64, t: f64) -> f64 {
-        start + change * t
     }
 }
 
@@ -469,23 +430,6 @@ enum ActionStatus {
     Done
 }
 
-/// The function signature required for a custom easing function.
-/// It should take three floats as input:
-///
-/// `start`: the starting value
-///
-/// `change`: the amount of change throughout the ease
-///
-/// `t`: the normalized progress of the ease from 0.0-1.0
-pub type Easer = &'static Fn(f64, f64, f64) -> f64;
-
-/// The easing functin to be used by an EaseAction
-pub enum Ease {
-    InOutCubic,
-    InOutQuadratic,
-    Linear,
-    Custom(Easer)
-}
 
 #[cfg(test)]
 mod tests {
