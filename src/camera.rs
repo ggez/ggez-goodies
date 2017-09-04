@@ -1,20 +1,25 @@
 //! A camera object for ggez.
 //! Currently ggez has no actual global camera state to use,
-//! so this really just does the coordinate transforms for you.
+//! so this is an attempt to give you coordinate transformations
+//! into and out of the camera's coordinate space.
 //!
-//! Basically it translates ggez's coordinate system with the origin
+//! It translates ggez's coordinate system with the origin
 //! at the top-left and Y increasing downward to a coordinate system
 //! with the origin at the center of the screen and Y increasing
 //! upward.
 //!
 //! Because that makes sense, darn it.
 //!
-//! Does easing, but no pinning or other advanced camera techniques.
-//! These should be relatively easy to implement given the built in
-//! easing and movement functions.
+//! It also provides helper functions to do common camera movement tasks
+//! like movement, rotation, and zooming.
+//! It allows you to move the camera to world or screen-space coordinates
+//! using easing function or physics-based smoothing.
+//!
+//! These should make it relatively easy to implement other game-specific
+//! functions like pinning using whatever smoothing method you want.
 //! 
-//! A great source for how such things work is this:
-//! `http://www.gamasutra.com/blogs/ItayKeren/20150511/243083/Scroll_Back_The_Theory_and_Practice_of_Cameras_in_SideScrollers.php`
+//! A great source for how cameras can and should be used in 2d games is here:
+//! http://www.gamasutra.com/blogs/ItayKeren/20150511/243083/Scroll_Back_The_Theory_and_Practice_of_Cameras_in_SideScrollers.php
 
 use ggez;
 use ggez::{GameResult, Context};
@@ -26,6 +31,7 @@ use na::{U1, U2};
 use na;
 use std::cmp;
 use std::time::{Duration, Instant};
+use std::f64::NAN;
 
 type Matrix21 = na::Matrix2x1<f64>;
 
@@ -53,7 +59,7 @@ pub struct Camera {
     view_size: Vector2,
     transform: Isometry2,
     projection: Projective2,
-    ease_action: Option<EaseAction>,
+    action: Option<Box<CameraAction>>,
     start_scale: Vector2
 }
 
@@ -114,7 +120,7 @@ impl Camera {
             view_size,
             transform,
             projection,
-            ease_action: None,
+            action: None,
             start_scale: pixels_per_unit
         }
     }
@@ -144,17 +150,52 @@ impl Camera {
 
     /// Eases between the camera's current position and a world-space Point
     /// using the selected Ease function over a duration
-    pub fn move_towards_world_ease(&mut self, to: Point2, easer: Easer, duration: Duration) {
+    pub fn move_towards_world_ease(&mut self, to: Point2, easer: Easer, duration: Duration, replace: bool) {
         let action = EaseAction::new(self.location(), to, easer, duration);
-        self.ease_action = Some(action);
+        if replace {
+            self.action = Some(Box::new(action));
+        } else {
+            let mut replace = false;
+            if let Some(ref mut a) = self.action {
+                if let ActionType::Ease = a.get_type() {
+                    replace = true;
+                }
+            } else {
+                replace = true;
+            }
+            if replace {
+                self.action = Some(Box::new(action));
+            }
+        }
     }
 
     /// Eases between the camera's current position and a screen-space Point
     /// using the selected Ease function over a duration
-    pub fn move_towards_screen_ease(&mut self, to: (f64, f64), easer: Easer, duration: Duration) {
+    pub fn move_towards_screen_ease(&mut self, to: (f64, f64), easer: Easer, duration: Duration, replace: bool) {
         let to = self.screen_to_world_coords(to);
-        let action = EaseAction::new(self.location(), to, easer, duration);
-        self.ease_action = Some(action);
+        self.move_towards_world_ease(to, easer, duration, replace);
+    }
+
+    /// Moves to the specified world-space Point using physics-based smoothing
+    pub fn move_towards_world_physics(&mut self, to: Point2, smoothing_mode: PhysicsSmoothingMode, mass: f64, replace: bool) {
+        let action = PhysicsAction::new(to, smoothing_mode, mass);
+        if replace {
+            self.action = Some(Box::new(action));
+        } else {
+            if let Some(ref mut a) = self.action {
+                if let ActionType::Physics = a.get_type() {
+                    a.set_target(to);
+                }
+            } else {
+                self.action = Some(Box::new(action));
+            }
+        }
+    }
+
+    /// Moves to the specified screen-space Point using physics-based smoothing
+    pub fn move_towards_screen_physics(&mut self, to: (f64, f64), smoothing_mode: PhysicsSmoothingMode, mass: f64, replace: bool) {
+        let to = self.screen_to_world_coords(to);
+        self.move_towards_world_physics(to, smoothing_mode, mass, replace);
     }
 
     /// Rotates the camera about its center by by radians
@@ -231,15 +272,22 @@ impl Camera {
         graphics::Point::new(sx as f32, sy as f32)
     }
 
-    pub fn update(&mut self) -> GameResult<()> {
+    // Update ease and physics actions
+    pub fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         let mut action_status: Option<ActionStatus> = None;
-        if let Some(ref mut action) = self.ease_action {
-            action_status = Some(action.update());
+        let location = self.location();
+        if let Some(ref mut action) = self.action {
+            action_status = Some(action.update(ctx, location));
         }
         if let Some(status) = action_status {
             match status {
-                ActionStatus::Running(p) => self.move_to_world(p),
-                ActionStatus::Done => self.ease_action = None
+                ActionStatus::Running(p) => {
+                    self.move_to_world(p);
+                },
+                ActionStatus::Done(p) => {
+                    self.move_to_world(p);
+                    self.action = None;
+                }
             }
         }
         Ok(())
@@ -322,6 +370,8 @@ impl Camera {
 fn length(vec: &Matrix21) -> f64 {
     vec.dot(&vec.normalize())
 }
+
+/// Allows a `Drawable` to be drawn from the Camera's perspective.
 pub trait CameraDraw
     where Self: graphics::Drawable
 {
@@ -374,12 +424,225 @@ pub trait CameraDraw
 
 impl<T> CameraDraw for T where T: graphics::Drawable {}
 
-/// A representaion of the parameters and current state of
-/// a camera ease.
+trait CameraAction {
+    fn update(&mut self, ctx: &Context, position: Point2) -> ActionStatus;
+    fn set_target(&mut self, target: Point2);
+    fn get_type(&self) -> ActionType;
+}
+
+/// The type of smoothing to use for physics-smoothed camera movements
+pub enum PhysicsSmoothingMode {
+    /// Applies a constant force in the direction of the target
+    ConstantForce(f64),
+    /// Applies a force proportional to the distance between the target and
+    /// the current position (difference * p)
+    ProportionalForce(f64),
+    /// Uses a PID controller to determine the force to apply based on the
+    /// a proportion of error, the integral of errors, and the derivative
+    /// of the error. See `PIDConfiguration` for more information.
+    PIDControlled(PIDConfiguration)
+}
+
+enum ActionType {
+    Ease,
+    Physics
+}
+
+struct PhysicsAction {
+    controller: Box<PhysicsController>,
+    velocity: Vector2,
+    mass: f64,
+    target: Point2
+}
+
+impl PhysicsAction {
+    pub fn new(target: Point2, smoothing_mode: PhysicsSmoothingMode, mass: f64) -> Self {
+        let controller: Box<PhysicsController> = match smoothing_mode {
+            PhysicsSmoothingMode::PIDControlled(conf) => {
+                Box::new(PIDController2D::new(Point2::origin(), conf))
+            },
+            PhysicsSmoothingMode::ConstantForce(force) => {
+                Box::new(PhysicsConstantForceController::new(Point2::origin(), force))
+            },
+            PhysicsSmoothingMode::ProportionalForce(p) => {
+                Box::new(PIDController2D::new(
+                    target,
+                    PIDConfiguration::new(p, 0.0, 0.0)
+                ))
+            }
+        };
+        PhysicsAction {
+            controller,
+            mass,
+            velocity: Vector2::new(0.0, 0.0),
+            target
+        }
+    }
+}
+
+static REST_THRESHOLD: f64 = 0.0001;
+
+impl CameraAction for PhysicsAction {
+    fn update(&mut self, ctx: &Context, position: Point2) -> ActionStatus {
+        let val = position - self.target;
+        let force = self.controller.update(val, timer::duration_to_f64(timer::get_delta(ctx))) / self.mass;
+        self.velocity = self.velocity + force;
+        let velocity_at_rest = self.velocity.x.abs() < REST_THRESHOLD && self.velocity.y.abs() < REST_THRESHOLD;
+        let impulse_at_rest = force.x.abs() < REST_THRESHOLD && force.y.abs() < REST_THRESHOLD;
+        if velocity_at_rest && impulse_at_rest {
+            ActionStatus::Done(position)
+        } else {
+            ActionStatus::Running(position + self.velocity)
+        }
+    }
+    fn set_target(&mut self, target: Point2) {
+        self.controller.set_target(target);
+    }
+    fn get_type(&self) -> ActionType {
+        ActionType::Physics
+    }
+}
+
+trait PhysicsController {
+    fn set_target(&mut self, target: Point2);
+    fn target(&self) -> Point2;
+    fn update(&mut self, value: Vector2, dt: f64) -> Vector2;
+}
+
+struct PhysicsConstantForceController {
+    target: Point2,
+    impulse_mag: f64
+}
+
+impl PhysicsConstantForceController {
+    pub fn new(target: Point2, impulse_mag: f64) -> Self {
+        PhysicsConstantForceController {
+            target,
+            impulse_mag
+        }
+    }
+}
+
+impl PhysicsController for PhysicsConstantForceController {
+    fn set_target(&mut self, target: Point2) {
+        self.target = target;
+    }
+
+    fn target(&self) -> Point2 {
+        self.target
+    }
+    fn update(&mut self, value: Vector2, _dt: f64) -> Vector2 {
+        let err = self.target - value;
+        let err = Vector2::new(err.x, err.y);
+        if length(&err) > self.impulse_mag {
+            err.normalize() * self.impulse_mag
+        } else {
+            err
+        }
+    }
+}
+
+struct PIDController2D {
+    x: PIDController,
+    y: PIDController
+}
+
+impl PIDController2D {
+    pub fn new(target: Point2, config: PIDConfiguration) -> Self {
+        PIDController2D {
+            x: PIDController::new(target.x, config),
+            y: PIDController::new(target.y, config)
+        }
+    }
+}
+
+impl PhysicsController for PIDController2D {
+    fn set_target(&mut self, target: Point2) {
+        self.x.set_target(target.x);
+        self.y.set_target(target.y);
+    }
+    fn target(&self) -> Point2 {
+        Point2::new(self.x.target(), self.y.target())
+    }
+    fn update(&mut self, value: Vector2, dt: f64) -> Vector2 {
+        Vector2::new(self.x.update(value.x, dt), self.y.update(value.y, dt))
+    }
+}
+
+/// The configuration necessary for a PID controller to handle smoothing
+/// of physics-smoothed actions. 
+///
+/// For more information about what a PID
+/// controller is, how it works, and how to use one, see:
+///
+/// https://www.youtube.com/watch?v=0vqWyramGy8
+///
+/// https://www.youtube.com/watch?v=fusr9eTceEo
+///
+/// https://www.youtube.com/watch?v=qKy98Cbcltw
+#[derive(Clone, Copy)]
+pub struct PIDConfiguration {
+    p: f64,
+    i: f64,
+    d: f64,
+}
+
+impl PIDConfiguration {
+    pub fn new(p: f64, i: f64, d: f64) -> Self {
+        PIDConfiguration {
+            p,
+            i,
+            d
+        }
+    }
+}
+
+struct PIDController {
+    config: PIDConfiguration,
+    target: f64,
+    err_integral: f64,
+    prev_value: f64,
+    prev_err: f64
+}
+
+impl PIDController {
+    pub fn new(target: f64, config: PIDConfiguration) -> Self {
+        PIDController {
+            config,
+            target,
+            err_integral: 0.0,
+            prev_value: NAN,
+            prev_err: NAN
+        }
+    }
+    pub fn set_target(&mut self, target: f64) {
+        self.target = target;
+    }
+    pub fn target(&self) -> f64 {
+        self.target
+    }
+    pub fn update(&mut self, value: f64, dt: f64) -> f64 {
+        let err = self.target - value;
+
+        let p_term = self.config.p * err;
+        self.err_integral += self.config.i * err * dt;
+        let i_term = self.err_integral;
+        let d_term = if self.prev_err.is_nan() || self.prev_value.is_nan() {
+            0.0
+        } else {
+            self.config.d * (self.prev_value - value) / dt
+        };
+
+        self.prev_err = err;
+        self.prev_value = value;
+
+        p_term + i_term + d_term
+    }
+}
+
 struct EaseAction {
     start_point: Point2,
     change_vec: Vector2,
-    interpolation: Point2,
     easer: Easer,
     start_time: Instant,
     duration: f64
@@ -401,33 +664,36 @@ impl EaseAction {
         duration: Duration
     ) -> Self {
         let change_vec = end_point - start_point;
-        let interpolation = start_point;
         let duration = timer::duration_to_f64(duration);
         EaseAction {
             start_point,
             change_vec,
-            interpolation,
             easer,
             start_time: Instant::now(),
             duration
         }
     }
-
-    pub fn update(&mut self) -> ActionStatus {
+}
+impl CameraAction for EaseAction {
+    fn update(&mut self, _ctx: &Context, _position: Point2) -> ActionStatus {
         let t = timer::duration_to_f64(self.start_time.elapsed()) / self.duration;
         if t >= 1.0 {
-            self.interpolation = self.start_point + self.change_vec;
-            ActionStatus::Done
+            ActionStatus::Done(self.start_point + self.change_vec)
         } else {
-            self.interpolation = self.start_point + self.change_vec * (self.easer)(t as f32) as f64;
-            ActionStatus::Running(self.interpolation)
+            ActionStatus::Running(self.start_point + self.change_vec * (self.easer)(t as f32) as f64)
         }
+    }
+    fn set_target(&mut self, target: Point2) {
+        self.change_vec = target - self.start_point;
+    }
+    fn get_type(&self) -> ActionType {
+        ActionType::Ease
     }
 }
 
 enum ActionStatus {
     Running(Point2),
-    Done
+    Done(Point2)
 }
 
 

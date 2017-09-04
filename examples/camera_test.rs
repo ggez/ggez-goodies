@@ -24,6 +24,7 @@ struct MainState {
     camera: Camera,
     image: graphics::Image,
     image_location: graphics::Point,
+    mouse_pos: (f64, f64)
 }
 
 impl MainState {
@@ -41,6 +42,7 @@ impl MainState {
         println!("Left click to move the camera to the mouse cursor with cubic-in-out easing");
         println!("Right click to move the camera to the mouse cursor with elastic-out easing");
         println!("Middle click to move the camera to the mouse cursor with linear easing\n");
+        println!("Space to move the camera to center on the player position with physics smoothing\n");
         println!("The red lines are drawn on every integer point in the world coordinate \
                   system.");
         println!("The blue lines represent the screen coordinate system and are drawn based \
@@ -51,6 +53,7 @@ impl MainState {
             camera,
             image,
             image_location: graphics::Point::zero(),
+            mouse_pos: (0., 0.)
         };
         Ok(state)
     }
@@ -63,8 +66,8 @@ const CAMERA_WIDTH: f64 = 40.0;
 const CAMERA_HEIGHT: f64 = 30.0;
 
 impl event::EventHandler for MainState {
-    fn update(&mut self, _ctx: &mut Context, _dt: Duration) -> GameResult<()> {
-        self.camera.update()
+    fn update(&mut self, ctx: &mut Context, _dt: Duration) -> GameResult<()> {
+        self.camera.update(ctx)
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
@@ -80,6 +83,9 @@ impl event::EventHandler for MainState {
         Ok(())
     }
 
+    fn mouse_motion_event(&mut self, _state: event::MouseState, x: i32, y: i32, _xrel: i32, _yrel: i32) {
+        self.mouse_pos = (x as f64, y as f64);
+    }
 
     fn key_down_event(&mut self, keycode: event::Keycode, _keymod: event::Mod, _repeat: bool) {
         match keycode {
@@ -111,15 +117,21 @@ impl event::EventHandler for MainState {
             event::Keycode::X => self.camera.zoom_wrt_center_by(0.8),
             event::Keycode::C => self.camera.zoom_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 1.25),
             event::Keycode::V => self.camera.zoom_wrt_world_point_by(Point2::new(self.image_location.x as f64, self.image_location.y as f64), 0.8),
+            event::Keycode::Space => self.camera.move_towards_world_physics(
+                Point2::new(self.image_location.x as f64, self.image_location.y as f64),
+                PhysicsSmoothingMode::PIDControlled(PIDConfiguration::new(0.225, 0.0, 0.06)),
+                40.0,
+                false
+            ),
             _ => (),
         };
     }
 
     fn mouse_button_down_event(&mut self, btn: event::MouseButton, x: i32, y: i32) {
         match btn {
-            event::MouseButton::Left => self.camera.move_towards_screen_ease((x as f64, y as f64), ezing::cubic_inout, Duration::from_millis(500)),
-            event::MouseButton::Middle => self.camera.move_towards_screen_ease((x as f64, y as f64), lerp, Duration::from_millis(500)),
-            event::MouseButton::Right => self.camera.move_towards_screen_ease((x as f64, y as f64), ezing::elastic_out, Duration::from_millis(1500)),
+            event::MouseButton::Left => self.camera.move_towards_screen_ease((x as f64, y as f64), ezing::cubic_inout, Duration::from_millis(1000), false),
+            event::MouseButton::Middle => self.camera.move_towards_screen_ease((x as f64, y as f64), lerp, Duration::from_millis(1000), false),
+            event::MouseButton::Right => self.camera.move_towards_screen_ease((x as f64, y as f64), ezing::elastic_out, Duration::from_millis(2500), false),
             _ => ()
         }
     }
