@@ -150,7 +150,7 @@ impl Camera {
 
     /// Eases between the camera's current position and a world-space Point
     /// using the selected Ease function over a duration
-    pub fn move_towards_world_ease(&mut self, to: Point2, easer: Easer, duration: Duration, replace: bool) {
+    pub fn move_to_world_ease(&mut self, to: Point2, easer: Easer, duration: Duration, replace: bool) {
         let action = EaseAction::new(self.location(), to, easer, duration);
         if replace {
             self.action = Some(Box::new(action));
@@ -171,13 +171,13 @@ impl Camera {
 
     /// Eases between the camera's current position and a screen-space Point
     /// using the selected Ease function over a duration
-    pub fn move_towards_screen_ease(&mut self, to: (f64, f64), easer: Easer, duration: Duration, replace: bool) {
+    pub fn move_to_screen_ease(&mut self, to: (f64, f64), easer: Easer, duration: Duration, replace: bool) {
         let to = self.screen_to_world_coords(to);
-        self.move_towards_world_ease(to, easer, duration, replace);
+        self.move_to_world_ease(to, easer, duration, replace);
     }
 
     /// Moves to the specified world-space Point using physics-based smoothing
-    pub fn move_towards_world_physics(&mut self, to: Point2, smoothing_mode: PhysicsSmoothingMode, mass: f64, replace: bool) {
+    pub fn move_to_world_physics(&mut self, to: Point2, smoothing_mode: PhysicsSmoothingMode, mass: f64, replace: bool) {
         let action = PhysicsAction::new(to, smoothing_mode, mass);
         if replace {
             self.action = Some(Box::new(action));
@@ -193,9 +193,9 @@ impl Camera {
     }
 
     /// Moves to the specified screen-space Point using physics-based smoothing
-    pub fn move_towards_screen_physics(&mut self, to: (f64, f64), smoothing_mode: PhysicsSmoothingMode, mass: f64, replace: bool) {
+    pub fn move_to_screen_physics(&mut self, to: (f64, f64), smoothing_mode: PhysicsSmoothingMode, mass: f64, replace: bool) {
         let to = self.screen_to_world_coords(to);
-        self.move_towards_world_physics(to, smoothing_mode, mass, replace);
+        self.move_to_world_physics(to, smoothing_mode, mass, replace);
     }
 
     /// Rotates the camera about its center by by radians
