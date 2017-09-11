@@ -11,6 +11,7 @@ use ggez::{GameResult, Context};
 use ggez::graphics;
 use ggez::timer;
 use std::time::Duration;
+use ggez::graphics::spritebatch::SpriteBatch;
 
 
 extern crate nalgebra as na;
@@ -23,6 +24,7 @@ struct MainState {
     camera: Camera,
     image: graphics::Image,
     image_location: graphics::Point,
+    grid: SpriteBatch
 }
 
 impl MainState {
@@ -32,12 +34,30 @@ impl MainState {
         println!("Camera test instructions; WASD move the object, arrow keys move the camera.");
         println!("The red dots are drawn on every integer point in the camera's coordinate \
                   system.");
-        let image = graphics::Image::new(ctx, "player.png")?;
+        let image = graphics::Image::new(ctx, "/player.png")?;
+
+        let dot = graphics::Image::new(ctx, "/white_dot.png")?;
+        let mut grid = SpriteBatch::new(dot);
         graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
+        let half_width = (CAMERA_WIDTH / 2.0) as i32;
+        let half_height = (CAMERA_HEIGHT / 2.0) as i32;
+        for y in -half_height..half_height {
+            for x in -half_width..half_width {
+                let fromvec = Vector2::new(x as f64, y as f64);
+                let (px, py) = camera.world_to_screen_coords(fromvec);
+                let to = graphics::Point::new(px as f32, py as f32);
+                grid.add(graphics::DrawParam {
+                    dest: to,
+                    .. Default::default()
+                });
+            }
+        }
+
         let state = MainState {
             camera: camera,
             image: image,
             image_location: graphics::Point::zero(),
+            grid
         };
         Ok(state)
     }
@@ -57,17 +77,18 @@ impl event::EventHandler for MainState {
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
 
-        let half_width = (CAMERA_WIDTH / 2.0) as i32;
-        let half_height = (CAMERA_HEIGHT / 2.0) as i32;
-        graphics::set_color(ctx, graphics::Color::from((255, 0, 0)));
-        for y in -half_height..half_height {
-            for x in -half_width..half_width {
-                let fromvec = Vector2::new(x as f64, y as f64);
-                let (px, py) = self.camera.world_to_screen_coords(fromvec);
-                let to = graphics::Point::new(px as f32, py as f32);
-                graphics::points(ctx, &[to])?;
+        graphics::set_color(ctx, graphics::Color::from((255, 0, 0)))?;
+        self.grid.draw_ex_camera(
+            &self.camera,
+            ctx,
+            graphics::DrawParam {
+                dest: graphics::Point::new(
+                    -CAMERA_WIDTH as f32 / 2.0,
+                    CAMERA_HEIGHT as f32 / 2.0
+                ),
+                .. Default::default()
             }
-        }
+        )?;
         self.image
             .draw_camera(&self.camera, ctx, self.image_location, 0.0)?;
         graphics::present(ctx);
