@@ -11,7 +11,7 @@ use ggez::{GameResult, Context};
 use ggez::graphics;
 use ggez::timer;
 use std::time::Duration;
-use ggez::graphics::spritebatch::SpriteBatch;
+use ggez::graphics::batch::{Batch, MeshBatch};
 
 
 extern crate nalgebra as na;
@@ -24,7 +24,7 @@ struct MainState {
     camera: Camera,
     image: graphics::Image,
     image_location: graphics::Point,
-    grid: SpriteBatch
+    grid: MeshBatch
 }
 
 impl MainState {
@@ -34,24 +34,21 @@ impl MainState {
         println!("Camera test instructions; WASD move the object, arrow keys move the camera.");
         println!("The red dots are drawn on every integer point in the camera's coordinate \
                   system.");
+        graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
+
         let image = graphics::Image::new(ctx, "/player.png")?;
 
-        let dot = graphics::Image::new(ctx, "/white_dot.png")?;
-        let mut grid = SpriteBatch::new(dot);
-        graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
+        let mut pts = Vec::new();
         let half_width = (CAMERA_WIDTH / 2.0) as i32;
         let half_height = (CAMERA_HEIGHT / 2.0) as i32;
         for y in -half_height..half_height {
             for x in -half_width..half_width {
                 let fromvec = Vector2::new(x as f64, y as f64);
                 let (px, py) = camera.world_to_screen_coords(fromvec);
-                let to = graphics::Point::new(px as f32, py as f32);
-                grid.add(graphics::DrawParam {
-                    dest: to,
-                    .. Default::default()
-                });
+                pts.push(graphics::Point::new(px as f32, py as f32));
             }
         }
+        let grid = MeshBatch::from_points(ctx, &pts[..])?;
 
         let state = MainState {
             camera: camera,
