@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use ggez;
 use ggez::graphics;
-use ggez::graphics::{Rect, Point, Drawable};
+use ggez::graphics::{Rect, Point2, Drawable};
 
 
 /// An object that contains metadata on an image atlas.
@@ -59,7 +59,7 @@ impl<'a> graphics::Drawable for Sprite<'a> {
 impl<'a> Sprite<'a> {
     fn draw(&mut self,
             context: &mut ggez::Context,
-            location: graphics::Point)
+            location: graphics::Point2)
             -> ggez::GameResult<()> {
         let source = self.atlas.get_source(self.index)?;
         let dest = Rect::new(location.x, location.y, source.w, source.h);

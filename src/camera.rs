@@ -90,9 +90,9 @@ impl Camera {
         self.view_center
     }
 
-    fn calculate_dest_point(&self, location: Vector2) -> graphics::Point {
+    fn calculate_dest_point(&self, location: Vector2) -> graphics::Point2 {
         let (sx, sy) = self.world_to_screen_coords(location);
-        graphics::Point::new(sx as f32, sy as f32)
+        graphics::Point2::new(sx as f32, sy as f32)
     }
 }
 
@@ -114,7 +114,7 @@ pub trait CameraDraw
     fn draw_camera(&self,
                    camera: &Camera,
                    ctx: &mut ggez::Context,
-                   dest: ggez::graphics::Point,
+                   dest: ggez::graphics::Point2,
                    rotation: f32)
                    -> GameResult<()> {
         let dest = Vector2::new(dest.x as f64, dest.y as f64);
