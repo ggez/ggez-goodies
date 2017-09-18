@@ -1,261 +1,362 @@
-//! An experimental asset loader loosely based off
-//! of a ggez-ified version of Amethyst's asset loader:
+//! Resource system.
 //!
-//! https://docs.rs/amethyst/0.4.3/amethyst/asset_manager/index.html
+//! Currently, a resource is a disk-cached object that can be hot-reloaded while you use it.
+//! Resource can be serialized and deserialized as you see fit. The concept of *caching* and
+//! *loading* are split in different code location so that you can easily compose both – provide
+//! the loading code and ask the resource system to cache it for you.
 //!
-//! The main difference from Amethyst is it doesn't store things in specs;
-//! the main difference from the existing asset loader is its storage of
-//! assets in anymap's.
+//! This great flexibility is exposed in the public interface so that the cache can be augmented
+//! with user-provided objects. You might be interested in implementing `Load`, `CacheKey` – from
+//! the [any-cache](https://crates.io/crates/any-cache) crate — as well as providing a type wrapper
+//! over the key to access to your resource.
+//!
+//! # Note on keys
+//!
+//! If you use the resource system, your resources will be cached and accessible by their key. The
+//! key type is not enforced. Resource’s keys are typed to enable namespacing: if you have two
+//! resources which ID is `34`, because the key type is different, you can safely cache the resource
+//! with the ID `34` without any clashing or undefined behaviors. More in the any-cache crate.
 
+use any_cache::{Cache, HashCache};
+pub use any_cache::CacheKey;
+use notify::{Op, RawEvent, RecursiveMode, Watcher, raw_watcher};
+use notify::op::WRITE;
+use std::cell::RefCell;
 use std::collections::HashMap;
-use std::any::{Any, TypeId};
-use ggez;
+use std::fmt::Debug;
+use std::path::{Path, PathBuf};
+use std::rc::Rc;
+use std::sync::{Arc, Mutex};
+use std::sync::mpsc::channel;
+use std::thread;
+use std::time::{Duration, Instant};
 
-pub type AssetId = usize;
 
-pub struct AssetCache {
-    //loaders: HashMap<TypeId, Box<FnMut(Box<Any>)>>,//Box<AssetLoader<Box<Any>>>>,
-    loaders: HashMap<TypeId, Box<AssetLoader<Asset=usize>>>,
-    asset_ids: HashMap<String, AssetId>,
-    assets: Vec<Box<Any>>,
+#[macro_export]
+macro_rules! now {
+    () => {{
+        "now!".to_string()
+    }}
 }
 
-/// Describes an abstract asset loader type.
+#[macro_export]
+macro_rules! deb {
+    ( $e:expr ) => { println!(concat!("\x1b[90m{} \x1b[36m> ", $e, "\x1b[0m"), now!()); };
+    ( $e:expr, $($arg:tt)+ ) => { println!(concat!("\x1b[90m{} \x1b[36m> ", $e, "\x1b[0m"), now!(), $($arg)+); };
+}
+
+#[macro_export]
+macro_rules! info {
+    ( $e:expr ) => { println!(concat!("\x1b[90m{} \x1b[34m> ", $e, "\x1b[0m"), now!()); };
+    ( $e:expr, $($arg:tt)+ ) => { println!(concat!("\x1b[90m{} \x1b[34m> ", $e, "\x1b[0m"), now!(), $($arg)+); };
+}
+
+#[macro_export]
+macro_rules! warn {
+    ( $e:expr ) => { println!(concat!("\x1b[90m{} \x1b[33m> ", $e, "\x1b[0m"), now!()); };
+    ( $e:expr, $($arg:tt)+ ) => { println!(concat!("\x1b[90m{} \x1b[33m> ", $e, "\x1b[0m"), now!(), $($arg)+); };
+}
+
+#[macro_export]
+macro_rules! err {
+    ( $e:expr ) => { println!(concat!("\x1b[90m{} \x1b[1;31m> ", $e, "\x1b[0;0m"), now!()); };
+    ( $e:expr, $($arg:tt)+ ) => { println!(concat!("\x1b[90m{} \x1b[1;31m> ", $e, "\x1b[0;0m"), now!(), $($arg)+); };
+}
+
+/// Loadable object from disk.
 ///
-/// This is what Amethyst uses but is weirdly not-what-we-want for
-/// this application, so idk.
-pub trait AssetLoader {
-    type Asset;
-    fn from_data(assets: &mut AssetCache, data: Self) -> Self::Asset;
+/// An object can be loaded from disk if given a path it can be output a `LoadResult<_>`. It’s
+/// important to note that you’re not supposed to load objects directly from this trait. Instead,
+/// you should use a `Store`.
+pub trait Load: 'static + Sized {
+    /// Load a resource. The `Store` can be used to load or declare additional resource dependencies.
+    /// The result type is used to register for dependency events.
+    fn load<K>(key: &K, cache: &mut Store) -> Result<LoadResult<Self>, LoadError>
+        where K: StoreKey<Target = Self>;
 }
 
-/// This isn't what we want either though, apparently.  So!
-//pub type AssetLoader<A> = Fn(&mut ggez::Context, &str) -> ggez::GameResult<A>;
+/// Result of a resource loading. This type enables you to register a resource for reloading events
+/// of others (dependencies). If you don’t need to run specific code on a dependency reloading, use
+/// the `.into()` function to lift your return value to `LoadResult<_>`.
+pub struct LoadResult<T> {
+    /// The loaded object.
+    res: T,
+    /// The list of dependencies to listen for events.
+    dependencies: Vec<PathBuf>,
+}
 
-impl AssetCache {
-    pub fn new() -> Self {
-        Self {
-            loaders: HashMap::new(),
-            asset_ids: HashMap::new(),
-            assets: Vec::new(),
+impl<T> LoadResult<T> {
+    pub fn with_dependencies(res: T, dependencies: Vec<PathBuf>) -> Self {
+        LoadResult {
+            res: res,
+            dependencies: dependencies,
         }
     }
-    
-    pub fn add_loader(&mut self, loader: Box<AssetLoader<Asset=usize>>) {
-        //let loader = Box::new(loader);
-        self.loaders.insert(TypeId::of::<T>(), loader as Box<AssetLoader<Box<Any>>>);
-    }
-
-    /// Load an asset from data
-    pub fn load_asset_from_data<A>(&mut self,
-                                   ctx: &mut ggez::Context,
-                                   name: &str)
-                                   -> ggez::GameResult<AssetId>
-        where A: Any
-    {
-        //let asset = AssetLoader::<A, E>::from_data(self, data)?;
-        let asset = {
-            let loader = self.loaders.get(&TypeId::of::<A>()).unwrap();
-            loader(ctx, name)?;
-        };
-        let id = self.add_asset(name, asset);
-        Ok(id)
-    }
-
-    pub fn id_from_name(&self, name: &str) -> Option<AssetId> {
-        self.asset_ids.get(name).map(|id| *id)
-    }
-
-    pub fn get<T>(&self, id: AssetId) -> Option<&T>
-        where T: 'static
-    {
-        self.assets.get(id)
-            .map(|itm| &**itm)
-            .and_then(|itm| itm.downcast_ref::<T>())
-    }
-
-    fn add_asset(&mut self, name: &str, asset: usize) -> AssetId {
-        self.assets.push(Box::new(asset));
-        let id = self.assets.len();
-        self.asset_ids
-            .entry(name.into())
-            .or_insert(id);
-        id
-    }
-}
-/*
-fn extension_matches(path: &path::Path, ext: &str) -> bool {
-    if let Some(extension) = path.extension() {
-        extension.to_str().unwrap() == ext
-    } else {
-        false
-    }
 }
 
-
-fn get_file_name(path: &path::Path) -> Option<&str> {
-    path.file_name().map(|name| name.to_str().unwrap())
-}
-
-/// This macro takes an identifier, names for the load and get functions to create,
-/// as well as a type and a function to load that particular type, and constructs
-/// a structure that contains caches for those assets types and functions to get
-/// them.
-///
-/// Yes we could just use an AnyMap and a trait, but that's quitter talk.  We want
-/// MAX PERFORMANCE for this 1989-era non-real-time game!
-///
-/// TODO: Make a variant with an optional file extension, and construct a function
-/// that pre-loads all those files!
-macro_rules! assets {
-    ($($name:ident, $load_name: ident, $get_name:ident: $t:ty => 
-        $loader:path, $ext:expr, $path:expr),*) => {
-        pub struct Assets {
-            $(
-                $name: RwLock<HashMap<String,Rc<$t>>>,
-            )*
+impl<T> From<T> for LoadResult<T> {
+    fn from(res: T) -> Self {
+        LoadResult {
+            res: res,
+            dependencies: Vec::new(),
         }
+    }
+}
 
-        impl Assets {
-            pub fn new(ctx: &mut Context) -> GameResult<Self> {
-                let assets = Assets {
-                    $(
-                        $name: RwLock::new(HashMap::new()),
-                    )*
-                };
-                // Pre-load all assets
-                assets.load_files(ctx);
-                Ok(assets)
+/// Error that might occur while loading a resource.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum LoadError {
+    /// The file was not found.
+    FileNotFound(PathBuf),
+    /// The file wasn’t correctly parsed.
+    ParseFailed(String),
+    /// The file wasn’t correctly converted, even though it might have been parsed.
+    ConversionFailed(String),
+}
+
+/// Resources are wrapped in this type.
+pub type Res<T> = Rc<RefCell<T>>;
+
+/// Time to await after a resource update to establish that it should be reloaded.
+const UPDATE_AWAIT_TIME_MS: u64 = 1000;
+
+/// Resource key. This type is used to adapt a key type’s target so that it can be mutably shared.
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+struct RKey<K>(K);
+
+impl<K, T> CacheKey for RKey<K>
+    where K: CacheKey<Target = T>
+{
+    type Target = Rc<RefCell<T>>;
+}
+
+/// Trait used to represent keys in a resource store.
+pub trait StoreKey: CacheKey + Clone + Debug {
+    /// Convert from a key to its path representation.
+    fn key_to_path(&self) -> PathBuf;
+}
+
+/// Resource store. Responsible for holding and presenting resources.
+pub struct Store {
+    // canonicalized root path of resources
+    root: PathBuf,
+    // resource cache
+    cache: HashCache,
+    // contains all metadata on resources
+    metadata: HashMap<PathBuf, ResMetaData>,
+    // dependencies, mapping a dependency to its observers
+    dependencies: HashMap<PathBuf, PathBuf>,
+    // vector of pairs (path, timestamp) giving indication on resources to reload
+    dirty: Arc<Mutex<Vec<(PathBuf, Instant)>>>,
+    #[allow(dead_code)]
+    watcher_thread: thread::JoinHandle<()>,
+}
+
+impl Store {
+    /// Create a new store.
+    pub fn new<P>(root: P) -> Result<Self, StoreError>
+        where P: AsRef<Path>
+    {
+        let dirty: Arc<Mutex<Vec<(PathBuf, Instant)>>> = Arc::new(Mutex::new(Vec::new()));
+        let dirty_ = dirty.clone();
+
+        let root = root.as_ref().to_owned();
+        let root_ = root.clone();
+        let canon_root = root.canonicalize()
+            .map_err(|_| StoreError::RootDoesDotExit(root_.into()))?;
+        let canon_root_ = canon_root.clone();
+        let (wsx, wrx) = channel();
+        let mut watcher = raw_watcher(wsx).unwrap();
+
+        let join_handle = thread::spawn(move || {
+            let _ = watcher.watch(canon_root_.clone(), RecursiveMode::Recursive);
+
+            for event in wrx.iter() {
+                match event {
+                    RawEvent { path: Some(ref path), op: Ok(op), .. } if op | WRITE !=
+                                                                         Op::empty() => {
+                        dirty_.lock()
+                            .unwrap()
+                            .push((path.strip_prefix(&canon_root_).unwrap().to_owned(),
+                                   Instant::now()));
+                    }
+                    _ => (),
+                }
             }
+        });
 
-            // BUGGO: This should be generated by macro :/
-            // Or by some even better method.
-            // The main problem there is that suddenly we need to 
-            // have TWO more pieces of information in the macro, 
-            // the file extension and directory name.
-            // this is starting to get unwieldy and maybe 
-            // there's a better way of generalizing it.
-            fn load_files(&self, ctx: &mut Context) {
-                $(
-                for path in ctx.filesystem.read_dir($path).unwrap().iter() {
-                    // println!("Loading image {:?}", path);
-                    if extension_matches(&path, $ext) {
-                        if let Some(fname) = get_file_name(&path) {
-                            info!(log::LOG, "Loading {}/{}", $path, fname);
-                            self.$load_name(ctx, fname);
-                        }
-                    } else {
-                        warn!(log::LOG, "Warning: Unknown file type: {:?}", path);
+        deb!("resource cache started and listens to file changes in {}",
+             root.display());
+
+        Ok(Store {
+            root: canon_root,
+            cache: HashCache::new(),
+            metadata: HashMap::new(),
+            dependencies: HashMap::new(),
+            dirty: dirty,
+            watcher_thread: join_handle,
+        })
+    }
+
+    /// Inject a new resource in the cache.
+    ///
+    /// `key` is used to cache the resource and `path` is the path to where to reload the
+    /// resource.
+    fn inject<K>(&mut self,
+                 key: &K,
+                 resource: K::Target,
+                 dependencies: Vec<PathBuf>)
+                 -> Res<K::Target>
+        where K: StoreKey,
+              K::Target: Load
+    {
+        // wrap the resource to make it shared mutably
+        let res = Rc::new(RefCell::new(resource));
+        let res_ = res.clone();
+
+        // create the path associated with the given key
+        let key_ = key.clone();
+        let path = self.root.join(K::key_to_path(&key));
+
+        // closure used to reload the object when needed
+        let on_reload: Box<for<'a> Fn(&'a mut Store) -> Result<(), LoadError>> =
+            Box::new(move |cache| {
+                deb!("reloading {:?}", key_);
+
+                match K::Target::load(&key_, cache) {
+                    Ok(load_result) => {
+                        // replace the current resource with the freshly loaded one
+                        *res_.borrow_mut() = load_result.res;
+                        deb!("reloaded {:?}", key_);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        warn!("{:?} failed to reload:\n{:#?}", key_, e);
+                        Err(e)
                     }
                 }
-                )*
+            });
+
+        let metadata = ResMetaData {
+            on_reload: on_reload,
+            last_update_instant: Instant::now(),
+        };
+
+
+        // cache the resource and its meta data
+        self.cache.save(RKey(key.clone()), res.clone());
+        self.metadata.insert(path.clone(), metadata);
+
+        deb!("cached resource {:?}", key);
+
+        // register the resource as an observer of its dependencies in the dependencies graph
+        for dep_key in dependencies {
+            self.dependencies.insert(dep_key, path.clone());
+        }
+
+        res
+    }
+
+    /// Get a resource from the cache and return an error if loading failed.
+    fn get_<K>(&mut self, key: &K) -> Result<Res<K::Target>, LoadError>
+        where K: StoreKey,
+              K::Target: Load
+    {
+        let rekey = RKey(key.clone());
+
+        match self.cache.get(&rekey).cloned() {
+            Some(resource) => {
+                deb!("cache hit for {:?}", key);
+                Ok(resource)
             }
+            None => {
+                deb!("cache miss for {:?}", key);
 
-            $(
-                pub fn $load_name(&self, ctx: &mut Context, name: &str) -> Rc<$t> {
-                    let loader = || Rc::new($loader(ctx, self, name));
-                    let map = &mut *self.$name.write().unwrap();
-                    let value = map.entry(name.to_string()).or_insert_with(loader);
-                    (*value).clone()
-                }
-                
-                pub fn $get_name(&self, name: &str) -> Rc<$t> {
-                    let message = format!("Could not get asset \"{}\"", name);
-                    let map = self.$name.read().unwrap();
-                    (*map.get(name).expect(&message)).clone()
-                }
-
-            )*
-        }
-    }
-}
-
-fn image_loader(ctx: &mut Context, _assets: &Assets, name: &str) -> graphics::Image {
-    // println!("Loading {}", name);
-    let path = "/images/".to_string() + name;
-    let msg = format!("Could not load image {}, expected path {:?}", name, path);
-    graphics::Image::new(ctx, &path).expect(&msg)
-}
-
-
-
-fn font_loader(ctx: &mut Context, _assets: &Assets, name: &str) -> graphics::Font {
-    // println!("Loading {}", name);
-    let path = "/fonts/".to_string() + name;
-    let msg = format!("Could not load font {}, expected path {:?}", name, path);
-    graphics::Font::new(ctx, &path, 20).expect(&msg)
-}
-
-fn sprite_loader(ctx: &mut Context, _assets: &Assets, name: &str) -> aseprite::SpritesheetData {
-
-    let path = "/sprites/".to_string() + name;
-    let msg = format!("Could not open file for sprite {}, expected path {:?}",
-                      name,
-                      path);
-    let f = ctx.filesystem.open(&path).expect(&msg);
-    let msg = format!("Got invalid data for sprite {}", name);
-    let spritedata: aseprite::SpritesheetData = serde_json::from_reader(f).expect(&msg);
-    spritedata
-}
-
-fn tilemap_loader(ctx: &mut Context, _assets: &Assets, name: &str) -> tiled::Map {
-    let path = "/maps/".to_string() + name;
-    let msg = format!("Could not open file for map {}, expected path {:?}",
-                      name,
-                      path);
-    let mut f = ctx.filesystem.open(path).expect(&msg);
-    let buf = &mut Vec::new();
-    f.read_to_end(buf)
-        .expect(&format!("Could not read map file {}?!", name));
-    tiled::parse(&**buf).expect(&format!("Invalid map file {}?!", name))
-}
-
-fn conversation_loader(ctx: &mut Context, _assets: &Assets, name: &str) -> conversation::ConversationEngine {
-    // println!("Loading {}", name);
-    let path = "/conv/".to_string() + name;
-    let msg = format!("Could not open file for map {}, expected path {:?}",
-                      name,
-                      path);
-    let mut f = ctx.filesystem.open(path).expect(&msg);
-    let text = &mut String::new();
-    let _ = f.read_to_string(text).expect("Could not read conversation?");
-    conversation::ConversationEngine::from_str(&text).expect("Syntax error in conversation?")
-}
-
-
-
-
-
-
-assets! [
-    images, load_image, get_image: graphics::Image => image_loader, "png", "/images",
-    fonts, load_font, get_font: graphics::Font => font_loader, "ttf", "/fonts",
-    tilemaps, load_tilemap, get_tilemap: tiled::Map => tilemap_loader, "tmx", "/maps",
-    sprites, load_sprite, get_sprite: aseprite::SpritesheetData => sprite_loader, "json", "/sprites",
-    conversations, load_conversation, get_conversation: conversation::ConversationEngine => conversation_loader, "pjson", "/conv"
-];
-*/
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[derive(Clone, Debug, Hash, PartialEq)]
-    struct DummyImage(usize);
-    #[derive(Clone, Debug, Hash, PartialEq)]
-    struct DummyImageData;
-    impl AssetLoader<DummyImage, ()> for DummyImageData {
-        fn from_data(assets: &mut AssetCache, data: Self) -> Result<DummyImage, ()> {
-            Ok(DummyImage(1))
+                // specific loading
+                info!("loading {:?}", key);
+                let load_result = K::Target::load(key, self)?;
+                Ok(self.inject(key, load_result.res, load_result.dependencies))
+            }
         }
     }
 
-    #[test]
-    fn test_loading() {
-        let mut cache = AssetCache::new();
-        cache.add_loader(DummyImageData);
-        let id = cache.load_asset_from_data("foo", DummyImageData).unwrap();
-        //let itm = cache.get::<DummyImageData>(id).unwrap();
-        //assert_eq!(itm, &DummyImage(1));
+    /// Get a resource from the cache for the given key.
+    pub fn get<K>(&mut self, key: &K) -> Option<Res<K::Target>>
+        where K: StoreKey,
+              K::Target: Load
+    {
+        deb!("getting {:?}", key);
+
+        match self.get_(key) {
+            Ok(resource) => Some(resource),
+            Err(e) => {
+                err!("cannot get {:?} because:\n{:#?}", key, e);
+                None
+            }
+        }
     }
+
+    /// Get a resource from the store for the given key. If it fails, a proxed version is used, which
+    /// will get replaced by the resource once it’s available.
+    pub fn get_proxied<K, P>(&mut self, key: &K, proxy: P) -> Result<Res<K::Target>, LoadError>
+        where K: StoreKey,
+              K::Target: Load,
+              P: FnOnce() -> K::Target
+    {
+        match self.get_(key) {
+            Ok(resource) => Ok(resource),
+            Err(e) => {
+                warn!("proxied {:?} because:\n{:#?}", key, e);
+
+                // FIXME: we set the dependencies to none here, which is silly; find a better design
+                Ok(self.inject(key, proxy(), Vec::new()))
+            }
+        }
+    }
+
+    /// Synchronize the cache by updating the resources that ought to.
+    pub fn sync(&mut self) {
+        let dirty = self.dirty.clone();
+        let mut dirty_ = dirty.lock().unwrap();
+
+        for &(ref path, ref instant) in dirty_.iter() {
+            let path = self.root.join(path);
+            if let Some(mut metadata) = self.metadata.remove(&path) {
+                if instant.duration_since(metadata.last_update_instant) >=
+                   Duration::from_millis(UPDATE_AWAIT_TIME_MS) {
+                    if (metadata.on_reload)(self).is_ok() {
+                        // if we have successfully reloaded the resource, notify the observers that this
+                        // dependency has changed
+                        for dep in self.dependencies.get(path.as_path()).cloned() {
+                            if let Some(obs_metadata) = self.metadata.remove(dep.as_path()) {
+                                if let Err(e) = (obs_metadata.on_reload)(self) {
+                                    warn!("cannot reload {:?} {:?}", dep, e);
+                                }
+
+                                self.metadata.insert(dep, obs_metadata);
+                            }
+                        }
+                    }
+                }
+
+                metadata.last_update_instant = *instant;
+                self.metadata.insert(path.clone(), metadata);
+            }
+        }
+
+        dirty_.clear();
+    }
+}
+
+/// Meta data about a resource.
+struct ResMetaData {
+    on_reload: Box<Fn(&mut Store) -> Result<(), LoadError>>,
+    last_update_instant: Instant,
+}
+
+/// Error that might happen when creating a resource cache.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum StoreError {
+    /// The root path for the resources was not found.
+    RootDoesDotExit(PathBuf),
 }
