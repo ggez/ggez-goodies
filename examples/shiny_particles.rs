@@ -10,13 +10,9 @@ use ggez::conf;
 use ggez::event;
 use ggez::{GameResult, Context};
 use ggez::graphics;
+use ggez::graphics::{Point2, Vector2};
 use ggez::timer;
 use std::time::Duration;
-
-
-extern crate nalgebra as na;
-type Point2 = na::Point2<f64>;
-type Vector2 = na::Vector2<f64>;
 
 extern crate ggez_goodies;
 use ggez_goodies::particle::*;
@@ -47,7 +43,6 @@ impl MainState {
         graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
         Ok(state)
     }
-
 }
 
 const WINDOW_WIDTH: i32 = 640;
@@ -55,7 +50,7 @@ const WINDOW_HEIGHT: i32 = 480;
 
 impl event::EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context, dt: Duration) -> GameResult<()> {
-        let seconds = timer::duration_to_f64(dt);
+        let seconds = timer::duration_to_f64(dt) as f32;
         self.particles.update(seconds);
         println!("Particles: {}, FPS: {}",
                  self.particles.count(),
@@ -70,7 +65,6 @@ impl event::EventHandler for MainState {
         //graphics::draw(ctx, &mut self.particles, None, Some(dest_rect))?;
 
         graphics::present(ctx);
-        timer::sleep_until_next_frame(ctx, 60);
         Ok(())
     }
 }
@@ -82,7 +76,7 @@ pub fn main() {
     c.window_height = WINDOW_HEIGHT as u32;
     let ctx = &mut Context::load_from_conf("shiny_particles", "test", c).unwrap();
     let game = &mut MainState::new(ctx).unwrap();
-    
+
     if let Err(e) = event::run(ctx, game) {
         println!("Error encountered: {}", e);
     } else {

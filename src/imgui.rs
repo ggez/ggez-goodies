@@ -1,5 +1,4 @@
-use Point2;
-use ggez::graphics::Rect;
+use ggez::graphics::{Point2, Rect};
 
 pub type Id = usize;
 
@@ -12,9 +11,7 @@ pub struct Gui {
 }
 
 impl Gui {
-    fn mouse_button(&mut self, button: (), location: Point2, pressed: bool) {
-        
-    }
+    fn mouse_button(&mut self, button: (), location: Point2, pressed: bool) {}
 
     fn mouse_motion(&mut self, location: Point2) {
         self.mouse_loc = location;
@@ -23,8 +20,7 @@ impl Gui {
 
 pub fn button(gui: &mut Gui, id: Id, title: &str, rect: Rect) -> bool {
     if gui.hot == id {
-        if gui.active == id {
-        }
+        if gui.active == id {}
     }
     false
 }
@@ -32,6 +28,5 @@ pub fn button(gui: &mut Gui, id: Id, title: &str, rect: Rect) -> bool {
 #[cfg(test)]
 mod tests {
     #[test]
-    fn test_test() {
-    }
+    fn test_test() {}
 }

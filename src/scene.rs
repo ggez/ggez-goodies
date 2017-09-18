@@ -44,16 +44,17 @@ impl<C, Ev> SceneSwitch<C, Ev> {
     /// Slightly nicer than writing
     /// `SceneSwitch::Replace(Box::new(x))` all the damn time.
     pub fn replace<S>(scene: S) -> Self
-        where S: Scene<C, Ev> + 'static {
+        where S: Scene<C, Ev> + 'static
+    {
         SceneSwitch::Replace(Box::new(scene))
     }
 
     /// Same as `replace()` but returns SceneSwitch::Push
     pub fn push<S>(scene: S) -> Self
-        where S: Scene<C, Ev> + 'static {
+        where S: Scene<C, Ev> + 'static
+    {
         SceneSwitch::Push(Box::new(scene))
     }
-
 }
 
 
@@ -163,7 +164,7 @@ mod tests {
     struct Thing {
         scenes: Vec<SceneStack<u32, u32>>,
     }
-    
+
     #[test]
     fn test1() {
         let x = Thing { scenes: vec![] };

@@ -9,12 +9,8 @@ use ggez::conf;
 use ggez::event;
 use ggez::{GameResult, Context};
 use ggez::graphics;
-use ggez::timer;
+use ggez::graphics::Vector2;
 use std::time::Duration;
-
-
-extern crate nalgebra as na;
-type Vector2 = na::Vector2<f64>;
 
 extern crate ggez_goodies;
 use ggez_goodies::camera::*;
@@ -22,7 +18,7 @@ use ggez_goodies::camera::*;
 struct MainState {
     camera: Camera,
     image: graphics::Image,
-    image_location: graphics::Point,
+    image_location: graphics::Point2,
 }
 
 impl MainState {
@@ -37,7 +33,7 @@ impl MainState {
         let state = MainState {
             camera: camera,
             image: image,
-            image_location: graphics::Point::zero(),
+            image_location: graphics::Point2::origin(),
         };
         Ok(state)
     }
@@ -46,8 +42,8 @@ impl MainState {
 const WINDOW_WIDTH: u32 = 640;
 const WINDOW_HEIGHT: u32 = 480;
 
-const CAMERA_WIDTH: f64 = 40.0;
-const CAMERA_HEIGHT: f64 = 30.0;
+const CAMERA_WIDTH: f32 = 40.0;
+const CAMERA_HEIGHT: f32 = 30.0;
 
 impl event::EventHandler for MainState {
     fn update(&mut self, _ctx: &mut Context, _dt: Duration) -> GameResult<()> {
@@ -59,19 +55,18 @@ impl event::EventHandler for MainState {
 
         let half_width = (CAMERA_WIDTH / 2.0) as i32;
         let half_height = (CAMERA_HEIGHT / 2.0) as i32;
-        graphics::set_color(ctx, graphics::Color::from((255, 0, 0)));
+        graphics::set_color(ctx, graphics::Color::from((255, 0, 0)))?;
         for y in -half_height..half_height {
             for x in -half_width..half_width {
-                let fromvec = Vector2::new(x as f64, y as f64);
+                let fromvec = Vector2::new(x as f32, y as f32);
                 let (px, py) = self.camera.world_to_screen_coords(fromvec);
-                let to = graphics::Point::new(px as f32, py as f32);
-                graphics::points(ctx, &[to])?;
+                let to = graphics::Point2::new(px as f32, py as f32);
+                graphics::points(ctx, &[to], 1.0)?;
             }
         }
         self.image
             .draw_camera(&self.camera, ctx, self.image_location, 0.0)?;
         graphics::present(ctx);
-        timer::sleep_until_next_frame(ctx, 60);
         Ok(())
     }
 
