@@ -11,7 +11,7 @@ use std::f32;
 
 use rand;
 use rand::Rng;
-use na;
+use ggez::nalgebra as na;
 use ggez::{GameResult, Context};
 use ggez::graphics;
 use ggez::graphics::{BlendMode, Point2, Vector2};

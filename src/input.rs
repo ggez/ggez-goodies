@@ -1,7 +1,7 @@
 //! An abstract input state object that gets fed user
 //! events and updates itself based on a set of key
 //! bindings.
-//! 
+//!
 //! The goals are:
 //!
 //! * Have a layer of abstract key bindings rather than
@@ -93,7 +93,8 @@ struct ButtonStatus {
 /// types are.
 pub struct InputBinding<Axes, Buttons>
     where Axes: Hash + Eq + Clone,
-          Buttons: Hash + Eq + Clone {
+          Buttons: Hash + Eq + Clone
+{
     // Once EnumSet is stable it should be used for these
     // instead of BTreeMap. ♥?
     // Binding of keys to input values.
@@ -102,18 +103,16 @@ pub struct InputBinding<Axes, Buttons>
 
 impl<Axes, Buttons> InputBinding<Axes, Buttons>
     where Axes: Hash + Eq + Clone,
-          Buttons: Hash + Eq + Clone {
-    
+          Buttons: Hash + Eq + Clone
+{
     pub fn new() -> Self {
-        InputBinding {
-            bindings: HashMap::new(),
-        }
+        InputBinding { bindings: HashMap::new() }
     }
 
     /// Adds a key binding connecting the given keycode to the given
     /// logical axis.
     pub fn bind_key_to_axis(mut self, keycode: Keycode, axis: Axes, positive: bool) -> Self {
-        
+
         self.bindings.insert(InputType::KeyEvent(keycode),
                              InputEffect::Axis(axis.clone(), positive));
         self
@@ -336,25 +335,34 @@ mod tests {
             .bind_key_to_axis(Keycode::Right, Axes::Horz, true);
         ib
     }
-    
+
     #[test]
     fn test_input_bindings() {
         let ib = make_input_binding();
-        assert_eq!(ib.resolve(Keycode::Z), Some(InputEffect::Button(Buttons::A)));
-        assert_eq!(ib.resolve(Keycode::X), Some(InputEffect::Button(Buttons::B)));
-        assert_eq!(ib.resolve(Keycode::Return), Some(InputEffect::Button(Buttons::Start)));
-        assert_eq!(ib.resolve(Keycode::RShift), Some(InputEffect::Button(Buttons::Select)));
-        assert_eq!(ib.resolve(Keycode::LShift), Some(InputEffect::Button(Buttons::Select)));
+        assert_eq!(ib.resolve(Keycode::Z),
+                   Some(InputEffect::Button(Buttons::A)));
+        assert_eq!(ib.resolve(Keycode::X),
+                   Some(InputEffect::Button(Buttons::B)));
+        assert_eq!(ib.resolve(Keycode::Return),
+                   Some(InputEffect::Button(Buttons::Start)));
+        assert_eq!(ib.resolve(Keycode::RShift),
+                   Some(InputEffect::Button(Buttons::Select)));
+        assert_eq!(ib.resolve(Keycode::LShift),
+                   Some(InputEffect::Button(Buttons::Select)));
 
-        assert_eq!(ib.resolve(Keycode::Up), Some(InputEffect::Axis(Axes::Vert, true)));
-        assert_eq!(ib.resolve(Keycode::Down), Some(InputEffect::Axis(Axes::Vert, false)));
-        assert_eq!(ib.resolve(Keycode::Left), Some(InputEffect::Axis(Axes::Horz, false)));
-        assert_eq!(ib.resolve(Keycode::Right), Some(InputEffect::Axis(Axes::Horz, true)));
+        assert_eq!(ib.resolve(Keycode::Up),
+                   Some(InputEffect::Axis(Axes::Vert, true)));
+        assert_eq!(ib.resolve(Keycode::Down),
+                   Some(InputEffect::Axis(Axes::Vert, false)));
+        assert_eq!(ib.resolve(Keycode::Left),
+                   Some(InputEffect::Axis(Axes::Horz, false)));
+        assert_eq!(ib.resolve(Keycode::Right),
+                   Some(InputEffect::Axis(Axes::Horz, true)));
 
         assert_eq!(ib.resolve(Keycode::Q), None);
         assert_eq!(ib.resolve(Keycode::W), None);
     }
-    
+
     #[test]
     fn test_input_events() {
         let mut im = InputManager::new();

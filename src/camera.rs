@@ -31,7 +31,7 @@ pub struct Camera {
 }
 
 impl Camera {
-    pub fn new(screen_width: u32, screen_height: u32, view_width: f64, view_height: f64) -> Self {
+    pub fn new(screen_width: u32, screen_height: u32, view_width: f32, view_height: f32) -> Self {
         let screen_size = Vector2::new(screen_width as f32, screen_height as f32);
         let view_size = Vector2::new(view_width as f32, view_height as f32);
         Camera {
