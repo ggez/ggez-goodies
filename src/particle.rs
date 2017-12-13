@@ -6,7 +6,7 @@
 
 use std::marker::Sized;
 
-use std::f64;
+use std::f32;
 
 
 use rand;
@@ -14,8 +14,7 @@ use rand::Rng;
 use na;
 use ggez::{GameResult, Context};
 use ggez::graphics;
-
-use super::{Point2, Vector2};
+use ggez::graphics::{BlendMode, Point2, Vector2};
 
 enum StartParam<T> {
     Fixed(T),
@@ -23,8 +22,8 @@ enum StartParam<T> {
 }
 
 
-impl StartParam<f64> {
-    pub fn get_value(&self) -> f64 {
+impl StartParam<f32> {
+    pub fn get_value(&self) -> f32 {
         match *self {
             StartParam::Fixed(x) => x,
             StartParam::UniformRange(ref low, ref high) => {
@@ -90,28 +89,28 @@ pub trait Interpable
     /// Interpolate the value.  t should always be a number
     /// between 0.0 and 1.0, normalized for whatever actual
     /// value is the "end" of the interpolation.
-    fn interp(&self, t: f64) -> Self;
+    fn interp(&self, t: f32) -> Self;
 
-    fn interp_between(t: f64, v1: Self, v2: Self) -> Self;
+    fn interp_between(t: f32, v1: Self, v2: Self) -> Self;
 
     /// A little shortcut that does the normalization for you.
-    fn normalize_interp(&self, t: f64, max_t: f64) -> Self {
+    fn normalize_interp(&self, t: f32, max_t: f32) -> Self {
         let norm_t = t / max_t;
         self.interp(norm_t)
     }
 
-    fn normalize_interp_between(t: f64, max_t: f64, v1: Self, v2: Self) -> Self {
+    fn normalize_interp_between(t: f32, max_t: f32, v1: Self, v2: Self) -> Self {
         let norm_t = t / max_t;
         Self::interp_between(norm_t, v1, v2)
     }
 }
 
-impl Interpable for f64 {
-    fn interp(&self, t: f64) -> Self {
+impl Interpable for f32 {
+    fn interp(&self, t: f32) -> Self {
         *self * t
     }
 
-    fn interp_between(t: f64, v1: Self, v2: Self) -> Self {
+    fn interp_between(t: f32, v1: Self, v2: Self) -> Self {
         let val1 = v1.interp(1.0 - t);
         let val2 = v2.interp(t);
         val1 + val2
@@ -121,25 +120,25 @@ impl Interpable for f64 {
 
 // This function is broken; see ggj2017 code for fix.  :/
 impl Interpable for graphics::Color {
-    fn interp(&self, t: f64) -> Self {
+    fn interp(&self, t: f32) -> Self {
         //*self * t
         let (r, g, b, a): (u8, u8, u8, u8) = (*self).into();
-        let (fr, fg, fb, fa) = (r as f64, g as f64, b as f64, a as f64);
+        let (fr, fg, fb, fa) = (r as f32, g as f32, b as f32, a as f32);
         let (rr, rg, rb, ra) = (fr * t, fg * t, fb * t, fa * t);
         (rr as u8, rg as u8, rb as u8, ra as u8).into()
     }
 
-    fn interp_between(t: f64, v1: Self, v2: Self) -> Self {
+    fn interp_between(t: f32, v1: Self, v2: Self) -> Self {
 
         let (r1, g1, b1, a1) = v1.into();
-        let (fr1, fg1, fb1, fa1) = (r1 as f64, g1 as f64, b1 as f64, a1 as f64);
+        let (fr1, fg1, fb1, fa1) = (r1 as f32, g1 as f32, b1 as f32, a1 as f32);
 
         let (r2, g2, b2, a2) = v2.into();
 
-        let dr = (r2 - r1) as f64;
-        let dg = (g2 - g1) as f64;
-        let db = (b2 - b1) as f64;
-        let da = (a2 - a1) as f64;
+        let dr = (r2 - r1) as f32;
+        let dg = (g2 - g1) as f32;
+        let db = (b2 - b1) as f32;
+        let da = (a2 - a1) as f32;
 
         let (rr, rg, rb, ra) = (fr1 + dr * t, fg1 + dg * t, fb1 + db * t, fa1 + da * t);
         (rr as u8, rg as u8, rb as u8, ra as u8).into()
@@ -150,7 +149,7 @@ impl Interpable for graphics::Color {
 /// set properties, with multiple potential defined points.
 /// So for instance you could use Transition<Color> and define
 /// a transition of colors from red to orange to grey to do smoke.
-/// You could also use Transition<f64> to just represent a size
+/// You could also use Transition<f32> to just represent a size
 /// curve.
 /// So really this is a general-purpose easing type thing...
 /// It assumes that all time values range from 0 to 1.
@@ -171,7 +170,7 @@ impl<T: Interpable + Copy> Transition<T> {
 
     /// t should be between 0.0 and 1.0
     /// or should it take the current value and a delta-t???
-    pub fn get(&self, t: f64) -> T {
+    pub fn get(&self, t: f32) -> T {
         match *self {
             Transition::Fixed(value) => value,
             Transition::Range(from, to) => T::interp_between(t, from, to),
@@ -237,11 +236,11 @@ struct Particle {
     pos: Point2,
     vel: Vector2,
     color: graphics::Color,
-    size: f64,
-    angle: f64,
-    rotation: f64,
-    age: f64,
-    max_age: f64,
+    size: f32,
+    angle: f32,
+    rotation: f32,
+    age: f32,
+    max_age: f32,
 }
 
 
@@ -279,9 +278,9 @@ impl Particle {
     fn new(pos: Point2,
            vel: Vector2,
            color: graphics::Color,
-           size: f64,
-           angle: f64,
-           max_age: f64)
+           size: f32,
+           angle: f32,
+           max_age: f32)
            -> Self {
         Particle {
             pos: pos,
@@ -337,12 +336,12 @@ impl ParticleSystemBuilder {
     }
 
     prop!(start_color, start_color_range, graphics::Color);
-    prop!(start_size, start_size_range, f64);
-    prop!(start_rotation, start_rotation_range, f64);
+    prop!(start_size, start_size_range, f32);
+    prop!(start_rotation, start_rotation_range, f32);
     // These two need some work, 'cause, shapes.
     prop!(start_position, start_position_range, Point2);
     prop!(start_velocity, start_velocity_range, Vector2);
-    prop!(start_max_age, start_max_age_range, f64);
+    prop!(start_max_age, start_max_age_range, f32);
 
     pub fn acceleration(mut self, accel: Vector2) -> Self {
         self.system.acceleration = accel;
@@ -350,12 +349,12 @@ impl ParticleSystemBuilder {
     }
 
     // This also needs some variety in life.
-    pub fn emission_rate(mut self, start: f64) -> Self {
+    pub fn emission_rate(mut self, start: f32) -> Self {
         self.system.emission_rate = start;
         self
     }
 
-    pub fn delta_size(mut self, trans: Transition<f64>) -> Self {
+    pub fn delta_size(mut self, trans: Transition<f32>) -> Self {
         self.system.delta_size = trans;
         self
     }
@@ -378,7 +377,7 @@ pub enum EmissionShape {
     // min and max bounds of the line segment.
     Line(Point2, Point2),
     // Center point and radius
-    Circle(Point2, f64),
+    Circle(Point2, f32),
 }
 
 impl EmissionShape {
@@ -390,13 +389,13 @@ impl EmissionShape {
             EmissionShape::Point(v) => v,
             EmissionShape::Line(p1, p2) => {
 
-                let min_x = f64::min(p1.x, p2.x);
-                let max_x = f64::max(p1.x, p2.x);
-                let min_y = f64::min(p1.y, p2.y);
-                let max_y = f64::max(p1.y, p2.y);
+                let min_x = f32::min(p1.x, p2.x);
+                let max_x = f32::max(p1.x, p2.x);
+                let min_y = f32::min(p1.y, p2.y);
+                let max_y = f32::max(p1.y, p2.y);
                 let mut rng = rand::thread_rng();
-                let x: f64;
-                let y: f64;
+                let x: f32;
+                let y: f32;
                 if min_x == max_x {
                     // Line is vertical
                     x = min_x;
@@ -420,21 +419,21 @@ impl EmissionShape {
                 // within the given bounding box
                 // let x_bbox_ymin = x_from_y(min.y);
                 // let x_bbox_ymax = x_from_y(max.y);
-                // let x_min = f64::max(min.x, f64::min(x_bbox_ymin, x_bbox_ymax));
-                // let x_max = f64::min(max.x, f64::max(x_bbox_ymin, x_bbox_ymax));
+                // let x_min = f32::max(min.x, f32::min(x_bbox_ymin, x_bbox_ymax));
+                // let x_max = f32::min(max.x, f32::max(x_bbox_ymin, x_bbox_ymax));
 
 
                 // let y_bbox_xmin = y_from_x(min.x);
                 // let y_bbox_xmax = y_from_x(max.x);
-                // let y_min = f64::max(min.y, f64::min(y_bbox_xmin, y_bbox_xmax));
-                // let y_max = f64::min(max.y, f64::max(y_bbox_xmin, y_bbox_xmax));
+                // let y_min = f32::max(min.y, f32::min(y_bbox_xmin, y_bbox_xmax));
+                // let y_max = f32::min(max.y, f32::max(y_bbox_xmin, y_bbox_xmax));
 
                 Point2::new(x, y)
 
             }
             EmissionShape::Circle(center, radius) => {
                 let mut rng = rand::thread_rng();
-                let theta = rng.gen_range(0.0, f64::consts::PI * 2.0);
+                let theta = rng.gen_range(0.0, f32::consts::PI * 2.0);
                 let r = rng.gen_range(0.0, radius);
                 let x = theta.cos() * r;
                 let y = theta.sin() * r;
@@ -454,25 +453,25 @@ enum EmissionVelocity {
 pub struct ParticleSystem {
     // Bookkeeping stuff
     particles: Vec<Particle>,
-    residual_particle: f64,
+    residual_particle: f32,
     max_particles: usize,
     image: graphics::Image,
 
     // Parameters:
     // Emission parameters
-    emission_rate: f64,
+    emission_rate: f32,
     start_color: StartParam<graphics::Color>,
     start_position: StartParam<Point2>,
     start_shape: EmissionShape,
     start_velocity: StartParam<Vector2>,
-    start_angle: StartParam<f64>,
-    start_rotation: StartParam<f64>,
-    start_size: StartParam<f64>,
-    start_max_age: StartParam<f64>,
+    start_angle: StartParam<f32>,
+    start_rotation: StartParam<f32>,
+    start_size: StartParam<f32>,
+    start_max_age: StartParam<f32>,
     // Global state/update parameters
     acceleration: Vector2,
 
-    delta_size: Transition<f64>,
+    delta_size: Transition<f32>,
     delta_color: Transition<graphics::Color>,
 }
 
@@ -532,7 +531,7 @@ impl ParticleSystem {
         }
     }
 
-    pub fn update(&mut self, dt: f64) {
+    pub fn update(&mut self, dt: f32) {
         // This is tricky 'cause we have to keep the emission rate
         // correct and constant.  So we "accumulate" particles over
         // time until we have >1 of them and then emit it.
@@ -584,5 +583,12 @@ impl graphics::Drawable for ParticleSystem {
         //                  flip_vertical)?;
         // }
         Ok(())
+    }
+
+    fn set_blend_mode(&mut self, mode: Option<BlendMode>) {
+        self.image.set_blend_mode(mode)
+    }
+    fn get_blend_mode(&self) -> Option<BlendMode> {
+        self.image.get_blend_mode()
     }
 }

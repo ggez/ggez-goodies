@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use ggez;
 use ggez::graphics;
-use ggez::graphics::{Rect, Point, Drawable};
+use ggez::graphics::{Rect, Point2, Drawable, BlendMode};
 
 
 /// An object that contains metadata on an image atlas.
@@ -42,7 +42,7 @@ impl Atlas {
 }
 
 pub struct Sprite<'a> {
-    atlas: &'a Atlas,
+    atlas: &'a mut Atlas,
     index: u32,
 }
 
@@ -53,13 +53,21 @@ impl<'a> graphics::Drawable for Sprite<'a> {
                -> ggez::GameResult<()> {
         Ok(())
     }
+
+
+    fn set_blend_mode(&mut self, mode: Option<BlendMode>) {
+        self.atlas.source.set_blend_mode(mode)
+    }
+    fn get_blend_mode(&self) -> Option<BlendMode> {
+        self.atlas.source.get_blend_mode()
+    }
 }
 
 
 impl<'a> Sprite<'a> {
     fn draw(&mut self,
             context: &mut ggez::Context,
-            location: graphics::Point)
+            location: graphics::Point2)
             -> ggez::GameResult<()> {
         let source = self.atlas.get_source(self.index)?;
         let dest = Rect::new(location.x, location.y, source.w, source.h);
@@ -151,5 +159,15 @@ impl<T: Drawable> Drawable for LayerManager<T> {
             graphics::draw_ex(context, item, param)?;
         }
         Ok(())
+    }
+
+
+    fn set_blend_mode(&mut self, mode: Option<BlendMode>) {
+        // self.source.set_blend_mode(mode)
+        // BUGGO: TODO: FIX
+    }
+    fn get_blend_mode(&self) -> Option<BlendMode> {
+        // self.source.get_blend_mode()
+        None
     }
 }

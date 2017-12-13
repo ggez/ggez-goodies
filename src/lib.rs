@@ -13,9 +13,6 @@ pub mod particle;
 pub mod scene;
 pub mod sprite;
 
-pub type Point2 = na::Point2<f64>;
-pub type Vector2 = na::Vector2<f64>;
-
 #[cfg(test)]
 mod tests {
     #[test]

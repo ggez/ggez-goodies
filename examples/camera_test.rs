@@ -9,12 +9,11 @@ use ggez::conf;
 use ggez::event;
 use ggez::{GameResult, Context};
 use ggez::graphics;
+use ggez::graphics::{Vector2, Point2};
 use ggez::timer;
+use ggez::nalgebra as na;
 use std::time::Duration;
 
-
-extern crate nalgebra as na;
-type Vector2 = na::Vector2<f64>;
 
 extern crate ggez_goodies;
 use ggez_goodies::camera::*;
@@ -22,7 +21,7 @@ use ggez_goodies::camera::*;
 struct MainState {
     camera: Camera,
     image: graphics::Image,
-    image_location: graphics::Point,
+    image_location: graphics::Point2,
 }
 
 impl MainState {
@@ -37,7 +36,7 @@ impl MainState {
         let state = MainState {
             camera: camera,
             image: image,
-            image_location: graphics::Point::zero(),
+            image_location: graphics::Point2::new(0.0, 0.0),
         };
         Ok(state)
     }
@@ -50,7 +49,7 @@ const CAMERA_WIDTH: f64 = 40.0;
 const CAMERA_HEIGHT: f64 = 30.0;
 
 impl event::EventHandler for MainState {
-    fn update(&mut self, _ctx: &mut Context, _dt: Duration) -> GameResult<()> {
+    fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
         Ok(())
     }
 
@@ -62,21 +61,21 @@ impl event::EventHandler for MainState {
         graphics::set_color(ctx, graphics::Color::from((255, 0, 0)));
         for y in -half_height..half_height {
             for x in -half_width..half_width {
-                let fromvec = Vector2::new(x as f64, y as f64);
+                let fromvec = Vector2::new(x as f32, y as f32);
                 let (px, py) = self.camera.world_to_screen_coords(fromvec);
-                let to = graphics::Point::new(px as f32, py as f32);
-                graphics::points(ctx, &[to])?;
+                let to = graphics::Point2::new(px as f32, py as f32);
+                graphics::points(ctx, &[to], 5.0)?;
             }
         }
         self.image
             .draw_camera(&self.camera, ctx, self.image_location, 0.0)?;
         graphics::present(ctx);
-        timer::sleep_until_next_frame(ctx, 60);
+        // timer::sleep_until_next_frame(ctx, 60);
         Ok(())
     }
 
 
-    fn key_down_event(&mut self, keycode: event::Keycode, _keymod: event::Mod, _repeat: bool) {
+    fn key_down_event(&mut self, ctx: &mut Context, keycode: event::Keycode, _keymod: event::Mod, _repeat: bool) {
         match keycode {
             event::Keycode::W => {
                 self.image_location.y += 0.1;
@@ -105,8 +104,8 @@ impl event::EventHandler for MainState {
 pub fn main() {
     let mut c = conf::Conf::new();
     c.window_title = "Camera test".to_string();
-    c.window_width = WINDOW_WIDTH as u32;
-    c.window_height = WINDOW_HEIGHT as u32;
+    // c.window_width = WINDOW_WIDTH as u32;
+    // c.window_height = WINDOW_HEIGHT as u32;
     let ctx = &mut Context::load_from_conf("camera_test", "test", c).unwrap();
     let game = &mut MainState::new(ctx).unwrap();
 

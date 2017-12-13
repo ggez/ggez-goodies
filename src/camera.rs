@@ -19,8 +19,8 @@
 use ggez;
 use ggez::GameResult;
 use ggez::graphics;
-use na;
-use Vector2;
+use ggez::graphics::{Point2, Vector2};
+use ggez::nalgebra as na;
 
 // Hmm.  Could, instead, use a 2d transformation
 // matrix, or create one of such.
@@ -32,8 +32,8 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(screen_width: u32, screen_height: u32, view_width: f64, view_height: f64) -> Self {
-        let screen_size = Vector2::new(screen_width as f64, screen_height as f64);
-        let view_size = Vector2::new(view_width as f64, view_height as f64);
+        let screen_size = Vector2::new(screen_width as f32, screen_height as f32);
+        let view_size = Vector2::new(view_width as f32, view_height as f32);
         Camera {
             screen_size: screen_size,
             view_size: view_size,
@@ -73,8 +73,8 @@ impl Camera {
     // -p_screen - max_p/2 + max_p = p
     pub fn screen_to_world_coords(&self, from: (i32, i32)) -> Vector2 {
         let (sx, sy) = from;
-        let sx = sx as f64;
-        let sy = sy as f64;
+        let sx = sx as f32;
+        let sy = sy as f32;
         let flipped_x = sx - ((*self.screen_size).x / 2.0);
         let flipped_y = -sy + (*self.screen_size).y / 2.0;
         let screen_coords = Vector2::new(flipped_x, flipped_y);
@@ -90,9 +90,9 @@ impl Camera {
         self.view_center
     }
 
-    fn calculate_dest_point(&self, location: Vector2) -> graphics::Point {
+    fn calculate_dest_point(&self, location: Vector2) -> graphics::Point2 {
         let (sx, sy) = self.world_to_screen_coords(location);
-        graphics::Point::new(sx as f32, sy as f32)
+        graphics::Point2::new(sx as f32, sy as f32)
     }
 }
 
@@ -104,7 +104,7 @@ pub trait CameraDraw
                       ctx: &mut ggez::Context,
                       p: ggez::graphics::DrawParam)
                       -> GameResult<()> {
-        let dest = Vector2::new(p.dest.x as f64, p.dest.y as f64);
+        let dest = Vector2::new(p.dest.x as f32, p.dest.y as f32);
         let dest = camera.calculate_dest_point(dest);
         let mut my_p = p;
         my_p.dest = dest;
@@ -114,10 +114,10 @@ pub trait CameraDraw
     fn draw_camera(&self,
                    camera: &Camera,
                    ctx: &mut ggez::Context,
-                   dest: ggez::graphics::Point,
+                   dest: ggez::graphics::Point2,
                    rotation: f32)
                    -> GameResult<()> {
-        let dest = Vector2::new(dest.x as f64, dest.y as f64);
+        let dest = Vector2::new(dest.x as f32, dest.y as f32);
         let dest = camera.calculate_dest_point(dest);
         self.draw(ctx, dest, rotation)
     }
@@ -128,7 +128,7 @@ impl<T> CameraDraw for T where T: graphics::Drawable {}
 
 #[cfg(test)]
 mod tests {
-    use Vector2;
+    use ggez::graphics::Vector2;
     use super::*;
 
     #[test]
