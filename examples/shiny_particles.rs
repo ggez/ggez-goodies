@@ -50,15 +50,10 @@ impl MainState {
 // const WINDOW_HEIGHT: i32 = 480;
 
 impl event::EventHandler for MainState {
-<<<<<<< HEAD
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         // let seconds = timer::duration_to_f64(dt);
         let seconds = 1.0 / 60.0;
 
-=======
-    fn update(&mut self, ctx: &mut Context, dt: Duration) -> GameResult<()> {
-        let seconds = timer::duration_to_f64(dt) as f32;
->>>>>>> 9b16b90ae994f91b871e9aeac35bd5dc2b10c7df
         self.particles.update(seconds);
         println!("Particles: {}, FPS: {}",
                  self.particles.count(),
@@ -73,17 +68,13 @@ impl event::EventHandler for MainState {
         //graphics::draw(ctx, &mut self.particles, None, Some(dest_rect))?;
 
         graphics::present(ctx);
-<<<<<<< HEAD
-        // timer::sleep_until_next_frame(ctx, 60);
-=======
->>>>>>> 9b16b90ae994f91b871e9aeac35bd5dc2b10c7df
         Ok(())
     }
 }
 
 pub fn main() {
     let mut c = conf::Conf::new();
-    c.window_title = "Shiny particles".to_string();
+    c.window_setup.title = "Shiny particles".to_string();
     // c.window_width = WINDOW_WIDTH as u32;
     // c.window_height = WINDOW_HEIGHT as u32;
     let ctx = &mut Context::load_from_conf("shiny_particles", "test", c).unwrap();

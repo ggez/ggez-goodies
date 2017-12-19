@@ -102,7 +102,7 @@ impl event::EventHandler for MainState {
 
 pub fn main() {
     let mut c = conf::Conf::new();
-    c.window_title = "Camera test".to_string();
+    c.window_setup.title = "Camera test".to_string();
     // c.window_width = WINDOW_WIDTH as u32;
     // c.window_height = WINDOW_HEIGHT as u32;
     let ctx = &mut Context::load_from_conf("camera_test", "test", c).unwrap();
