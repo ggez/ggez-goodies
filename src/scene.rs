@@ -16,8 +16,6 @@
 
 use ggez;
 
-use input;
-
 /// A command to change to a new scene, either by pushign a new one,
 /// popping one or replacing the current scene (pop and then push).
 pub enum SceneSwitch<C, Ev> {
@@ -107,7 +105,6 @@ impl<C, Ev> SceneStack<C, Ev> {
             SceneSwitch::None => None,
             SceneSwitch::Pop => {
                 let s = self.pop();
-                let current_name = self.current().name();
                 Some(s)
             }
             SceneSwitch::Push(s) => {
