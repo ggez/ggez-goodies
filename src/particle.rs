@@ -4,6 +4,16 @@
 // Cocos2d's plist file format
 // Oh, love2d's particle system parameters, derp.
 
+// I think this could be simplified.
+// For each particle property, take an easing function (perhaps just from the `ezing` crate),
+// and bounds to map the start and end to.
+// Randomization would alter the bounds per-particle.
+// Don't try to cover all cases right off the bat, it should be easy to add more.
+//
+// The real useful stuff here worth preserving is probably the emission stuff
+// and the Particle type...
+// StartParam might actually be useful as well maybe.
+
 use std::marker::Sized;
 
 use std::f32;
@@ -215,7 +225,7 @@ impl<T: Interpable + Copy> Transition<T> {
 // position of emitter
 // quads (series of images to use as sprites)
 // radial acceeleration
-// rotation
+// ang_vel
 // size variations/sizes
 // set speed
 // spin, spin variation
@@ -238,7 +248,7 @@ struct Particle {
     color: graphics::Color,
     size: f32,
     angle: f32,
-    rotation: f32,
+    ang_vel: f32,
     age: f32,
     max_age: f32,
 }
@@ -288,7 +298,7 @@ impl Particle {
             color: color,
             size: size,
             angle: angle,
-            rotation: 0.0,
+            ang_vel: 0.0,
             age: 0.0,
             max_age: max_age,
         }
@@ -337,7 +347,7 @@ impl ParticleSystemBuilder {
 
     prop!(start_color, start_color_range, graphics::Color);
     prop!(start_size, start_size_range, f32);
-    prop!(start_rotation, start_rotation_range, f32);
+    prop!(start_ang_vel, start_ang_vel_range, f32);
     // These two need some work, 'cause, shapes.
     prop!(start_position, start_position_range, Point2);
     prop!(start_velocity, start_velocity_range, Vector2);
@@ -465,7 +475,7 @@ pub struct ParticleSystem {
     start_shape: EmissionShape,
     start_velocity: StartParam<Vector2>,
     start_angle: StartParam<f32>,
-    start_rotation: StartParam<f32>,
+    start_ang_vel: StartParam<f32>,
     start_size: StartParam<f32>,
     start_max_age: StartParam<f32>,
     // Global state/update parameters
@@ -489,7 +499,7 @@ impl ParticleSystem {
             start_shape: EmissionShape::Point(Point2::new(0.0, 0.0)),
             start_velocity: StartParam::Fixed(Vector2::new(1.0, 1.0)),
             start_angle: StartParam::Fixed(0.0),
-            start_rotation: StartParam::Fixed(0.0),
+            start_ang_vel: StartParam::Fixed(0.0),
             start_size: StartParam::Fixed(1.0),
             start_max_age: StartParam::Fixed(1.0),
             emission_rate: 1.0,
@@ -502,7 +512,7 @@ impl ParticleSystem {
 
     /// Makes a basic square image to represent a particle
     /// if we need one.  Just doing graphics::rectangle() isn't
-    /// good enough 'cause it can't do rotations.
+    /// good enough 'cause it can't do ang_vels.
     /// ...buuuuuut we can't appear to conjure one up out of
     /// raw data...
     /// ...in fact, we need the Renderer to even *attempt* to do such a thing.
@@ -523,9 +533,9 @@ impl ParticleSystem {
         let size = self.start_size.get_value();
         let max_age = self.start_max_age.get_value();
         let angle = self.start_angle.get_value();
-        let rotation = self.start_rotation.get_value();
+        let ang_vel = self.start_ang_vel.get_value();
         let mut newparticle = Particle::new(pos, vec, col, size, angle, max_age);
-        newparticle.rotation = rotation;
+        newparticle.ang_vel = ang_vel;
         if self.particles.len() <= self.max_particles {
             self.particles.push(newparticle);
         }
@@ -546,7 +556,7 @@ impl ParticleSystem {
             p.vel += self.acceleration * dt;
             p.pos += p.vel * dt;
             p.age += dt;
-            p.angle += p.rotation;
+            p.angle += p.ang_vel;
 
             p.size = self.delta_size.get(life_fraction);
             p.color = self.delta_color.get(life_fraction);
