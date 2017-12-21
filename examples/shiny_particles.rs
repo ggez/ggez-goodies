@@ -1,7 +1,3 @@
-//! An Asteroids-ish example game to show off ggez.
-//! The idea is that this game is simple but still
-//! non-trivial enough to be interesting.
-
 extern crate ggez;
 extern crate rand;
 
@@ -68,14 +64,13 @@ impl event::EventHandler for MainState {
         //graphics::draw(ctx, &mut self.particles, None, Some(dest_rect))?;
 
         graphics::present(ctx);
-        // timer::sleep_until_next_frame(ctx, 60);
         Ok(())
     }
 }
 
 pub fn main() {
     let mut c = conf::Conf::new();
-    c.window_title = "Shiny particles".to_string();
+    c.window_setup.title = "Shiny particles".to_string();
     // c.window_width = WINDOW_WIDTH as u32;
     // c.window_height = WINDOW_HEIGHT as u32;
     let ctx = &mut Context::load_from_conf("shiny_particles", "test", c).unwrap();

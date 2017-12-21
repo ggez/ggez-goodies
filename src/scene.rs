@@ -16,8 +16,8 @@
 
 use ggez;
 
-use input;
-
+/// A command to change to a new scene, either by pushign a new one,
+/// popping one or replacing the current scene (pop and then push).
 pub enum SceneSwitch<C, Ev> {
     None,
     Push(Box<Scene<C, Ev>>),
@@ -25,14 +25,21 @@ pub enum SceneSwitch<C, Ev> {
     Pop,
 }
 
+/// A trait for you to implement on a scene.
+/// Defines the callbacks the scene uses:
+/// a common context type `C`, and an input event type `Ev`.
+///
+/// TODO: We could abstract the `ggez::Context` out into its own generic
+/// as well...
 pub trait Scene<C, Ev> {
     fn update(&mut self, gameworld: &mut C) -> SceneSwitch<C, Ev>;
     fn draw(&mut self, gameworld: &mut C, ctx: &mut ggez::Context) -> ggez::GameResult<()>;
     fn input(&mut self, gameworld: &mut C, event: Ev, started: bool);
     /// Only used for human-readable convenience (or not at all, tbh)
     fn name(&self) -> &str;
-    /// Whether or not to draw the next lowest scene on the stack as well;
-    /// this is useful for GUI stuff that only partially covers the screen.
+    /// This returns whether or not to draw the next scene down on the
+    /// stack as well; this is useful for layers or GUI stuff that
+    /// only partially covers the screen.
     fn draw_previous(&self) -> bool {
         false
     }
@@ -91,13 +98,13 @@ impl<C, Ev> SceneStack<C, Ev> {
             .expect("ERROR: Tried to get current scene of an empty scene stack.")
     }
 
+    /// Executes the given SceneSwitch command; if it is a pop or replace
+    /// it returns `Some(old_scene)`, otherwise `None`
     pub fn switch(&mut self, next_scene: SceneSwitch<C, Ev>) -> Option<Box<Scene<C, Ev>>> {
-        // let operation = self.current_mut().next();
         match next_scene {
             SceneSwitch::None => None,
             SceneSwitch::Pop => {
                 let s = self.pop();
-                let current_name = self.current().name();
                 Some(s)
             }
             SceneSwitch::Push(s) => {
@@ -126,20 +133,18 @@ impl<C, Ev> SceneStack<C, Ev> {
         self.switch(next_scene);
     }
 
-    // We walk down the scene stack until we find a scene where we aren't
-    // supposed to draw the previous one, then draw them from the bottom up.
-    //
-    // This allows for layering GUI's and such.
+    /// We walk down the scene stack until we find a scene where we aren't
+    /// supposed to draw the previous one, then draw them from the bottom up.
+    ///
+    /// This allows for layering GUI's and such.
     fn draw_scenes(scenes: &mut [Box<Scene<C, Ev>>], world: &mut C, ctx: &mut ggez::Context) {
-        if scenes.len() > 0 {
-            if let Some((current, rest)) = scenes.split_last_mut() {
-                if current.draw_previous() {
-                    SceneStack::draw_scenes(rest, world, ctx);
-                }
-                current.draw(world, ctx)
-                    .expect("I would hope drawing a scene never fails!");
-
+        assert!(scenes.len() > 0);
+        if let Some((current, rest)) = scenes.split_last_mut() {
+            if current.draw_previous() {
+                SceneStack::draw_scenes(rest, world, ctx);
             }
+            current.draw(world, ctx)
+                .expect("I would hope drawing a scene never fails!");
         }
     }
 
