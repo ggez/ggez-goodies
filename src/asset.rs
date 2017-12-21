@@ -55,11 +55,27 @@ pub trait StateLoadable<K, E, S> {
     fn load_state(_key: &K, &mut S) -> Result<Self, E> where Self: Sized;
 }
 
+use std::marker::PhantomData;
+
 /// An opaque asset handle that can be used for O(1) fetches
 /// of assets.
 // TODO: Add a UUID or something to this....
-#[derive(Debug, Copy, Clone)]
-pub struct AssetHandle(usize);
+#[derive(Debug)]
+pub struct Handle<T> {
+    idx: usize,
+    _phantom: PhantomData<*const T>,
+}
+
+impl<T> Copy for Handle<T> {}
+
+impl<T> Clone for Handle<T> {
+    fn clone(&self) -> Self {
+        Handle {
+            idx: self.idx,
+            _phantom: PhantomData,
+        }
+    }
+}
 
 // We COULD use a generic interning crate such as symtern or symbol-map to
 // implement the Handle -> Asset map here.  It might be useful.
@@ -70,7 +86,7 @@ pub struct AssetCache<K, V>
     where K: Ord + Clone + Debug
 {
     handles: Vec<Rc<V>>,
-    keys: BTreeMap<K, AssetHandle>,
+    keys: BTreeMap<K, Handle<V>>,
     next_handle: usize,
 }
 
@@ -87,19 +103,21 @@ impl<K, V> AssetCache<K, V>
         }
     }
 
-    fn new_handle(&mut self) -> AssetHandle {
+    fn new_handle(&mut self) -> Handle<V> {
         let i = self.next_handle;
         self.next_handle += 1;
-        AssetHandle(i)
+        Handle {
+            idx: i,
+            _phantom: PhantomData,
+        }
     }
 
     // Inserts the given asset into the handles vec at the given
     // location, and inserts the key into the key->handle mapping.
     // Performs asserts that will panic if something
     // gets out of sync (which should be impossible).
-    fn bind_handle(&mut self, key: K, h: AssetHandle, value: Rc<V>) {
-        let AssetHandle(i) = h;
-        assert!(i == self.handles.len());
+    fn bind_handle(&mut self, key: K, h: Handle<V>, value: Rc<V>) {
+        assert!(h.idx == self.handles.len());
         self.handles.push(value);
 
         assert!(!self.keys.contains_key(&key));
@@ -107,8 +125,8 @@ impl<K, V> AssetCache<K, V>
     }
 
     // Adds a new item to the cache, returns an Rc reference to it
-    // and an AssetHandle.
-    fn add_item(&mut self, key: K, value: V) -> (AssetHandle, Rc<V>) {
+    // and an Handle.
+    fn add_item(&mut self, key: K, value: V) -> (Handle<V>, Rc<V>) {
         let handle = self.new_handle();
         let rc = Rc::new(value);
         self.bind_handle(key, handle, rc.clone());
@@ -118,23 +136,21 @@ impl<K, V> AssetCache<K, V>
     /// Retrieves an asset via its handle.
     /// This is always safe (and fast) because for a handle
     /// to be valid its object *must* exist in the cache.
-    pub fn get(&self, handle: AssetHandle) -> Rc<V> {
-        let AssetHandle(i) = handle;
-        assert!(i < self.handles.len());
-        self.handles[i].clone()
+    pub fn get(&self, handle: Handle<V>) -> Rc<V> {
+        assert!(handle.idx < self.handles.len());
+        self.handles[handle.idx].clone()
     }
 
 
     /// Not sure this is even right, but...
-    pub fn get_mut<'a>(&'a mut self, handle: AssetHandle) -> Option<&'a mut V> {
-        let AssetHandle(i) = handle;
-        assert!(i < self.handles.len());
+    pub fn get_mut<'a>(&'a mut self, handle: Handle<V>) -> Option<&'a mut V> {
+        assert!(handle.idx < self.handles.len());
         use std::rc::Rc;
-        Rc::get_mut(&mut self.handles[i])
+        Rc::get_mut(&mut self.handles[handle.idx])
     }
 
 
-    // fn add_item_mut(&mut self, key: K, value: &mut V) -> (AssetHandle, Rc<&mut V>) {
+    // fn add_item_mut(&mut self, key: K, value: &mut V) -> (Handle, Rc<&mut V>) {
     //     let handle = self.new_handle();
     //     let entry = self.entry(key.clone());
     //     match entry {
@@ -150,11 +166,11 @@ impl<K, V> AssetCache<K, V>
     // }
 
     /// Gets the given asset, loading it if necessary.
-    /// Returns an Rc to the value, plus an AssetHandle
+    /// Returns an Rc to the value, plus an Handle
     /// which can be used to retrieve it quickly.
     // Oh my goodness getting the E type param to the
     // right place was amazingly difficult.
-    pub fn get_key<E>(&mut self, key: &K) -> Result<(AssetHandle, Rc<V>), E>
+    pub fn get_key<E>(&mut self, key: &K) -> Result<(Handle<V>, Rc<V>), E>
         where V: Loadable<K, E>
     {
         if let Some(handle) = self.keys.get(key) {
@@ -184,7 +200,7 @@ impl<K, V> AssetCache<K, V>
     // }
 
     /// Gets the given asset, loading it with a state object if necessary.
-    pub fn get_key_state<E, S>(&mut self, key: &K, state: &mut S) -> Result<(AssetHandle, Rc<V>), E>
+    pub fn get_key_state<E, S>(&mut self, key: &K, state: &mut S) -> Result<(Handle<V>, Rc<V>), E>
         where V: StateLoadable<K, E, S>
     {
         if let Some(handle) = self.keys.get(key) {
@@ -252,11 +268,9 @@ mod tests {
     #[test]
     fn test_assetcache() {
         let mut a = AssetCache::<&str, String>::new();
-        let h;
         {
             assert!(!a.loaded(&"foo"));
             let (handle, s1) = a.get_key(&"foo").unwrap();
-            h = handle;
             assert!(a.loaded(&"foo"));
             assert_eq!(*s1, "foo");
             let gotten_with_handle = a.get(handle);
@@ -290,7 +304,7 @@ mod tests {
         let (h, _) = a.get_key(&"foo").unwrap();
 
         {
-            let mut_value = a.get_mut(h);
+            let mut_value = a.get_mut(h.clone());
             assert!(mut_value.is_some());
             let m = mut_value.unwrap();
             assert_eq!("foo", *m);
@@ -299,7 +313,7 @@ mod tests {
         }
         // Now get it again and ensure it's mutated.
         {
-            let mut_value = a.get_mut(h);
+            let mut_value = a.get_mut(h.clone());
             assert!(mut_value.is_some());
             let m = mut_value.unwrap();
             assert_eq!("fooFoobaz", *m);
