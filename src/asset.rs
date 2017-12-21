@@ -38,11 +38,12 @@
 // a bit labyrenthine.
 // It DOES also make thread-safety work through thread_local!().
 
-use std::collections::BTreeMap;
-use std::collections::btree_map::Entry;
+use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fmt::Debug;
 use std::path::Path;
 use std::rc::Rc;
+use std::hash::Hash;
 use ggez;
 use ggez::{Context, GameError, GameResult};
 use ggez::graphics;
@@ -83,22 +84,22 @@ impl<T> Clone for Handle<T> {
 // the Key -> Handle association ourselves.
 #[derive(Debug, Clone)]
 pub struct AssetCache<K, V>
-    where K: Ord + Clone + Debug
+    where K: Hash + Eq + Clone + Debug
 {
     handles: Vec<Rc<V>>,
-    keys: BTreeMap<K, Handle<V>>,
+    keys: HashMap<K, Handle<V>>,
     next_handle: usize,
 }
 
 impl<K, V> AssetCache<K, V>
-    where K: Ord + Clone + Debug
+    where K: Hash + Eq + Clone + Debug
 {
     /// Creates a new `AssetCache` that loads assets
     /// when necessary with the given loader function.
     pub fn new() -> Self {
         AssetCache {
             handles: Vec::new(),
-            keys: BTreeMap::new(),
+            keys: HashMap::new(),
             next_handle: 0,
         }
     }
