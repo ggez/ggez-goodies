@@ -51,12 +51,19 @@ pub enum InputEffect<Axes, Buttons>
     where Axes: Eq + Hash + Clone,
           Buttons: Eq + Hash + Clone
 {
-    Axis(Axes, bool),
-    Button(Buttons),
+    Axis {
+        axis: Axes, 
+        positive: bool,
+        started: bool,
+    },
+    Button {
+        button: Buttons,
+        started: bool,
+    },
 }
 
 #[derive(Debug, Copy, Clone)]
-struct AxisStatus {
+struct AxisState {
     // Where the axis currently is, in [-1, 1]
     position: f64,
     // Where the axis is moving towards.  Possible
@@ -71,9 +78,9 @@ struct AxisStatus {
     gravity: f64,
 }
 
-impl Default for AxisStatus {
+impl Default for AxisState {
     fn default() -> Self {
-        AxisStatus {
+        AxisState {
             position: 0.0,
             direction: 0.0,
             acceleration: 4.0,
@@ -83,7 +90,7 @@ impl Default for AxisStatus {
 }
 
 #[derive(Debug, Copy, Clone, Default)]
-struct ButtonStatus {
+struct ButtonState {
     pressed: bool,
     pressed_last_frame: bool,
 }
@@ -114,7 +121,7 @@ impl<Axes, Buttons> InputBinding<Axes, Buttons>
     pub fn bind_key_to_axis(mut self, keycode: Keycode, axis: Axes, positive: bool) -> Self {
 
         self.bindings.insert(InputType::KeyEvent(keycode),
-                             InputEffect::Axis(axis.clone(), positive));
+                             InputEffect::Axis { axis: axis.clone(), positive: positive, started: false });
         self
     }
 
@@ -122,7 +129,7 @@ impl<Axes, Buttons> InputBinding<Axes, Buttons>
     /// logical button.
     pub fn bind_key_to_button(mut self, keycode: Keycode, button: Buttons) -> Self {
         self.bindings.insert(InputType::KeyEvent(keycode),
-                             InputEffect::Button(button.clone()));
+                             InputEffect::Button { button: button.clone(), started: false });
         self
     }
 
@@ -133,22 +140,22 @@ impl<Axes, Buttons> InputBinding<Axes, Buttons>
 }
 
 #[derive(Debug)]
-pub struct InputManager<Axes, Buttons>
+pub struct InputState<Axes, Buttons>
     where Axes: Hash + Eq + Clone,
           Buttons: Hash + Eq + Clone
 {
     // Input state for axes
-    axes: HashMap<Axes, AxisStatus>,
+    axes: HashMap<Axes, AxisState>,
     // Input states for buttons
-    buttons: HashMap<Buttons, ButtonStatus>,
+    buttons: HashMap<Buttons, ButtonState>,
 }
 
-impl<Axes, Buttons> InputManager<Axes, Buttons>
+impl<Axes, Buttons> InputState<Axes, Buttons>
     where Axes: Eq + Hash + Clone,
           Buttons: Eq + Hash + Clone
 {
     pub fn new() -> Self {
-        InputManager {
+        InputState {
             axes: HashMap::new(),
             buttons: HashMap::new(),
         }
@@ -189,39 +196,39 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
 
     /// This method should get called by your key_down_event handler.
     pub fn update_button_down(&mut self, button: Buttons) {
-        self.update_effect(InputEffect::Button(button), true);
+        self.update_effect(InputEffect::Button { button, started: true });
     }
 
     /// This method should get called by your key_up_event handler.
     pub fn update_button_up(&mut self, button: Buttons) {
-        self.update_effect(InputEffect::Button(button), false);
+        self.update_effect(InputEffect::Button { button, started: false });
     }
 
     /// This method should get called by your key_up_event handler.
     pub fn update_axis_start(&mut self, axis: Axes, positive: bool) {
-        self.update_effect(InputEffect::Axis(axis, positive), true);
+        self.update_effect(InputEffect::Axis { axis: axis, positive: positive, started: true });
     }
 
     pub fn update_axis_stop(&mut self, axis: Axes, positive: bool) {
-        self.update_effect(InputEffect::Axis(axis, positive), false);
+        self.update_effect(InputEffect::Axis { axis: axis, positive: positive, started: false });
     }
 
 
     /// Takes an InputEffect and actually applies it.
-    pub fn update_effect(&mut self, effect: InputEffect<Axes, Buttons>, started: bool) {
+    pub fn update_effect(&mut self, effect: InputEffect<Axes, Buttons>) {
         match effect {
-            InputEffect::Axis(axis, direction) => {
-                let f = || AxisStatus::default();
+            InputEffect::Axis { axis, positive, started } => {
+                let f = || AxisState::default();
                 let axis_status = self.axes.entry(axis).or_insert_with(f);
                 if started {
-                    let direction_float = if direction { 1.0 } else { -1.0 };
+                    let direction_float = if positive { 1.0 } else { -1.0 };
                     axis_status.direction = direction_float;
                 } else {
                     axis_status.direction = 0.0;
                 }
             }
-            InputEffect::Button(button) => {
-                let f = || ButtonStatus::default();
+            InputEffect::Button { button, started } => {
+                let f = || ButtonState::default();
                 let button_status = self.buttons.entry(button).or_insert_with(f);
                 button_status.pressed = started;
             }
@@ -229,19 +236,19 @@ impl<Axes, Buttons> InputManager<Axes, Buttons>
     }
 
     pub fn get_axis(&self, axis: Axes) -> f64 {
-        let d = AxisStatus::default();
+        let d = AxisState::default();
         let axis_status = self.axes.get(&axis).unwrap_or(&d);
         axis_status.position
     }
 
     pub fn get_axis_raw(&self, axis: Axes) -> f64 {
-        let d = AxisStatus::default();
+        let d = AxisState::default();
         let axis_status = self.axes.get(&axis).unwrap_or(&d);
         axis_status.direction
     }
 
-    fn get_button(&self, button: Buttons) -> ButtonStatus {
-        let d = ButtonStatus::default();
+    fn get_button(&self, button: Buttons) -> ButtonState {
+        let d = ButtonState::default();
         let button_status = self.buttons.get(&button).unwrap_or(&d);
         *button_status
     }
@@ -340,24 +347,24 @@ mod tests {
     fn test_input_bindings() {
         let ib = make_input_binding();
         assert_eq!(ib.resolve(Keycode::Z),
-                   Some(InputEffect::Button(Buttons::A)));
+                   Some(InputEffect::Button{button: Buttons::A, started: false}));
         assert_eq!(ib.resolve(Keycode::X),
-                   Some(InputEffect::Button(Buttons::B)));
+                   Some(InputEffect::Button{button: Buttons::B, started: false}));
         assert_eq!(ib.resolve(Keycode::Return),
-                   Some(InputEffect::Button(Buttons::Start)));
+                   Some(InputEffect::Button{button: Buttons::Start, started: false}));
         assert_eq!(ib.resolve(Keycode::RShift),
-                   Some(InputEffect::Button(Buttons::Select)));
+                   Some(InputEffect::Button{button: Buttons::Select, started: false}));
         assert_eq!(ib.resolve(Keycode::LShift),
-                   Some(InputEffect::Button(Buttons::Select)));
+                   Some(InputEffect::Button{button: Buttons::Select, started: false}));
 
         assert_eq!(ib.resolve(Keycode::Up),
-                   Some(InputEffect::Axis(Axes::Vert, true)));
+                   Some(InputEffect::Axis{axis: Axes::Vert, positive: true, started: false}));
         assert_eq!(ib.resolve(Keycode::Down),
-                   Some(InputEffect::Axis(Axes::Vert, false)));
+                   Some(InputEffect::Axis{axis: Axes::Vert, positive: false, started: false}));
         assert_eq!(ib.resolve(Keycode::Left),
-                   Some(InputEffect::Axis(Axes::Horz, false)));
+                   Some(InputEffect::Axis{axis: Axes::Horz, positive: false, started: false}));
         assert_eq!(ib.resolve(Keycode::Right),
-                   Some(InputEffect::Axis(Axes::Horz, true)));
+                   Some(InputEffect::Axis{axis: Axes::Horz, positive: true, started: false}));
 
         assert_eq!(ib.resolve(Keycode::Q), None);
         assert_eq!(ib.resolve(Keycode::W), None);
@@ -365,7 +372,7 @@ mod tests {
 
     #[test]
     fn test_input_events() {
-        let mut im = InputManager::new();
+        let mut im = InputState::new();
         im.update_button_down(Buttons::A);
         assert!(im.get_button_down(Buttons::A));
         im.update_button_up(Buttons::A);
@@ -399,7 +406,7 @@ mod tests {
 
     #[test]
     fn test_button_edge_transitions() {
-        let mut im: InputManager<Axis, Buttons> = InputManager::new();
+        let mut im: InputState<Axis, Buttons> = InputState::new();
 
         // Push a key, confirm it's transitioned.
         assert!(!im.get_button_down(Buttons::A));

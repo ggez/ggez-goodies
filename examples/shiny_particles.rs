@@ -28,7 +28,7 @@ impl MainState {
             .start_color_range(graphics::Color::from((0, 0, 0)),
                                graphics::Color::from((255, 255, 255)))
             .start_velocity_range(Vector2::new(-50.0, -200.0), Vector2::new(50.0, 0.0))
-            .start_rotation_range(-10.0, 10.0)
+            .start_ang_vel_range(-10.0, 10.0)
             .emission_rate(100.0)
             .delta_size(Transition::range(15.0, 5.0))
             .delta_color(Transition::range(ggez::graphics::Color::from((255, 0, 0)),

@@ -31,8 +31,10 @@ impl MainState {
         println!("Camera test instructions; WASD move the object, arrow keys move the camera.");
         println!("The red dots are drawn on every integer point in the camera's coordinate \
                   system.");
-        let image = graphics::Image::new(ctx, "player.png")?;
+        let image = graphics::Image::solid(ctx, 5, graphics::Color::new(1.0, 0.0, 0.0, 1.0))?;
         graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
+
+        
         let state = MainState {
             camera: camera,
             image: image,
@@ -61,8 +63,8 @@ impl event::EventHandler for MainState {
         graphics::set_color(ctx, graphics::Color::from((255, 0, 0)))?;
         for y in -half_height..half_height {
             for x in -half_width..half_width {
-                let fromvec = Vector2::new(x as f32, y as f32);
-                let (px, py) = self.camera.world_to_screen_coords(fromvec);
+                let frompt = Point2::new(x as f32, y as f32);
+                let (px, py) = self.camera.world_to_screen_coords(frompt);
                 let to = graphics::Point2::new(px as f32, py as f32);
                 graphics::points(ctx, &[to], 1.0)?;
             }
