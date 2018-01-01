@@ -65,17 +65,17 @@ pub enum InputEffect<Axes, Buttons>
 #[derive(Debug, Copy, Clone)]
 struct AxisState {
     // Where the axis currently is, in [-1, 1]
-    position: f64,
+    position: f32,
     // Where the axis is moving towards.  Possible
     // values are -1, 0, +1
     // (or a continuous range for analog devices I guess)
-    direction: f64,
+    direction: f32,
     // Speed in units per second that the axis
     // moves towards the target value.
-    acceleration: f64,
+    acceleration: f32,
     // Speed in units per second that the axis will
     // fall back toward 0 if the input stops.
-    gravity: f64,
+    gravity: f32,
 }
 
 impl Default for AxisState {
@@ -165,13 +165,13 @@ impl<Axes, Buttons> InputState<Axes, Buttons>
     /// physical input state.  Should be called in your update()
     /// handler.
     /// So, it will do things like move the axes and so on.
-    pub fn update(&mut self, dt: f64) {
+    pub fn update(&mut self, dt: f32) {
         for (_axis, axis_status) in self.axes.iter_mut() {
             if axis_status.direction != 0.0 {
                 // Accelerate the axis towards the
                 // input'ed direction.
-                let abs_dx = f64::min(axis_status.acceleration * dt,
-                                      1.0 - f64::abs(axis_status.position));
+                let abs_dx = f32::min(axis_status.acceleration * dt,
+                                      1.0 - f32::abs(axis_status.position));
                 let dx = if axis_status.direction > 0.0 {
                     abs_dx
                 } else {
@@ -180,7 +180,7 @@ impl<Axes, Buttons> InputState<Axes, Buttons>
                 axis_status.position += dx;
             } else {
                 // Gravitate back towards 0.
-                let abs_dx = f64::min(axis_status.gravity * dt, f64::abs(axis_status.position));
+                let abs_dx = f32::min(axis_status.gravity * dt, f32::abs(axis_status.position));
                 let dx = if axis_status.position > 0.0 {
                     -abs_dx
                 } else {
@@ -235,13 +235,13 @@ impl<Axes, Buttons> InputState<Axes, Buttons>
         }
     }
 
-    pub fn get_axis(&self, axis: Axes) -> f64 {
+    pub fn get_axis(&self, axis: Axes) -> f32 {
         let d = AxisState::default();
         let axis_status = self.axes.get(&axis).unwrap_or(&d);
         axis_status.position
     }
 
-    pub fn get_axis_raw(&self, axis: Axes) -> f64 {
+    pub fn get_axis_raw(&self, axis: Axes) -> f32 {
         let d = AxisState::default();
         let axis_status = self.axes.get(&axis).unwrap_or(&d);
         axis_status.direction
