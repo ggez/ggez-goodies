@@ -28,13 +28,10 @@ pub enum SceneSwitch<C, Ev> {
 /// A trait for you to implement on a scene.
 /// Defines the callbacks the scene uses:
 /// a common context type `C`, and an input event type `Ev`.
-///
-/// TODO: We could abstract the `ggez::Context` out into its own generic
-/// as well...
 pub trait Scene<C, Ev> {
     fn update(&mut self, gameworld: &mut C) -> SceneSwitch<C, Ev>;
     fn draw(&mut self, gameworld: &mut C, ctx: &mut ggez::Context) -> ggez::GameResult<()>;
-    fn input(&mut self, gameworld: &mut C, event: Ev, started: bool);
+    fn input(&mut self, gameworld: &mut C, event: Ev);
     /// Only used for human-readable convenience (or not at all, tbh)
     fn name(&self) -> &str;
     /// This returns whether or not to draw the next scene down on the
@@ -65,6 +62,7 @@ impl<C, Ev> SceneSwitch<C, Ev> {
 }
 
 
+/// A stack of `Scene`'s, together with a context object.
 pub struct SceneStack<C, Ev> {
     pub world: C,
     scenes: Vec<Box<Scene<C, Ev>>>,
@@ -82,16 +80,20 @@ impl<C, Ev> SceneStack<C, Ev> {
         }
     }
 
+    /// Add a new scene to the top of the stack.
     pub fn push(&mut self, scene: Box<Scene<C, Ev>>) {
         self.scenes.push(scene)
     }
 
+    /// Remove the top scene from the stack and returns it;
+    /// panics if there is none.
     pub fn pop(&mut self) -> Box<Scene<C, Ev>> {
         self.scenes
             .pop()
             .expect("ERROR: Popped an empty scene stack.")
     }
 
+    /// Returns the current scene; panics if there is none.
     pub fn current(&self) -> &Scene<C, Ev> {
         &**self.scenes
             .last()
@@ -149,15 +151,17 @@ impl<C, Ev> SceneStack<C, Ev> {
     }
 
 
+    /// Draw the current scene.
     pub fn draw(&mut self, ctx: &mut ggez::Context) {
         SceneStack::draw_scenes(&mut self.scenes, &mut self.world, ctx)
     }
 
-    pub fn input(&mut self, event: Ev, started: bool) {
+    /// Feeds the given input event to the current scene.
+    pub fn input(&mut self, event: Ev) {
         let current_scene = &mut **self.scenes
             .last_mut()
             .expect("Tried to do input for empty scene stack");
-        current_scene.input(&mut self.world, event, started);
+        current_scene.input(&mut self.world, event);
     }
 }
 
