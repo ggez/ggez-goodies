@@ -127,7 +127,7 @@ impl<Axes, Buttons> InputBinding<Axes, Buttons>
     }
 
     /// Takes an physical input type and turns it into a logical input type (keycode -> axis/button).
-    pub fn resolve(&self, keycode: Keycode, started: bool) -> Option<InputEffect<Axes, Buttons>> {
+    pub fn resolve(&self, keycode: Keycode) -> Option<InputEffect<Axes, Buttons>> {
         self.bindings.get(&InputType::KeyEvent(keycode)).cloned()
     }
 }

@@ -31,7 +31,7 @@ pub enum SceneSwitch<C, Ev> {
 pub trait Scene<C, Ev> {
     fn update(&mut self, gameworld: &mut C) -> SceneSwitch<C, Ev>;
     fn draw(&mut self, gameworld: &mut C, ctx: &mut ggez::Context) -> ggez::GameResult<()>;
-    fn input(&mut self, gameworld: &mut C, event: Ev);
+    fn input(&mut self, gameworld: &mut C, event: Ev, started: bool);
     /// Only used for human-readable convenience (or not at all, tbh)
     fn name(&self) -> &str;
     /// This returns whether or not to draw the next scene down on the
@@ -157,11 +157,11 @@ impl<C, Ev> SceneStack<C, Ev> {
     }
 
     /// Feeds the given input event to the current scene.
-    pub fn input(&mut self, event: Ev) {
+    pub fn input(&mut self, event: Ev, started: bool) {
         let current_scene = &mut **self.scenes
             .last_mut()
             .expect("Tried to do input for empty scene stack");
-        current_scene.input(&mut self.world, event);
+        current_scene.input(&mut self.world, event, started);
     }
 }
 
