@@ -51,15 +51,8 @@ pub enum InputEffect<Axes, Buttons>
     where Axes: Eq + Hash + Clone,
           Buttons: Eq + Hash + Clone
 {
-    Axis {
-        axis: Axes, 
-        positive: bool,
-        started: bool,
-    },
-    Button {
-        button: Buttons,
-        started: bool,
-    },
+    Axis(Axes, bool),
+    Button(Buttons)
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -121,7 +114,7 @@ impl<Axes, Buttons> InputBinding<Axes, Buttons>
     pub fn bind_key_to_axis(mut self, keycode: Keycode, axis: Axes, positive: bool) -> Self {
 
         self.bindings.insert(InputType::KeyEvent(keycode),
-                             InputEffect::Axis { axis: axis.clone(), positive: positive, started: false });
+                             InputEffect::Axis(axis.clone(), positive));
         self
     }
 
@@ -129,12 +122,12 @@ impl<Axes, Buttons> InputBinding<Axes, Buttons>
     /// logical button.
     pub fn bind_key_to_button(mut self, keycode: Keycode, button: Buttons) -> Self {
         self.bindings.insert(InputType::KeyEvent(keycode),
-                             InputEffect::Button { button: button.clone(), started: false });
+                             InputEffect::Button(button.clone()));
         self
     }
 
     /// Takes an physical input type and turns it into a logical input type (keycode -> axis/button).
-    pub fn resolve(&self, keycode: Keycode) -> Option<InputEffect<Axes, Buttons>> {
+    pub fn resolve(&self, keycode: Keycode, started: bool) -> Option<InputEffect<Axes, Buttons>> {
         self.bindings.get(&InputType::KeyEvent(keycode)).cloned()
     }
 }
@@ -196,28 +189,28 @@ impl<Axes, Buttons> InputState<Axes, Buttons>
 
     /// This method should get called by your key_down_event handler.
     pub fn update_button_down(&mut self, button: Buttons) {
-        self.update_effect(InputEffect::Button { button, started: true });
+        self.update_effect(InputEffect::Button(button), true);
     }
 
     /// This method should get called by your key_up_event handler.
     pub fn update_button_up(&mut self, button: Buttons) {
-        self.update_effect(InputEffect::Button { button, started: false });
+        self.update_effect(InputEffect::Button(button), false);
     }
 
     /// This method should get called by your key_up_event handler.
     pub fn update_axis_start(&mut self, axis: Axes, positive: bool) {
-        self.update_effect(InputEffect::Axis { axis: axis, positive: positive, started: true });
+        self.update_effect(InputEffect::Axis(axis, positive), true);
     }
 
     pub fn update_axis_stop(&mut self, axis: Axes, positive: bool) {
-        self.update_effect(InputEffect::Axis { axis: axis, positive: positive, started: false });
+        self.update_effect(InputEffect::Axis(axis, positive), false);
     }
 
 
     /// Takes an InputEffect and actually applies it.
-    pub fn update_effect(&mut self, effect: InputEffect<Axes, Buttons>) {
+    pub fn update_effect(&mut self, effect: InputEffect<Axes, Buttons>, started: bool) {
         match effect {
-            InputEffect::Axis { axis, positive, started } => {
+            InputEffect::Axis(axis, positive) => {
                 let f = || AxisState::default();
                 let axis_status = self.axes.entry(axis).or_insert_with(f);
                 if started {
@@ -227,7 +220,7 @@ impl<Axes, Buttons> InputState<Axes, Buttons>
                     axis_status.direction = 0.0;
                 }
             }
-            InputEffect::Button { button, started } => {
+            InputEffect::Button(button) => {
                 let f = || ButtonState::default();
                 let button_status = self.buttons.entry(button).or_insert_with(f);
                 button_status.pressed = started;
@@ -347,24 +340,24 @@ mod tests {
     fn test_input_bindings() {
         let ib = make_input_binding();
         assert_eq!(ib.resolve(Keycode::Z),
-                   Some(InputEffect::Button{button: Buttons::A, started: false}));
+                   Some(InputEffect::Button(Buttons::A)));
         assert_eq!(ib.resolve(Keycode::X),
-                   Some(InputEffect::Button{button: Buttons::B, started: false}));
+                   Some(InputEffect::Button(Buttons::B)));
         assert_eq!(ib.resolve(Keycode::Return),
-                   Some(InputEffect::Button{button: Buttons::Start, started: false}));
+                   Some(InputEffect::Button(Buttons::Start)));
         assert_eq!(ib.resolve(Keycode::RShift),
-                   Some(InputEffect::Button{button: Buttons::Select, started: false}));
+                   Some(InputEffect::Button(Buttons::Select)));
         assert_eq!(ib.resolve(Keycode::LShift),
-                   Some(InputEffect::Button{button: Buttons::Select, started: false}));
+                   Some(InputEffect::Button(Buttons::Select)));
 
         assert_eq!(ib.resolve(Keycode::Up),
-                   Some(InputEffect::Axis{axis: Axes::Vert, positive: true, started: false}));
+                   Some(InputEffect::Axis(Axes::Vert, true)));
         assert_eq!(ib.resolve(Keycode::Down),
-                   Some(InputEffect::Axis{axis: Axes::Vert, positive: false, started: false}));
+                   Some(InputEffect::Axis(Axes::Vert, false)));
         assert_eq!(ib.resolve(Keycode::Left),
-                   Some(InputEffect::Axis{axis: Axes::Horz, positive: false, started: false}));
+                   Some(InputEffect::Axis(Axes::Horz, false)));
         assert_eq!(ib.resolve(Keycode::Right),
-                   Some(InputEffect::Axis{axis: Axes::Horz, positive: true, started: false}));
+                   Some(InputEffect::Axis(Axes::Horz, true)));
 
         assert_eq!(ib.resolve(Keycode::Q), None);
         assert_eq!(ib.resolve(Keycode::W), None);
