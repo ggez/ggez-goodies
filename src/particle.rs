@@ -91,9 +91,20 @@ impl StartParam<graphics::Color> {
     }
 }
 
+pub type EasingFn = Fn(f32) -> f32;
+
+/// Linear interpolation; assumes input value is in the range 0-1 and
+/// returns it interpolated to the given bounds.
+///
+/// For example: `lerp(easing::cubic_inout(v), 0.0, 100.0)`
+pub fn lerp(v: f32, from: f32, to: f32) -> f32 {
+    let delta = to - from;
+    v * delta
+}
+
 /// A trait that defines a way to do some sort of
 /// lerp or easing function on a type.
-pub trait Interpable
+pub trait Interpolate
     where Self: Sized
 {
     /// Interpolate the value.  t should always be a number
@@ -115,7 +126,7 @@ pub trait Interpable
     }
 }
 
-impl Interpable for f32 {
+impl Interpolate for f32 {
     fn interp(&self, t: f32) -> Self {
         *self * t
     }
@@ -129,31 +140,26 @@ impl Interpable for f32 {
 
 
 // This function is broken; see ggj2017 code for fix.  :/
-impl Interpable for graphics::Color {
+impl Interpolate for graphics::Color {
     fn interp(&self, t: f32) -> Self {
-        //*self * t
-        let (r, g, b, a): (u8, u8, u8, u8) = (*self).into();
-        let (fr, fg, fb, fa) = (r as f32, g as f32, b as f32, a as f32);
-        let (rr, rg, rb, ra) = (fr * t, fg * t, fb * t, fa * t);
-        (rr as u8, rg as u8, rb as u8, ra as u8).into()
+        let rt = self.r * t;
+        let gt = self.g * t;
+        let bt = self.b * t;
+        let at = self.a * t;
+        graphics::Color::new(rt, gt, bt, at)
     }
 
     fn interp_between(t: f32, v1: Self, v2: Self) -> Self {
-
-        let (r1, g1, b1, a1) = v1.into();
-        let (fr1, fg1, fb1, fa1) = (r1 as f32, g1 as f32, b1 as f32, a1 as f32);
-
-        let (r2, g2, b2, a2) = v2.into();
-
-        let dr = (r2 - r1) as f32;
-        let dg = (g2 - g1) as f32;
-        let db = (b2 - b1) as f32;
-        let da = (a2 - a1) as f32;
-
-        let (rr, rg, rb, ra) = (fr1 + dr * t, fg1 + dg * t, fb1 + db * t, fa1 + da * t);
-        (rr as u8, rg as u8, rb as u8, ra as u8).into()
+        let val1 = v1.interp(1.0 - t);
+        let val2 = v2.interp(t);
+        let r = val1.r + val2.r;
+        let g = val1.g + val2.g;
+        let b = val1.b + val2.b;
+        let a = val1.a + val2.a;
+        graphics::Color::new(r, g, b, a)
     }
 }
+
 
 /// A structure that represents a transition between
 /// set properties, with multiple potential defined points.
@@ -169,7 +175,7 @@ pub enum Transition<T: Copy> {
 }
 
 
-impl<T: Interpable + Copy> Transition<T> {
+impl<T: Interpolate + Copy> Transition<T> {
     pub fn fixed(value: T) -> Self {
         Transition::Fixed(value)
     }
@@ -252,6 +258,7 @@ struct Particle {
     age: f32,
     max_age: f32,
 }
+
 
 
 // Aha.  We have a 2x2 matrix of cases here: A particle can have a property
@@ -381,6 +388,7 @@ impl ParticleSystemBuilder {
     }
 }
 
+/// Defines where a new particle should be created.
 pub enum EmissionShape {
     // Source point
     Point(Point2),
@@ -453,6 +461,7 @@ impl EmissionShape {
     }
 }
 
+/// Defines what kind of initial velocity a particle should have.
 enum EmissionVelocity {
     Uniform,
     Direction,
