@@ -25,18 +25,19 @@ use ggez::nalgebra as na;
 use ggez::{GameResult, Context};
 use ggez::graphics;
 use ggez::graphics::{BlendMode, Point2, Vector2};
+use ggez::graphics::spritebatch::SpriteBatch;
 
-enum StartParam<T> {
+enum ValueGenerator<T> {
     Fixed(T),
     UniformRange(T, T), /* todo: stepped range, a list of discrete values of which one gets chosen. */
 }
 
 
-impl StartParam<f32> {
+impl ValueGenerator<f32> {
     pub fn get_value(&self) -> f32 {
         match *self {
-            StartParam::Fixed(x) => x,
-            StartParam::UniformRange(ref low, ref high) => {
+            ValueGenerator::Fixed(x) => x,
+            ValueGenerator::UniformRange(ref low, ref high) => {
                 let mut rng = rand::thread_rng();
                 rng.gen_range(*low, *high)
             }
@@ -46,11 +47,11 @@ impl StartParam<f32> {
 
 // Apparently implementing SampleRange for our own type
 // isn't something we should do, so we just define this by hand...
-impl StartParam<Vector2> {
+impl ValueGenerator<Vector2> {
     fn get_value(&self) -> Vector2 {
         match *self {
-            StartParam::Fixed(x) => x,
-            StartParam::UniformRange(low, high) => {
+            ValueGenerator::Fixed(x) => x,
+            ValueGenerator::UniformRange(low, high) => {
                 let mut rng = rand::thread_rng();
                 let x = rng.gen_range(low.x, high.x);
                 let y = rng.gen_range(low.y, high.y);
@@ -60,11 +61,11 @@ impl StartParam<Vector2> {
     }
 }
 
-impl StartParam<Point2> {
+impl ValueGenerator<Point2> {
     fn get_value(&self) -> Point2 {
         match *self {
-            StartParam::Fixed(x) => x,
-            StartParam::UniformRange(low, high) => {
+            ValueGenerator::Fixed(x) => x,
+            ValueGenerator::UniformRange(low, high) => {
                 let mut rng = rand::thread_rng();
                 let x = rng.gen_range(low.x, high.x);
                 let y = rng.gen_range(low.y, high.y);
@@ -74,11 +75,11 @@ impl StartParam<Point2> {
     }
 }
 
-impl StartParam<graphics::Color> {
+impl ValueGenerator<graphics::Color> {
     fn get_value(&self) -> graphics::Color {
         match *self {
-            StartParam::Fixed(x) => x,
-            StartParam::UniformRange(low, high) => {
+            ValueGenerator::Fixed(x) => x,
+            ValueGenerator::UniformRange(low, high) => {
                 let mut rng = rand::thread_rng();
                 let (lowr, lowg, lowb) = low.into();
                 let (hir, hig, hib) = high.into();
@@ -120,6 +121,7 @@ pub trait Interpolate
         self.interp(norm_t)
     }
 
+    /// Combines interp_between with normalize_interp()
     fn normalize_interp_between(t: f32, max_t: f32, v1: Self, v2: Self) -> Self {
         let norm_t = t / max_t;
         Self::interp_between(norm_t, v1, v2)
@@ -325,12 +327,12 @@ pub struct ParticleSystemBuilder {
 macro_rules! prop {
     ($name:ident, $rangename:ident, $typ:ty) => {
         pub fn $name(mut self, $name: $typ) -> Self {
-            self.system.$name = StartParam::Fixed($name);
+            self.system.$name = ValueGenerator::Fixed($name);
             self
         }
 
         pub fn $rangename(mut self, start: $typ, end: $typ) -> Self {
-            self.system.$name = StartParam::UniformRange(start, end);
+            self.system.$name = ValueGenerator::UniformRange(start, end);
             self
         }
     }
@@ -462,80 +464,84 @@ impl EmissionShape {
 }
 
 /// Defines what kind of initial velocity a particle should have.
-enum EmissionVelocity {
+enum EmissionShape {
+    /// Same probability of emission in every direction
     Uniform,
+    /// Moves along a particular vector
     Direction,
+    /// Moves along a particular vector with a given deviation.
     Cone,
 }
 
+use std::cell::{RefCell, Cell};
 
 pub struct ParticleSystem {
     // Bookkeeping stuff
     particles: Vec<Particle>,
     residual_particle: f32,
     max_particles: usize,
-    image: graphics::Image,
 
     // Parameters:
     // Emission parameters
     emission_rate: f32,
-    start_color: StartParam<graphics::Color>,
-    start_position: StartParam<Point2>,
+    start_color: ValueGenerator<graphics::Color>,
+    start_position: ValueGenerator<Point2>,
     start_shape: EmissionShape,
-    start_velocity: StartParam<Vector2>,
-    start_angle: StartParam<f32>,
-    start_ang_vel: StartParam<f32>,
-    start_size: StartParam<f32>,
-    start_max_age: StartParam<f32>,
+    start_velocity: ValueGenerator<Vector2>,
+    start_angle: ValueGenerator<f32>,
+    start_ang_vel: ValueGenerator<f32>,
+    start_size: ValueGenerator<f32>,
+    start_max_age: ValueGenerator<f32>,
     // Global state/update parameters
     acceleration: Vector2,
 
     delta_size: Transition<f32>,
     delta_color: Transition<graphics::Color>,
-}
 
+    sprite_batch: RefCell<SpriteBatch>,
+    sprite_batch_dirty: Cell<bool>,
+}
 
 
 impl ParticleSystem {
     pub fn new(ctx: &mut Context) -> Self {
+        let image = ParticleSystem::make_image(ctx, 5);
+        let sprite_batch = SpriteBatch::new(image);
         ParticleSystem {
             particles: Vec::new(),
             max_particles: 0,
-            image: ParticleSystem::make_image(ctx, 5),
             acceleration: Vector2::new(0.0, 0.0),
-            start_color: StartParam::Fixed((255, 255, 255).into()),
-            start_position: StartParam::Fixed(Point2::new(0.0, 0.0)),
+            start_color: ValueGenerator::Fixed((255, 255, 255).into()),
+            start_position: ValueGenerator::Fixed(Point2::new(0.0, 0.0)),
             start_shape: EmissionShape::Point(Point2::new(0.0, 0.0)),
-            start_velocity: StartParam::Fixed(Vector2::new(1.0, 1.0)),
-            start_angle: StartParam::Fixed(0.0),
-            start_ang_vel: StartParam::Fixed(0.0),
-            start_size: StartParam::Fixed(1.0),
-            start_max_age: StartParam::Fixed(1.0),
+            start_velocity: ValueGenerator::Fixed(Vector2::new(1.0, 1.0)),
+            start_angle: ValueGenerator::Fixed(0.0),
+            start_ang_vel: ValueGenerator::Fixed(0.0),
+            start_size: ValueGenerator::Fixed(1.0),
+            start_max_age: ValueGenerator::Fixed(1.0),
             emission_rate: 1.0,
             residual_particle: 0.0,
 
             delta_size: Transition::fixed(1.0),
             delta_color: Transition::fixed((255, 255, 255).into()),
+
+            sprite_batch: RefCell::new(sprite_batch),
+            sprite_batch_dirty: Cell::new(true),
         }
     }
 
     /// Makes a basic square image to represent a particle
-    /// if we need one.  Just doing graphics::rectangle() isn't
-    /// good enough 'cause it can't do ang_vels.
-    /// ...buuuuuut we can't appear to conjure one up out of
-    /// raw data...
-    /// ...in fact, we need the Renderer to even *attempt* to do such a thing.
-    /// Bah!
+    /// if we need one.
     fn make_image(ctx: &mut Context, size: u16) -> graphics::Image {
         graphics::Image::solid(ctx, size, graphics::Color::from((255, 255, 255, 255))).unwrap()
     }
 
+    /// Number of living particles.
     pub fn count(&self) -> usize {
         return self.particles.len();
     }
 
     pub fn emit_one(&mut self) {
-        // let pos = self.start_position.get_value();
         let pos = self.start_shape.get_random();
         let vec = self.start_velocity.get_value();
         let col = self.start_color.get_value();
@@ -572,42 +578,40 @@ impl ParticleSystem {
         }
 
         self.particles.retain(|p| p.age < p.max_age);
+        self.sprite_batch_dirty.set(true);
     }
 }
 
 impl graphics::Drawable for ParticleSystem {
     fn draw_ex(&self, context: &mut Context, param: graphics::DrawParam) -> GameResult<()> {
-        // BUGGO: Width and height here should be the max bounds of the
-        // particle system...?
-        // It'd be consistent with our drawing API, but would require
-        // finding the bounds of all particles on every tick, which is
-        // expensive(ish).
-        // Maybe we can make it an x and y scale?  Hmm.
-        // let dst_rect = dst.unwrap_or(graphics::Rect::new(0, 0, 0, 0));
-        // for p in self.particles.iter() {
-        //     // let size = p.size.get_value(life_fraction);
-        //     let size = p.size;
-        //     let rect = graphics::Rect::new(dst_rect.x() + p.pos.x,
-        //                                    dst_rect.y() + p.pos.y,
-        //                                    size,
-        //                                    size as u32);
-        //     graphics::draw(&self.image,
-        //     self.image
-        //         .draw_ex(context,
-        //                  None,
-        //                  Some(rect),
-        //                  p.angle,
-        //                  center,
-        //                  flip_horizontal,
-        //                  flip_vertical)?;
-        // }
+        // Check whether an update has been processed since our last draw call.
+        if self.sprite_batch_dirty.get() {
+            use std::ops::DerefMut;
+            let mut sb_ref = self.sprite_batch.borrow_mut();
+            let sb = sb_ref.deref_mut();
+            sb.clear();
+            for particle in &self.particles {
+                let drawparam = graphics::DrawParam {
+                    dest: particle.pos,
+                    rotation: particle.angle,
+                    scale: Point2::new(particle.size, particle.size),
+                    offset: Point2::new(0.5, 0.5),
+                    color: Some(particle.color),
+                    .. Default::default()
+                };
+                sb.add(drawparam);
+            }
+            self.sprite_batch_dirty.set(false);
+        }
+
+        self.sprite_batch.borrow().draw_ex(context, param)?;
         Ok(())
     }
 
     fn set_blend_mode(&mut self, mode: Option<BlendMode>) {
-        self.image.set_blend_mode(mode)
+        self.sprite_batch.borrow_mut().set_blend_mode(mode)
     }
     fn get_blend_mode(&self) -> Option<BlendMode> {
-        self.image.get_blend_mode()
+        self.sprite_batch.borrow().get_blend_mode()
     }
 }
