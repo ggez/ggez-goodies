@@ -8,8 +8,6 @@ use ggez::{GameResult, Context};
 use ggez::graphics;
 use ggez::graphics::{Point2, Vector2};
 use ggez::timer;
-use std::time::Duration;
-use ggez::nalgebra as na;
 
 extern crate ggez_goodies;
 use ggez_goodies::particle::*;
@@ -33,8 +31,8 @@ impl MainState {
             .delta_size(Transition::range(15.0, 5.0))
             .delta_color(Transition::range(ggez::graphics::Color::from((255, 0, 0)),
                                            ggez::graphics::Color::from((255, 255, 0))))
-            //.emission_shape(EmissionShape::Circle(Point2::new(0.0, 0.0), 150.0))
-            .emission_shape(EmissionShape::Line(Point2::new(-100.0, -100.0), Point2::new(100.0, 100.0)))
+            .emission_shape(EmissionShape::Circle(Point2::new(0.0, 0.0), 150.0))
+            //.emission_shape(EmissionShape::Line(Point2::new(-100.0, -100.0), Point2::new(100.0, 100.0)))
             .build();
         let state = MainState { particles: system };
         graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
@@ -42,27 +40,25 @@ impl MainState {
     }
 }
 
-// const WINDOW_WIDTH: i32 = 640;
-// const WINDOW_HEIGHT: i32 = 480;
+const WINDOW_WIDTH: f32 = 640.0;
+const WINDOW_HEIGHT: f32 = 480.0;
 
 impl event::EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
-        // let seconds = timer::duration_to_f64(dt);
-        let seconds = 1.0 / 60.0;
-
-        self.particles.update(seconds);
-        println!("Particles: {}, FPS: {}",
-                 self.particles.count(),
-                 timer::get_fps(ctx));
+        const DESIRED_FPS: u32 = 60;
+        while timer::check_update_time(ctx, DESIRED_FPS) {
+            let seconds = 1.0 / (DESIRED_FPS as f32);
+            self.particles.update(seconds);
+            println!("Particles: {}, FPS: {}",
+                     self.particles.count(),
+                     timer::get_fps(ctx));
+        }
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
-
-        //let dest_rect = ggez::graphics::Rect::new(WINDOW_WIDTH / 2, WINDOW_HEIGHT / 2, 0, 0);
-        //graphics::draw(ctx, &mut self.particles, None, Some(dest_rect))?;
-
+        graphics::draw(ctx, &mut self.particles, Point2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0), 0.0)?;
         graphics::present(ctx);
         Ok(())
     }
@@ -71,8 +67,8 @@ impl event::EventHandler for MainState {
 pub fn main() {
     let mut c = conf::Conf::new();
     c.window_setup.title = "Shiny particles".to_string();
-    // c.window_width = WINDOW_WIDTH as u32;
-    // c.window_height = WINDOW_HEIGHT as u32;
+    c.window_mode.width = WINDOW_WIDTH as u32;
+    c.window_mode.height = WINDOW_HEIGHT as u32;
     let ctx = &mut Context::load_from_conf("shiny_particles", "test", c).unwrap();
     let game = &mut MainState::new(ctx).unwrap();
 

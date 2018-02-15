@@ -21,7 +21,6 @@ use std::f32;
 
 use rand;
 use rand::Rng;
-use ggez::nalgebra as na;
 use ggez::{GameResult, Context};
 use ggez::graphics;
 use ggez::graphics::{BlendMode, Point2, Vector2};
@@ -391,6 +390,8 @@ impl ParticleSystemBuilder {
 }
 
 /// Defines where a new particle should be created.
+/// TODO: This basic idea should be used for both initial position
+/// and initial velocity...  Uniform, direction, cone, line...
 pub enum EmissionShape {
     // Source point
     Point(Point2),
@@ -461,16 +462,6 @@ impl EmissionShape {
             }
         }
     }
-}
-
-/// Defines what kind of initial velocity a particle should have.
-enum EmissionShape {
-    /// Same probability of emission in every direction
-    Uniform,
-    /// Moves along a particular vector
-    Direction,
-    /// Moves along a particular vector with a given deviation.
-    Cone,
 }
 
 use std::cell::{RefCell, Cell};
