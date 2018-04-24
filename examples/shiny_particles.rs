@@ -19,7 +19,8 @@ struct MainState {
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
         let system = ParticleSystemBuilder::new(ctx)
-            .count(5000)
+            .count(100000)
+            .emission_rate(20000.0)
             .acceleration(Vector2::new(0.0, 50.0))
             .start_max_age(5.0)
             .start_size_range(2.0, 15.0)
@@ -27,7 +28,6 @@ impl MainState {
                                graphics::Color::from((255, 255, 255)))
             .start_velocity_range(Vector2::new(-50.0, -200.0), Vector2::new(50.0, 0.0))
             .start_ang_vel_range(-10.0, 10.0)
-            .emission_rate(100.0)
             .delta_size(Transition::range(15.0, 5.0))
             .delta_color(Transition::range(ggez::graphics::Color::from((255, 0, 0)),
                                            ggez::graphics::Color::from((255, 255, 0))))
@@ -49,9 +49,11 @@ impl event::EventHandler for MainState {
         while timer::check_update_time(ctx, DESIRED_FPS) {
             let seconds = 1.0 / (DESIRED_FPS as f32);
             self.particles.update(seconds);
-            println!("Particles: {}, FPS: {}",
-                     self.particles.count(),
-                     timer::get_fps(ctx));
+            if timer::get_ticks(ctx) % 10 == 0 {
+                println!("Particles: {}, FPS: {}",
+                         self.particles.count(),
+                         timer::get_fps(ctx));
+            }
         }
         Ok(())
     }
@@ -59,7 +61,7 @@ impl event::EventHandler for MainState {
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
         graphics::draw(ctx, &mut self.particles, Point2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0), 0.0)?;
-        graphics::present(ctx);
+        //graphics::present(ctx);
         Ok(())
     }
 }
