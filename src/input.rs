@@ -402,6 +402,19 @@ mod tests {
             assert!(im.get_axis(Axes::Vert) <= 0.0);
             assert!(im.get_axis(Axes::Vert) >= -1.0);
         }
+
+        // Test the transition from 'up' to 'down'
+        im.update_axis_start(Axes::Vert, true);
+        while im.get_axis(Axes::Vert) < 1.0 {
+            im.update(0.16);
+        }
+        im.update_axis_start(Axes::Vert, false);
+        im.update(0.16);
+        assert!(im.get_axis(Axes::Vert) < 1.0);
+        im.update_axis_stop(Axes::Vert, true);
+        assert!(im.get_axis_raw(Axes::Vert) < 0.0);
+        im.update_axis_stop(Axes::Vert, false);
+        assert_eq!(im.get_axis_raw(Axes::Vert), 0.0);
     }
 
     #[test]
