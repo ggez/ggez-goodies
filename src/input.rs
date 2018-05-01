@@ -163,14 +163,19 @@ impl<Axes, Buttons> InputState<Axes, Buttons>
             if axis_status.direction != 0.0 {
                 // Accelerate the axis towards the
                 // input'ed direction.
-                let abs_dx = f32::min(axis_status.acceleration * dt,
-                                      1.0 - f32::abs(axis_status.position));
-                let dx = if axis_status.direction > 0.0 {
-                    abs_dx
+                let vel = axis_status.acceleration * dt;
+                let pending_position = axis_status.position + if axis_status.direction > 0.0 {
+                    vel
                 } else {
-                    -abs_dx
+                    -vel
                 };
-                axis_status.position += dx;
+                axis_status.position = if pending_position > 1.0 {
+                    1.0
+                } else if pending_position < -1.0 {
+                    -1.0
+                } else {
+                    pending_position
+                }
             } else {
                 // Gravitate back towards 0.
                 let abs_dx = f32::min(axis_status.gravity * dt, f32::abs(axis_status.position));
@@ -216,7 +221,9 @@ impl<Axes, Buttons> InputState<Axes, Buttons>
                 if started {
                     let direction_float = if positive { 1.0 } else { -1.0 };
                     axis_status.direction = direction_float;
-                } else {
+                } else if (positive && axis_status.direction > 0.0)
+                    || (!positive && axis_status.direction < 0.0)
+                {
                     axis_status.direction = 0.0;
                 }
             }
