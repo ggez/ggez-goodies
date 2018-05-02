@@ -48,19 +48,20 @@ impl<C, Ev> SceneSwitch<C, Ev> {
     /// Slightly nicer than writing
     /// `SceneSwitch::Replace(Box::new(x))` all the damn time.
     pub fn replace<S>(scene: S) -> Self
-        where S: Scene<C, Ev> + 'static
+    where
+        S: Scene<C, Ev> + 'static,
     {
         SceneSwitch::Replace(Box::new(scene))
     }
 
     /// Same as `replace()` but returns SceneSwitch::Push
     pub fn push<S>(scene: S) -> Self
-        where S: Scene<C, Ev> + 'static
+    where
+        S: Scene<C, Ev> + 'static,
     {
         SceneSwitch::Push(Box::new(scene))
     }
 }
-
 
 /// A stack of `Scene`'s, together with a context object.
 pub struct SceneStack<C, Ev> {
@@ -68,10 +69,8 @@ pub struct SceneStack<C, Ev> {
     scenes: Vec<Box<Scene<C, Ev>>>,
 }
 
-
 impl<C, Ev> SceneStack<C, Ev> {
-    pub fn new(ctx: &mut ggez::Context, global_state: C) -> Self
-    {
+    pub fn new(ctx: &mut ggez::Context, global_state: C) -> Self {
         Self {
             world: global_state,
             scenes: Vec::new(),
@@ -115,7 +114,6 @@ impl<C, Ev> SceneStack<C, Ev> {
                 let old_scene = self.pop();
                 self.push(s);
                 Some(old_scene)
-
             }
         }
     }
@@ -143,11 +141,11 @@ impl<C, Ev> SceneStack<C, Ev> {
             if current.draw_previous() {
                 SceneStack::draw_scenes(rest, world, ctx);
             }
-            current.draw(world, ctx)
+            current
+                .draw(world, ctx)
                 .expect("I would hope drawing a scene never fails!");
         }
     }
-
 
     /// Draw the current scene.
     pub fn draw(&mut self, ctx: &mut ggez::Context) {
@@ -162,7 +160,6 @@ impl<C, Ev> SceneStack<C, Ev> {
         current_scene.input(&mut self.world, event, started);
     }
 }
-
 
 #[cfg(test)]
 mod tests {

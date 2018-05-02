@@ -20,7 +20,6 @@ use std::hash::Hash;
 use std::collections::HashMap;
 use ggez::event::*;
 
-
 // Okay, but how does it actually work?
 // Basically we have to bind input events to buttons and axes.
 // Input events can be keys, mouse buttons/motion, or eventually
@@ -48,11 +47,12 @@ enum InputType {
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum InputEffect<Axes, Buttons>
-    where Axes: Eq + Hash + Clone,
-          Buttons: Eq + Hash + Clone
+where
+    Axes: Eq + Hash + Clone,
+    Buttons: Eq + Hash + Clone,
 {
     Axis(Axes, bool),
-    Button(Buttons)
+    Button(Buttons),
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -92,8 +92,9 @@ struct ButtonState {
 /// (currently just `Keycode`s) to whatever your logical Axis/Button
 /// types are.
 pub struct InputBinding<Axes, Buttons>
-    where Axes: Hash + Eq + Clone,
-          Buttons: Hash + Eq + Clone
+where
+    Axes: Hash + Eq + Clone,
+    Buttons: Hash + Eq + Clone,
 {
     // Once EnumSet is stable it should be used for these
     // instead of BTreeMap. ♥?
@@ -102,27 +103,33 @@ pub struct InputBinding<Axes, Buttons>
 }
 
 impl<Axes, Buttons> InputBinding<Axes, Buttons>
-    where Axes: Hash + Eq + Clone,
-          Buttons: Hash + Eq + Clone
+where
+    Axes: Hash + Eq + Clone,
+    Buttons: Hash + Eq + Clone,
 {
     pub fn new() -> Self {
-        InputBinding { bindings: HashMap::new() }
+        InputBinding {
+            bindings: HashMap::new(),
+        }
     }
 
     /// Adds a key binding connecting the given keycode to the given
     /// logical axis.
     pub fn bind_key_to_axis(mut self, keycode: Keycode, axis: Axes, positive: bool) -> Self {
-
-        self.bindings.insert(InputType::KeyEvent(keycode),
-                             InputEffect::Axis(axis.clone(), positive));
+        self.bindings.insert(
+            InputType::KeyEvent(keycode),
+            InputEffect::Axis(axis.clone(), positive),
+        );
         self
     }
 
     /// Adds a key binding connecting the given keycode to the given
     /// logical button.
     pub fn bind_key_to_button(mut self, keycode: Keycode, button: Buttons) -> Self {
-        self.bindings.insert(InputType::KeyEvent(keycode),
-                             InputEffect::Button(button.clone()));
+        self.bindings.insert(
+            InputType::KeyEvent(keycode),
+            InputEffect::Button(button.clone()),
+        );
         self
     }
 
@@ -134,8 +141,9 @@ impl<Axes, Buttons> InputBinding<Axes, Buttons>
 
 #[derive(Debug)]
 pub struct InputState<Axes, Buttons>
-    where Axes: Hash + Eq + Clone,
-          Buttons: Hash + Eq + Clone
+where
+    Axes: Hash + Eq + Clone,
+    Buttons: Hash + Eq + Clone,
 {
     // Input state for axes
     axes: HashMap<Axes, AxisState>,
@@ -144,8 +152,9 @@ pub struct InputState<Axes, Buttons>
 }
 
 impl<Axes, Buttons> InputState<Axes, Buttons>
-    where Axes: Eq + Hash + Clone,
-          Buttons: Eq + Hash + Clone
+where
+    Axes: Eq + Hash + Clone,
+    Buttons: Eq + Hash + Clone,
 {
     pub fn new() -> Self {
         InputState {
@@ -210,7 +219,6 @@ impl<Axes, Buttons> InputState<Axes, Buttons>
     pub fn update_axis_stop(&mut self, axis: Axes, positive: bool) {
         self.update_effect(InputEffect::Axis(axis, positive), false);
     }
-
 
     /// Takes an InputEffect and actually applies it.
     pub fn update_effect(&mut self, effect: InputEffect<Axes, Buttons>, started: bool) {
@@ -309,7 +317,6 @@ impl<Axes, Buttons> InputState<Axes, Buttons>
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use ggez::event::*;
@@ -346,25 +353,43 @@ mod tests {
     #[test]
     fn test_input_bindings() {
         let ib = make_input_binding();
-        assert_eq!(ib.resolve(Keycode::Z),
-                   Some(InputEffect::Button(Buttons::A)));
-        assert_eq!(ib.resolve(Keycode::X),
-                   Some(InputEffect::Button(Buttons::B)));
-        assert_eq!(ib.resolve(Keycode::Return),
-                   Some(InputEffect::Button(Buttons::Start)));
-        assert_eq!(ib.resolve(Keycode::RShift),
-                   Some(InputEffect::Button(Buttons::Select)));
-        assert_eq!(ib.resolve(Keycode::LShift),
-                   Some(InputEffect::Button(Buttons::Select)));
+        assert_eq!(
+            ib.resolve(Keycode::Z),
+            Some(InputEffect::Button(Buttons::A))
+        );
+        assert_eq!(
+            ib.resolve(Keycode::X),
+            Some(InputEffect::Button(Buttons::B))
+        );
+        assert_eq!(
+            ib.resolve(Keycode::Return),
+            Some(InputEffect::Button(Buttons::Start))
+        );
+        assert_eq!(
+            ib.resolve(Keycode::RShift),
+            Some(InputEffect::Button(Buttons::Select))
+        );
+        assert_eq!(
+            ib.resolve(Keycode::LShift),
+            Some(InputEffect::Button(Buttons::Select))
+        );
 
-        assert_eq!(ib.resolve(Keycode::Up),
-                   Some(InputEffect::Axis(Axes::Vert, true)));
-        assert_eq!(ib.resolve(Keycode::Down),
-                   Some(InputEffect::Axis(Axes::Vert, false)));
-        assert_eq!(ib.resolve(Keycode::Left),
-                   Some(InputEffect::Axis(Axes::Horz, false)));
-        assert_eq!(ib.resolve(Keycode::Right),
-                   Some(InputEffect::Axis(Axes::Horz, true)));
+        assert_eq!(
+            ib.resolve(Keycode::Up),
+            Some(InputEffect::Axis(Axes::Vert, true))
+        );
+        assert_eq!(
+            ib.resolve(Keycode::Down),
+            Some(InputEffect::Axis(Axes::Vert, false))
+        );
+        assert_eq!(
+            ib.resolve(Keycode::Left),
+            Some(InputEffect::Axis(Axes::Horz, false))
+        );
+        assert_eq!(
+            ib.resolve(Keycode::Right),
+            Some(InputEffect::Axis(Axes::Horz, true))
+        );
 
         assert_eq!(ib.resolve(Keycode::Q), None);
         assert_eq!(ib.resolve(Keycode::W), None);

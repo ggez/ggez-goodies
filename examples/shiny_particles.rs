@@ -1,10 +1,9 @@
 extern crate ggez;
 extern crate rand;
 
-
 use ggez::conf;
 use ggez::event;
-use ggez::{GameResult, Context};
+use ggez::{Context, GameResult};
 use ggez::graphics;
 use ggez::graphics::{Point2, Vector2};
 use ggez::timer;
@@ -50,9 +49,11 @@ impl event::EventHandler for MainState {
             let seconds = 1.0 / (DESIRED_FPS as f32);
             self.particles.update(seconds);
             if timer::get_ticks(ctx) % 10 == 0 {
-                println!("Particles: {}, FPS: {}",
-                         self.particles.count(),
-                         timer::get_fps(ctx));
+                println!(
+                    "Particles: {}, FPS: {}",
+                    self.particles.count(),
+                    timer::get_fps(ctx)
+                );
             }
         }
         Ok(())
@@ -60,7 +61,12 @@ impl event::EventHandler for MainState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx);
-        graphics::draw(ctx, &mut self.particles, Point2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0), 0.0)?;
+        graphics::draw(
+            ctx,
+            &mut self.particles,
+            Point2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0),
+            0.0,
+        )?;
         //graphics::present(ctx);
         Ok(())
     }

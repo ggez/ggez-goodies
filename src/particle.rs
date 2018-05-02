@@ -18,19 +18,19 @@ use std::marker::Sized;
 
 use std::f32;
 
-
 use rand;
 use rand::Rng;
-use ggez::{GameResult, Context};
+use ggez::{Context, GameResult};
 use ggez::graphics;
 use ggez::graphics::{BlendMode, Point2, Vector2};
 use ggez::graphics::spritebatch::SpriteBatch;
 
 enum ValueGenerator<T> {
     Fixed(T),
-    UniformRange(T, T), /* todo: stepped range, a list of discrete values of which one gets chosen. */
-}
 
+    // TODO: stepped range, a list of discrete values of which one gets chosen.
+    UniformRange(T, T),
+}
 
 impl ValueGenerator<f32> {
     pub fn get_value(&self) -> f32 {
@@ -105,7 +105,8 @@ pub fn lerp(v: f32, from: f32, to: f32) -> f32 {
 /// A trait that defines a way to do some sort of
 /// lerp or easing function on a type.
 pub trait Interpolate
-    where Self: Sized
+where
+    Self: Sized,
 {
     /// Interpolate the value.  t should always be a number
     /// between 0.0 and 1.0, normalized for whatever actual
@@ -139,7 +140,6 @@ impl Interpolate for f32 {
     }
 }
 
-
 // This function is broken; see ggj2017 code for fix.  :/
 impl Interpolate for graphics::Color {
     fn interp(&self, t: f32) -> Self {
@@ -161,7 +161,6 @@ impl Interpolate for graphics::Color {
     }
 }
 
-
 /// A structure that represents a transition between
 /// set properties, with multiple potential defined points.
 /// So for instance you could use Transition<Color> and define
@@ -174,7 +173,6 @@ pub enum Transition<T: Copy> {
     Fixed(T),
     Range(T, T),
 }
-
 
 impl<T: Interpolate + Copy> Transition<T> {
     pub fn fixed(value: T) -> Self {
@@ -194,8 +192,6 @@ impl<T: Interpolate + Copy> Transition<T> {
         }
     }
 }
-
-
 
 // Properties particles should have:
 // Age, position, velocity
@@ -248,7 +244,6 @@ impl<T: Interpolate + Copy> Transition<T> {
 // Though if the user defines their own worldspace coordinate system
 // that could get a bit sticky.  :/
 
-
 struct Particle {
     pos: Point2,
     vel: Vector2,
@@ -259,8 +254,6 @@ struct Particle {
     age: f32,
     max_age: f32,
 }
-
-
 
 // Aha.  We have a 2x2 matrix of cases here: A particle can have a property
 // that's specific to each particle and calculated from some particle-specific
@@ -293,13 +286,14 @@ struct Particle {
 // same rules as all the others.
 
 impl Particle {
-    fn new(pos: Point2,
-           vel: Vector2,
-           color: graphics::Color,
-           size: f32,
-           angle: f32,
-           max_age: f32)
-           -> Self {
+    fn new(
+        pos: Point2,
+        vel: Vector2,
+        color: graphics::Color,
+        size: f32,
+        angle: f32,
+        max_age: f32,
+    ) -> Self {
         Particle {
             pos: pos,
             vel: vel,
@@ -312,7 +306,6 @@ impl Particle {
         }
     }
 }
-
 
 // This probably isn't actually needed as a separate type,
 // at least at this point,
@@ -377,7 +370,6 @@ impl ParticleSystemBuilder {
         self
     }
 
-
     pub fn delta_color(mut self, trans: Transition<graphics::Color>) -> Self {
         self.system.delta_color = trans;
         self
@@ -409,7 +401,6 @@ impl EmissionShape {
         match *self {
             EmissionShape::Point(v) => v,
             EmissionShape::Line(p1, p2) => {
-
                 let min_x = f32::min(p1.x, p2.x);
                 let max_x = f32::max(p1.x, p2.x);
                 let min_y = f32::min(p1.y, p2.y);
@@ -432,7 +423,6 @@ impl EmissionShape {
                     let slope = dy / dx;
                     x = rng.gen_range(min_x, max_x);
                     y = (slope * (x - min_x)) + min_y;
-
                 }
 
                 // This is a bit sticky 'cause we have
@@ -443,14 +433,12 @@ impl EmissionShape {
                 // let x_min = f32::max(min.x, f32::min(x_bbox_ymin, x_bbox_ymax));
                 // let x_max = f32::min(max.x, f32::max(x_bbox_ymin, x_bbox_ymax));
 
-
                 // let y_bbox_xmin = y_from_x(min.x);
                 // let y_bbox_xmax = y_from_x(max.x);
                 // let y_min = f32::max(min.y, f32::min(y_bbox_xmin, y_bbox_xmax));
                 // let y_max = f32::min(max.y, f32::max(y_bbox_xmin, y_bbox_xmax));
 
                 Point2::new(x, y)
-
             }
             EmissionShape::Circle(center, radius) => {
                 let mut rng = rand::thread_rng();
@@ -464,7 +452,7 @@ impl EmissionShape {
     }
 }
 
-use std::cell::{RefCell, Cell};
+use std::cell::{Cell, RefCell};
 
 pub struct ParticleSystem {
     // Bookkeeping stuff
@@ -492,7 +480,6 @@ pub struct ParticleSystem {
     sprite_batch: RefCell<SpriteBatch>,
     sprite_batch_dirty: Cell<bool>,
 }
-
 
 impl ParticleSystem {
     pub fn new(ctx: &mut Context) -> Self {
@@ -588,7 +575,7 @@ impl graphics::Drawable for ParticleSystem {
                     scale: Point2::new(particle.size, particle.size),
                     offset: Point2::new(0.5, 0.5),
                     color: Some(particle.color),
-                    .. Default::default()
+                    ..Default::default()
                 };
                 sb.add(drawparam);
             }

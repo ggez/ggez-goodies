@@ -7,13 +7,12 @@ extern crate rand;
 
 use ggez::conf;
 use ggez::event;
-use ggez::{GameResult, Context};
+use ggez::{Context, GameResult};
 use ggez::graphics;
-use ggez::graphics::{Vector2, Point2};
+use ggez::graphics::{Point2, Vector2};
 use ggez::timer;
 use ggez::nalgebra as na;
 use std::time::Duration;
-
 
 extern crate ggez_goodies;
 use ggez_goodies::camera::*;
@@ -29,12 +28,13 @@ impl MainState {
         let camera = Camera::new(WINDOW_WIDTH, WINDOW_HEIGHT, CAMERA_WIDTH, CAMERA_HEIGHT);
 
         println!("Camera test instructions; WASD move the object, arrow keys move the camera.");
-        println!("The red dots are drawn on every integer point in the camera's coordinate \
-                  system.");
+        println!(
+            "The red dots are drawn on every integer point in the camera's coordinate \
+             system."
+        );
         let image = graphics::Image::solid(ctx, 5, graphics::Color::new(1.0, 0.0, 0.0, 1.0))?;
         graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
 
-        
         let state = MainState {
             camera: camera,
             image: image,
@@ -75,8 +75,13 @@ impl event::EventHandler for MainState {
         Ok(())
     }
 
-
-    fn key_down_event(&mut self, ctx: &mut Context, keycode: event::Keycode, _keymod: event::Mod, _repeat: bool) {
+    fn key_down_event(
+        &mut self,
+        ctx: &mut Context,
+        keycode: event::Keycode,
+        _keymod: event::Mod,
+        _repeat: bool,
+    ) {
         match keycode {
             event::Keycode::W => {
                 self.image_location.y += 0.1;
@@ -96,9 +101,11 @@ impl event::EventHandler for MainState {
             event::Keycode::Right => self.camera.move_by(Vector2::new(0.1, 0.0)),
             _ => (),
         };
-        println!("Camera position is now {}, object position is {:?}",
-                 self.camera.location(),
-                 self.image_location);
+        println!(
+            "Camera position is now {}, object position is {:?}",
+            self.camera.location(),
+            self.image_location
+        );
     }
 }
 

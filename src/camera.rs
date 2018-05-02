@@ -59,12 +59,10 @@ impl Camera {
         let view_offset = from - self.view_center;
         let view_scale = view_offset.component_mul(&pixels_per_unit);
 
-
         let x = (*view_scale).x + (*self.screen_size).x / 2.0;
         let y = (*self.screen_size).y - ((*view_scale).y + (*self.screen_size).y / 2.0);
         (x as i32, y as i32)
     }
-
 
     // p_screen = max_p - p + max_p/2
     // p_screen - max_p/2 = max_p - p
@@ -82,7 +80,6 @@ impl Camera {
         let view_offset = self.view_center + view_scale;
 
         view_offset
-
     }
 
     pub fn location(&self) -> Point2 {
@@ -96,32 +93,38 @@ impl Camera {
 }
 
 pub trait CameraDraw
-    where Self: graphics::Drawable
+where
+    Self: graphics::Drawable,
 {
-    fn draw_ex_camera(&self,
-                      camera: &Camera,
-                      ctx: &mut ggez::Context,
-                      p: ggez::graphics::DrawParam)
-                      -> GameResult<()> {
+    fn draw_ex_camera(
+        &self,
+        camera: &Camera,
+        ctx: &mut ggez::Context,
+        p: ggez::graphics::DrawParam,
+    ) -> GameResult<()> {
         let dest = camera.calculate_dest_point(p.dest);
         let mut my_p = p;
         my_p.dest = dest;
         self.draw_ex(ctx, my_p)
     }
 
-    fn draw_camera(&self,
-                   camera: &Camera,
-                   ctx: &mut ggez::Context,
-                   dest: ggez::graphics::Point2,
-                   rotation: f32)
-                   -> GameResult<()> {
+    fn draw_camera(
+        &self,
+        camera: &Camera,
+        ctx: &mut ggez::Context,
+        dest: ggez::graphics::Point2,
+        rotation: f32,
+    ) -> GameResult<()> {
         let dest = camera.calculate_dest_point(dest);
         self.draw(ctx, dest, rotation)
     }
 }
 
-
-impl<T> CameraDraw for T where T: graphics::Drawable {}
+impl<T> CameraDraw for T
+where
+    T: graphics::Drawable,
+{
+}
 
 #[cfg(test)]
 mod tests {
@@ -138,7 +141,6 @@ mod tests {
             let p1_screen = c.world_to_screen_coords(p1_world);
             assert_eq!(p1, p1_screen);
         }
-
 
         let p2 = Point2::new(20.0, 10.0);
         {
