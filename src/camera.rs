@@ -21,8 +21,7 @@ use ggez::GameResult;
 use ggez::graphics;
 use ggez::graphics::{Point2, Vector2};
 
-// Hmm.  Could, instead, use a 2d transformation
-// matrix, or create one of such.
+/// The actual camera.  Stores the screen size, where it's looking, and how big the POV is.
 pub struct Camera {
     screen_size: Vector2,
     view_size: Vector2,

@@ -4,9 +4,9 @@ use ggez;
 
 /// Describes the layout of characters in your
 /// bitmap font.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct TextMap {
-    map: HashMap<char, ggez::Rect>,
+    map: HashMap<char, ggez::graphics::Rect>,
 }
 
 impl TextMap {
@@ -24,9 +24,9 @@ impl TextMap {
     /// The floating point math involved should always be
     /// exact for `Image`'s and sprites with a resolution 
     /// that is a power of two, I think.
-    fn from_grid(mapping: &str, width: usize, height: usize) -> Self {
+    pub fn from_grid(mapping: &str, width: usize, height: usize) -> Self {
         // Assert the given width and height can fit the listed characters.
-        let num_chars = mapping.chars.count();
+        let num_chars = mapping.chars().count();
         assert!(num_chars <= width * height);
         let rect_width = 1.0 / (width as f32);
         let rect_height = 1.0 / (height as f32);
@@ -36,11 +36,11 @@ impl TextMap {
         for c in mapping.chars() {
             let x_offset = current_x as f32 * rect_width;
             let y_offset = current_y as f32 * rect_height;
-            let char_rect = ggez::Rect {
+            let char_rect = ggez::graphics::Rect {
                 x: x_offset,
                 y: y_offset,
                 w: rect_width,
-                h: rect_height;
+                h: rect_height,
             };
             map.insert(c, char_rect);
             current_x = (current_x + 1) % width;
@@ -55,10 +55,10 @@ impl TextMap {
     }
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub struct BitmapFont {
     bitmap: ggez::graphics::Image,
-    batch: ggez::graphics::SpriteBatch,
+    batch: ggez::graphics::spritebatch::SpriteBatch,
     map: TextMap,
 }
 

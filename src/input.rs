@@ -14,7 +14,7 @@
 //! * Take ggez's event-based input API, and present event- or
 //! state-based API so you can do whichever you want.
 
-// TODO: Handle mice, game pads, joysticks
+// TODO: Handle mice, game pads/joysticks
 
 use std::hash::Hash;
 use std::collections::HashMap;
@@ -40,12 +40,41 @@ use ggez::event::*;
 //
 // Easy way?  Hash map of event -> axis/button bindings.
 
+/// The raw ggez input types; the "from" part of an input mapping.
+/// 
+/// TODO: Desperately needs better name.
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 enum InputType {
-    KeyEvent(Keycode), // MouseButtonEvent,
+    KeyEvent(KeyCode),
 }
 
-#[derive(Debug, Copy, Clone, PartialEq)]
+/// Abstract input values; the "to" part of an input mapping.
+/// 
+/// This is generic over `Axes` and `Buttons` types; these are
+/// types that YOU define.  For instance, for your particular
+/// game you may have a "camera" axis, a "movement" axis, and
+/// "select", "menu" and "exit" buttons.  You would do something
+/// like this:
+/// 
+/// ```rust
+/// use ggez_goodies::input::InputEffect;
+/// #[derive(PartialEq, Eq, Hash, Clone)]
+/// enum MyAxes {
+///     Camera,
+///     Movement
+/// }
+/// #[derive(PartialEq, Eq, Hash, Clone)]
+/// enum MyButtons {
+///     Select,
+///     Menu,
+///     Exit
+/// }
+/// 
+/// type MyInputEffect = InputEffect<MyAxes, MyButtons>;
+/// ```
+/// 
+/// TODO: Desperately needs better name.
+#[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub enum InputEffect<Axes, Buttons>
 where
     Axes: Eq + Hash + Clone,
@@ -55,19 +84,25 @@ where
     Button(Buttons),
 }
 
+/// The stored state of an `Axis`.
+/// 
+/// An axis is not JUST an exact position, this does
+/// some simple linear smoothing of the axis value that
+/// is usually quite nice.  This also contains the state
+/// and constants necessary for that.
 #[derive(Debug, Copy, Clone)]
 struct AxisState {
-    // Where the axis currently is, in [-1, 1]
+    /// Where the axis currently is, in [-1, 1]
     position: f32,
-    // Where the axis is moving towards.  Possible
-    // values are -1, 0, +1
-    // (or a continuous range for analog devices I guess)
+    /// Where the axis is moving towards.  Possible
+    /// values are -1, 0, +1
+    /// (or a continuous range for analog devices I guess)
     direction: f32,
-    // Speed in units per second that the axis
-    // moves towards the target value.
+    /// Speed in units per second that the axis
+    /// moves towards the target value.
     acceleration: f32,
-    // Speed in units per second that the axis will
-    // fall back toward 0 if the input stops.
+    /// Speed in units per second that the axis will
+    /// fall back toward 0 if the input stops.
     gravity: f32,
 }
 
@@ -82,6 +117,7 @@ impl Default for AxisState {
     }
 }
 
+/// All the state necessary for a button press.
 #[derive(Debug, Copy, Clone, Default)]
 struct ButtonState {
     pressed: bool,
@@ -89,8 +125,9 @@ struct ButtonState {
 }
 
 /// A struct that contains a mapping from physical input events
-/// (currently just `Keycode`s) to whatever your logical Axis/Button
+/// (currently just `KeyCode`s) to whatever your logical Axis/Button
 /// types are.
+#[derive(Clone, PartialEq)]
 pub struct InputBinding<Axes, Buttons>
 where
     Axes: Hash + Eq + Clone,
@@ -115,7 +152,7 @@ where
 
     /// Adds a key binding connecting the given keycode to the given
     /// logical axis.
-    pub fn bind_key_to_axis(mut self, keycode: Keycode, axis: Axes, positive: bool) -> Self {
+    pub fn bind_key_to_axis(mut self, keycode: KeyCode, axis: Axes, positive: bool) -> Self {
         self.bindings.insert(
             InputType::KeyEvent(keycode),
             InputEffect::Axis(axis.clone(), positive),
@@ -125,7 +162,7 @@ where
 
     /// Adds a key binding connecting the given keycode to the given
     /// logical button.
-    pub fn bind_key_to_button(mut self, keycode: Keycode, button: Buttons) -> Self {
+    pub fn bind_key_to_button(mut self, keycode: KeyCode, button: Buttons) -> Self {
         self.bindings.insert(
             InputType::KeyEvent(keycode),
             InputEffect::Button(button.clone()),
@@ -134,12 +171,14 @@ where
     }
 
     /// Takes an physical input type and turns it into a logical input type (keycode -> axis/button).
-    pub fn resolve(&self, keycode: Keycode) -> Option<InputEffect<Axes, Buttons>> {
+    pub fn resolve(&self, keycode: KeyCode) -> Option<InputEffect<Axes, Buttons>> {
         self.bindings.get(&InputType::KeyEvent(keycode)).cloned()
     }
 }
 
-#[derive(Debug)]
+/// The object that tracks the current state of the input controls,
+/// such as axes, bindings, etc.
+#[derive(Debug, Clone)]
 pub struct InputState<Axes, Buttons>
 where
     Axes: Hash + Eq + Clone,
@@ -156,17 +195,17 @@ where
     Axes: Eq + Hash + Clone,
     Buttons: Eq + Hash + Clone,
 {
+
     pub fn new() -> Self {
-        InputState {
-            axes: HashMap::new(),
-            buttons: HashMap::new(),
+        Self {
+            axes: HashMap::default(),
+            buttons: HashMap::default(),
         }
     }
 
     /// Updates the logical input state based on the actual
     /// physical input state.  Should be called in your update()
-    /// handler.
-    /// So, it will do things like move the axes and so on.
+    /// handler.  It will do things like move the axes and so on.
     pub fn update(&mut self, dt: f32) {
         for (_axis, axis_status) in self.axes.iter_mut() {
             if axis_status.direction != 0.0 {
@@ -201,21 +240,22 @@ where
         }
     }
 
-    /// This method should get called by your key_down_event handler.
+    /// This method should get called by your `key_down_event` handler.
     pub fn update_button_down(&mut self, button: Buttons) {
         self.update_effect(InputEffect::Button(button), true);
     }
 
-    /// This method should get called by your key_up_event handler.
+    /// This method should get called by your `key_up_event` handler.
     pub fn update_button_up(&mut self, button: Buttons) {
         self.update_effect(InputEffect::Button(button), false);
     }
 
-    /// This method should get called by your key_up_event handler.
+    /// This method should get called by your `key_down_event` handler.
     pub fn update_axis_start(&mut self, axis: Axes, positive: bool) {
         self.update_effect(InputEffect::Axis(axis, positive), true);
     }
 
+    /// This method should get called by your `key_up_event` handler.
     pub fn update_axis_stop(&mut self, axis: Axes, positive: bool) {
         self.update_effect(InputEffect::Axis(axis, positive), false);
     }
@@ -319,7 +359,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ggez::event::*;
+    use std::default::Default;
+    use ggez::event::{KeyCode};
     use super::*;
 
     #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
@@ -338,15 +379,15 @@ mod tests {
 
     fn make_input_binding() -> InputBinding<Axes, Buttons> {
         let ib = InputBinding::<Axes, Buttons>::new()
-            .bind_key_to_button(Keycode::Z, Buttons::A)
-            .bind_key_to_button(Keycode::X, Buttons::B)
-            .bind_key_to_button(Keycode::Return, Buttons::Start)
-            .bind_key_to_button(Keycode::RShift, Buttons::Select)
-            .bind_key_to_button(Keycode::LShift, Buttons::Select)
-            .bind_key_to_axis(Keycode::Up, Axes::Vert, true)
-            .bind_key_to_axis(Keycode::Down, Axes::Vert, false)
-            .bind_key_to_axis(Keycode::Left, Axes::Horz, false)
-            .bind_key_to_axis(Keycode::Right, Axes::Horz, true);
+            .bind_key_to_button(KeyCode::Z, Buttons::A)
+            .bind_key_to_button(KeyCode::X, Buttons::B)
+            .bind_key_to_button(KeyCode::Return, Buttons::Start)
+            .bind_key_to_button(KeyCode::RShift, Buttons::Select)
+            .bind_key_to_button(KeyCode::LShift, Buttons::Select)
+            .bind_key_to_axis(KeyCode::Up, Axes::Vert, true)
+            .bind_key_to_axis(KeyCode::Down, Axes::Vert, false)
+            .bind_key_to_axis(KeyCode::Left, Axes::Horz, false)
+            .bind_key_to_axis(KeyCode::Right, Axes::Horz, true);
         ib
     }
 
@@ -354,45 +395,45 @@ mod tests {
     fn test_input_bindings() {
         let ib = make_input_binding();
         assert_eq!(
-            ib.resolve(Keycode::Z),
+            ib.resolve(KeyCode::Z),
             Some(InputEffect::Button(Buttons::A))
         );
         assert_eq!(
-            ib.resolve(Keycode::X),
+            ib.resolve(KeyCode::X),
             Some(InputEffect::Button(Buttons::B))
         );
         assert_eq!(
-            ib.resolve(Keycode::Return),
+            ib.resolve(KeyCode::Return),
             Some(InputEffect::Button(Buttons::Start))
         );
         assert_eq!(
-            ib.resolve(Keycode::RShift),
+            ib.resolve(KeyCode::RShift),
             Some(InputEffect::Button(Buttons::Select))
         );
         assert_eq!(
-            ib.resolve(Keycode::LShift),
+            ib.resolve(KeyCode::LShift),
             Some(InputEffect::Button(Buttons::Select))
         );
 
         assert_eq!(
-            ib.resolve(Keycode::Up),
+            ib.resolve(KeyCode::Up),
             Some(InputEffect::Axis(Axes::Vert, true))
         );
         assert_eq!(
-            ib.resolve(Keycode::Down),
+            ib.resolve(KeyCode::Down),
             Some(InputEffect::Axis(Axes::Vert, false))
         );
         assert_eq!(
-            ib.resolve(Keycode::Left),
+            ib.resolve(KeyCode::Left),
             Some(InputEffect::Axis(Axes::Horz, false))
         );
         assert_eq!(
-            ib.resolve(Keycode::Right),
+            ib.resolve(KeyCode::Right),
             Some(InputEffect::Axis(Axes::Horz, true))
         );
 
-        assert_eq!(ib.resolve(Keycode::Q), None);
-        assert_eq!(ib.resolve(Keycode::W), None);
+        assert_eq!(ib.resolve(KeyCode::Q), None);
+        assert_eq!(ib.resolve(KeyCode::W), None);
     }
 
     #[test]
@@ -444,7 +485,7 @@ mod tests {
 
     #[test]
     fn test_button_edge_transitions() {
-        let mut im: InputState<Axis, Buttons> = InputState::new();
+        let mut im: InputState<Axes, Buttons> = InputState::new();
 
         // Push a key, confirm it's transitioned.
         assert!(!im.get_button_down(Buttons::A));

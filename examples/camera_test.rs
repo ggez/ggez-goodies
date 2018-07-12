@@ -1,7 +1,7 @@
 //! An Asteroids-ish example game to show off ggez.
 //! The idea is that this game is simple but still
 //! non-trivial enough to be interesting.
-
+/*
 extern crate ggez;
 extern crate rand;
 
@@ -122,4 +122,9 @@ pub fn main() {
     } else {
         println!("Game exited cleanly.");
     }
+}
+*/
+
+fn main() {
+    
 }

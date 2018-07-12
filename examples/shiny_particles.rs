@@ -1,3 +1,4 @@
+/*
 extern crate ggez;
 extern crate rand;
 
@@ -85,4 +86,10 @@ pub fn main() {
     } else {
         println!("Game exited cleanly.");
     }
+}
+*/
+
+
+fn main() {
+    
 }

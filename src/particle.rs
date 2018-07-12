@@ -31,7 +31,7 @@ enum ValueGenerator<T> {
     // TODO: stepped range, a list of discrete values of which one gets chosen.
     UniformRange(T, T),
 }
-
+/*
 impl ValueGenerator<f32> {
     pub fn get_value(&self) -> f32 {
         match *self {
@@ -43,7 +43,7 @@ impl ValueGenerator<f32> {
         }
     }
 }
-
+*/
 // Apparently implementing SampleRange for our own type
 // isn't something we should do, so we just define this by hand...
 impl ValueGenerator<Vector2> {
@@ -59,7 +59,7 @@ impl ValueGenerator<Vector2> {
         }
     }
 }
-
+/*
 impl ValueGenerator<Point2> {
     fn get_value(&self) -> Point2 {
         match *self {
@@ -90,7 +90,7 @@ impl ValueGenerator<graphics::Color> {
         }
     }
 }
-
+*/
 pub type EasingFn = Fn(f32) -> f32;
 
 /// Linear interpolation; assumes input value is in the range 0-1 and
