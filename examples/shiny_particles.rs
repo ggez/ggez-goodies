@@ -18,8 +18,8 @@ struct MainState {
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
         let system = ParticleSystemBuilder::new(ctx)
-            .count(100000)
-            .emission_rate(20000.0)
+            .count(10000)
+            .emission_rate(2000.0)
             .acceleration(Vector2::new(0.0, 50.0))
             .start_max_age(5.0)
             .start_size_range(2.0, 15.0)
@@ -67,7 +67,7 @@ impl event::EventHandler for MainState {
             Point2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0),
             0.0,
         )?;
-        //graphics::present(ctx);
+        graphics::present(ctx);
         Ok(())
     }
 }

@@ -2,7 +2,7 @@
 name = "ggez-goodies"
 description = "Various small useful add-ons for the ggez game framework"
 version = "0.1.0"
-repository = "https://github.com/icefoxen/ggez-goodies"
+repository = "https://github.com/ggez/ggez-goodies"
 documentation = "https://docs.rs/ggez-goodies"
 authors = ["Simon Heath <icefoxen@gmail.com>"]
 license = "MIT"
@@ -10,5 +10,6 @@ readme = "README.md"
 
 
 [dependencies]
-ggez = "0.4"
+#ggez = "0.4"
+ggez = {path = "/home/icefox/my.src/ggez/ggez", features=["bundled"]}
 rand = "0.4"
