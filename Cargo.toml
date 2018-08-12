@@ -10,6 +10,5 @@ readme = "README.md"
 
 
 [dependencies]
-#ggez = "0.4"
-ggez = {path = "/home/icefox/my.src/ggez/ggez", features=["bundled"]}
+ggez = "0.4"
 rand = "0.4"
