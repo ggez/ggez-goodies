@@ -5,7 +5,7 @@ use ggez::conf;
 use ggez::event;
 use ggez::{Context, GameResult};
 use ggez::graphics;
-use ggez::graphics::{Point2, Vector2};
+use ggez::nalgebra::{Point2, Vector2};
 use ggez::timer;
 
 extern crate ggez_goodies;
@@ -34,7 +34,6 @@ impl MainState {
             //.emission_shape(EmissionShape::Line(Point2::new(-100.0, -100.0), Point2::new(100.0, 100.0)))
             .build();
         let state = MainState { particles: system };
-        graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
         Ok(state)
     }
 }
@@ -48,11 +47,11 @@ impl event::EventHandler for MainState {
         while timer::check_update_time(ctx, DESIRED_FPS) {
             let seconds = 1.0 / (DESIRED_FPS as f32);
             self.particles.update(seconds);
-            if timer::get_ticks(ctx) % 10 == 0 {
+            if timer::ticks(ctx) % 10 == 0 {
                 println!(
                     "Particles: {}, FPS: {}",
                     self.particles.count(),
-                    timer::get_fps(ctx)
+                    timer::fps(ctx)
                 );
             }
         }
@@ -60,12 +59,11 @@ impl event::EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        graphics::clear(ctx);
+        graphics::clear(ctx, [0.0, 0.0, 0.0, 1.0].into());
         graphics::draw(
             ctx,
             &mut self.particles,
-            Point2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0),
-            0.0,
+            (Point2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0),)
         )?;
         graphics::present(ctx);
         Ok(())
@@ -73,14 +71,18 @@ impl event::EventHandler for MainState {
 }
 
 pub fn main() {
-    let mut c = conf::Conf::new();
-    c.window_setup.title = "Shiny particles".to_string();
-    c.window_mode.width = WINDOW_WIDTH as u32;
-    c.window_mode.height = WINDOW_HEIGHT as u32;
-    let ctx = &mut Context::load_from_conf("shiny_particles", "test", c).unwrap();
+    let (ctx, event_loop) = &mut ggez::ContextBuilder::new("shiny_particles", "test")
+        .window_setup(conf::WindowSetup::default().title("Shiny particles"))
+        .window_mode(
+            conf::WindowMode::default()
+                .dimensions(WINDOW_WIDTH, WINDOW_HEIGHT)
+        )
+        .build()
+        .unwrap();
+
     let game = &mut MainState::new(ctx).unwrap();
 
-    if let Err(e) = event::run(ctx, game) {
+    if let Err(e) = event::run(ctx, event_loop, game) {
         println!("Error encountered: {}", e);
     } else {
         println!("Game exited cleanly.");

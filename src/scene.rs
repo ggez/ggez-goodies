@@ -70,7 +70,7 @@ pub struct SceneStack<C, Ev> {
 }
 
 impl<C, Ev> SceneStack<C, Ev> {
-    pub fn new(ctx: &mut ggez::Context, global_state: C) -> Self {
+    pub fn new(_ctx: &mut ggez::Context, global_state: C) -> Self {
         Self {
             world: global_state,
             scenes: Vec::new(),

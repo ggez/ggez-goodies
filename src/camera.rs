@@ -19,14 +19,14 @@
 use ggez;
 use ggez::GameResult;
 use ggez::graphics;
-use ggez::graphics::{Point2, Vector2};
+use ggez::nalgebra::{Point2, Vector2};
 
 // Hmm.  Could, instead, use a 2d transformation
 // matrix, or create one of such.
 pub struct Camera {
-    screen_size: Vector2,
-    view_size: Vector2,
-    view_center: Point2,
+    screen_size: Vector2<f32>,
+    view_size: Vector2<f32>,
+    view_center: Point2<f32>,
 }
 
 impl Camera {
@@ -40,11 +40,11 @@ impl Camera {
         }
     }
 
-    pub fn move_by(&mut self, by: Vector2) {
+    pub fn move_by(&mut self, by: Vector2<f32>) {
         self.view_center += by;
     }
 
-    pub fn move_to(&mut self, to: Point2) {
+    pub fn move_to(&mut self, to: Point2<f32>) {
         self.view_center = to;
     }
 
@@ -54,7 +54,7 @@ impl Camera {
     /// Does not do any clipping or anything, since it does
     /// not know how large the thing that might be drawn is;
     /// that's not its job.
-    pub fn world_to_screen_coords(&self, from: Point2) -> (i32, i32) {
+    pub fn world_to_screen_coords(&self, from: Point2<f32>) -> (i32, i32) {
         let pixels_per_unit = self.screen_size.component_div(&self.view_size);
         let view_offset = from - self.view_center;
         let view_scale = view_offset.component_mul(&pixels_per_unit);
@@ -68,7 +68,7 @@ impl Camera {
     // p_screen - max_p/2 = max_p - p
     // p_screen - max_p/2 + max_p = -p
     // -p_screen - max_p/2 + max_p = p
-    pub fn screen_to_world_coords(&self, from: (i32, i32)) -> Point2 {
+    pub fn screen_to_world_coords(&self, from: (i32, i32)) -> Point2<f32> {
         let (sx, sy) = from;
         let sx = sx as f32;
         let sy = sy as f32;
@@ -82,13 +82,13 @@ impl Camera {
         view_offset
     }
 
-    pub fn location(&self) -> Point2 {
+    pub fn location(&self) -> Point2<f32> {
         self.view_center
     }
 
-    fn calculate_dest_point(&self, location: Point2) -> graphics::Point2 {
+    fn calculate_dest_point(&self, location: Point2<f32>) -> Point2<f32> {
         let (sx, sy) = self.world_to_screen_coords(location);
-        graphics::Point2::new(sx as f32, sy as f32)
+        Point2::new(sx as f32, sy as f32)
     }
 }
 
@@ -105,18 +105,21 @@ where
         let dest = camera.calculate_dest_point(p.dest);
         let mut my_p = p;
         my_p.dest = dest;
-        self.draw_ex(ctx, my_p)
+        self.draw(ctx, my_p)
     }
 
     fn draw_camera(
         &self,
         camera: &Camera,
         ctx: &mut ggez::Context,
-        dest: ggez::graphics::Point2,
+        dest: Point2<f32>,
         rotation: f32,
     ) -> GameResult<()> {
         let dest = camera.calculate_dest_point(dest);
-        self.draw(ctx, dest, rotation)
+        let mut draw_param = ggez::graphics::DrawParam::default();
+        draw_param.dest = dest;
+        draw_param.rotation = rotation;
+        self.draw(ctx, draw_param)
     }
 }
 
@@ -128,7 +131,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ggez::graphics::{Point2, Vector2};
+    use ggez::nalgebra::{Point2, Vector2};
     use super::*;
 
     #[test]
