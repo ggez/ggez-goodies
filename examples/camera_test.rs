@@ -8,7 +8,7 @@ extern crate rand;
 use ggez::conf;
 use ggez::event;
 use ggez::graphics;
-use ggez::nalgebra::{Point2, Vector2};
+use ggez::mint::{Point2, Vector2};
 use ggez::{Context, GameResult};
 
 extern crate ggez_goodies;
@@ -34,7 +34,7 @@ impl MainState {
         let state = MainState {
             camera: camera,
             image: image,
-            image_location: Point2::new(0.0, 0.0),
+            image_location: Point2 { x: 0.0, y: 0.0 },
         };
         Ok(state)
     }
@@ -58,7 +58,10 @@ impl event::EventHandler for MainState {
         let half_height = (CAMERA_HEIGHT / 2.0) as i32;
         for y in -half_height..half_height {
             for x in -half_width..half_width {
-                let frompt = Point2::new(x as f32, y as f32);
+                let frompt = Point2 {
+                    x: x as f32,
+                    y: y as f32,
+                };
                 let (px, py) = self.camera.world_to_screen_coords(frompt);
                 let rectangle = ggez::graphics::Rect::new_i32(px, py, 1, 1);
                 let rectangle = graphics::Mesh::new_rectangle(
@@ -67,7 +70,7 @@ impl event::EventHandler for MainState {
                     rectangle,
                     graphics::Color::from((255, 0, 0)),
                 )?;
-                graphics::draw(ctx, &rectangle, (ggez::mint::Point2 { x: 0.0, y: 0.0 },))?;
+                graphics::draw(ctx, &rectangle, (Point2 { x: 0.0, y: 0.0 },))?;
             }
         }
         self.image
@@ -96,16 +99,18 @@ impl event::EventHandler for MainState {
             event::KeyCode::D => {
                 self.image_location.x += 0.1;
             }
-            event::KeyCode::Up => self.camera.move_by(Vector2::new(0.0, 0.1)),
-            event::KeyCode::Left => self.camera.move_by(Vector2::new(-0.1, 0.0)),
-            event::KeyCode::Down => self.camera.move_by(Vector2::new(0.0, -0.1)),
-            event::KeyCode::Right => self.camera.move_by(Vector2::new(0.1, 0.0)),
+            event::KeyCode::Up => self.camera.move_by(Vector2 { x: 0.0, y: 0.1 }),
+            event::KeyCode::Left => self.camera.move_by(Vector2 { x: -0.1, y: 0.0 }),
+            event::KeyCode::Down => self.camera.move_by(Vector2 { x: 0.0, y: -0.1 }),
+            event::KeyCode::Right => self.camera.move_by(Vector2 { x: 0.1, y: 0.0 }),
             _ => (),
         };
         println!(
-            "Camera position is now {}, object position is {:?}",
-            self.camera.location(),
-            self.image_location
+            "Camera position is now ({}, {}), object position is ({}, {})",
+            self.camera.location().x,
+            self.camera.location().y,
+            self.image_location.x,
+            self.image_location.y,
         );
     }
 }

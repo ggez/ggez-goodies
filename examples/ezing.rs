@@ -67,7 +67,7 @@ impl event::EventHandler for MainState {
                 WINDOW_HEIGHT / 2.0,
             ),),
         )?;
-        graphics::present(ctx);
+        graphics::present(ctx)?;
         Ok(())
     }
 }

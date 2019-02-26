@@ -76,7 +76,7 @@ impl Camera {
         };
 
         let x = view_scale.x + self.screen_size.x / 2.0;
-        let y = self.screen_size.y - view_scale.y + self.screen_size.y / 2.0;
+        let y = self.screen_size.y - (view_scale.y + self.screen_size.y / 2.0);
         (x as i32, y as i32)
     }
 
@@ -88,7 +88,7 @@ impl Camera {
         let (sx, sy) = from;
         let sx = sx as f32;
         let sy = sy as f32;
-        let flipped_x = sx - self.screen_size.x / 2.0;
+        let flipped_x = sx - (self.screen_size.x / 2.0);
         let flipped_y = -sy + self.screen_size.y / 2.0;
         let screen_coords = Vector2 {
             x: flipped_x,
@@ -103,7 +103,7 @@ impl Camera {
             y: screen_coords.y * units_per_pixel.y,
         };
         let view_offset = Point2 {
-            x: self.view_center.x + view_scale.y,
+            x: self.view_center.x + view_scale.x,
             y: self.view_center.y + view_scale.y,
         };
 
@@ -159,7 +159,7 @@ impl<T> CameraDraw for T where T: graphics::Drawable {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ggez::nalgebra::{Point2, Vector2};
+    use ggez::mint::{Point2, Vector2};
 
     #[test]
     fn test_coord_round_trip() {
@@ -167,12 +167,12 @@ mod tests {
         let p1 = (200, 300);
         {
             let p1_world = c.screen_to_world_coords(p1);
-            assert_eq!(p1_world, Point2::new(-7.5, -3.75));
+            assert_eq!(p1_world, Point2 { x: -7.5, y: -3.75 });
             let p1_screen = c.world_to_screen_coords(p1_world);
             assert_eq!(p1, p1_screen);
         }
 
-        let p2 = Point2::new(20.0, 10.0);
+        let p2 = Point2 { x: 20.0, y: 10.0 };
         {
             let p2_screen = c.world_to_screen_coords(p2);
             assert_eq!(p2_screen, (640, 80));
@@ -180,11 +180,11 @@ mod tests {
             assert_eq!(p2_world, p2);
         }
 
-        c.move_to(Point2::new(5.0, 5.0));
+        c.move_to(Point2 { x: 5.0, y: 5.0 });
 
         {
             let p1_world = c.screen_to_world_coords(p1);
-            assert_eq!(p1_world, Point2::new(-2.5, 1.25));
+            assert_eq!(p1_world, Point2 { x: -2.5, y: 1.25 });
             let p1_screen = c.world_to_screen_coords(p1_world);
             assert_eq!(p1, p1_screen);
         }

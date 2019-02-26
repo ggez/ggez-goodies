@@ -447,7 +447,10 @@ impl EmissionShape {
                 let r = rng.gen_range(0.0, radius);
                 let x = theta.cos() * r;
                 let y = theta.sin() * r;
-                Point2 { x: x + center.x, y: y + center.y }
+                Point2 {
+                    x: x + center.x,
+                    y: y + center.y,
+                }
             }
         }
     }

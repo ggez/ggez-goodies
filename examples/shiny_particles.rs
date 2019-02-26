@@ -4,7 +4,7 @@ extern crate rand;
 use ggez::conf;
 use ggez::event;
 use ggez::graphics;
-use ggez::nalgebra::{Point2, Vector2};
+use ggez::mint::{Point2, Vector2};
 use ggez::timer;
 use ggez::{Context, GameResult};
 
@@ -20,21 +20,27 @@ impl MainState {
         let system = ParticleSystemBuilder::new(ctx)
             .count(10000)
             .emission_rate(2000.0)
-            .acceleration(Vector2::new(0.0, 50.0))
+            .acceleration(Vector2 { x: 0.0, y: 50.0 })
             .start_max_age(5.0)
             .start_size_range(2.0, 15.0)
             .start_color_range(
                 graphics::Color::from((0, 0, 0)),
                 graphics::Color::from((255, 255, 255)),
             )
-            .start_velocity_range(Vector2::new(-50.0, -200.0), Vector2::new(50.0, 0.0))
+            .start_velocity_range(
+                Vector2 {
+                    x: -50.0,
+                    y: -200.0,
+                },
+                Vector2 { x: 50.0, y: 0.0 },
+            )
             .start_ang_vel_range(-10.0, 10.0)
             .delta_size(Transition::range(15.0, 5.0))
             .delta_color(Transition::range(
                 ggez::graphics::Color::from((255, 0, 0)),
                 ggez::graphics::Color::from((255, 255, 0)),
             ))
-            .emission_shape(EmissionShape::Circle(Point2::new(0.0, 0.0), 150.0))
+            .emission_shape(EmissionShape::Circle(Point2 { x: 0.0, y: 0.0 }, 150.0))
             //.emission_shape(EmissionShape::Line(Point2::new(-100.0, -100.0), Point2::new(100.0, 100.0)))
             .build();
         let state = MainState { particles: system };
@@ -67,9 +73,12 @@ impl event::EventHandler for MainState {
         graphics::draw(
             ctx,
             &mut self.particles,
-            (Point2::new(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0),),
+            (Point2 {
+                x: WINDOW_WIDTH / 2.0,
+                y: WINDOW_HEIGHT / 2.0,
+            },),
         )?;
-        graphics::present(ctx);
+        graphics::present(ctx)?;
         Ok(())
     }
 }
