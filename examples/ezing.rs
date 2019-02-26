@@ -1,12 +1,12 @@
-extern crate ggez;
 extern crate ezing;
+extern crate ggez;
 
 use ggez::conf;
 use ggez::event;
-use ggez::{Context, GameResult};
 use ggez::graphics;
 use ggez::nalgebra::Point2;
 use ggez::timer;
+use ggez::{Context, GameResult};
 
 use ezing::cubic_inout;
 
@@ -19,20 +19,26 @@ struct Tween {
 }
 
 fn interpolate(tween: &Tween) -> f32 {
-    cubic_inout((tween.t - tween.start) / tween.end).min(1.0).max(0.0)
+    cubic_inout((tween.t - tween.start) / tween.end)
+        .min(1.0)
+        .max(0.0)
 }
 
 struct MainState {
     tween: Tween,
-    image: graphics::Image
+    image: graphics::Image,
 }
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
         let image = graphics::Image::solid(ctx, 50, graphics::Color::new(1.0, 0.0, 0.0, 1.0))?;
-        let state = MainState { 
+        let state = MainState {
             image,
-            tween: Tween {t: 0.0, start: 1.0, end: 3.0}
+            tween: Tween {
+                t: 0.0,
+                start: 1.0,
+                end: 3.0,
+            },
         };
         Ok(state)
     }
@@ -56,7 +62,10 @@ impl event::EventHandler for MainState {
         graphics::draw(
             ctx,
             &mut self.image,
-            (Point2::new(WINDOW_WIDTH * interpolate(&self.tween) / 2.0, WINDOW_HEIGHT / 2.0),)
+            (Point2::new(
+                WINDOW_WIDTH * interpolate(&self.tween) / 2.0,
+                WINDOW_HEIGHT / 2.0,
+            ),),
         )?;
         graphics::present(ctx);
         Ok(())

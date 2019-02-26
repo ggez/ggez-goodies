@@ -18,13 +18,13 @@ use std::marker::Sized;
 
 use std::f32;
 
+use ggez::graphics;
+use ggez::graphics::spritebatch::SpriteBatch;
+use ggez::graphics::BlendMode;
+use ggez::mint::{Point2, Vector2};
+use ggez::{Context, GameResult};
 use rand;
 use rand::Rng;
-use ggez::{Context, GameResult};
-use ggez::graphics;
-use ggez::graphics::BlendMode;
-use ggez::graphics::spritebatch::SpriteBatch;
-use ggez::nalgebra::{Point2, Vector2};
 
 enum ValueGenerator<T> {
     Fixed(T),
@@ -55,7 +55,7 @@ impl ValueGenerator<Vector2<f32>> {
                 let mut rng = rand::thread_rng();
                 let x = rng.gen_range(low.x, high.x);
                 let y = rng.gen_range(low.y, high.y);
-                Vector2::new(x, y)
+                Vector2 { x, y }
             }
         }
     }
@@ -69,7 +69,7 @@ impl ValueGenerator<Point2<f32>> {
                 let mut rng = rand::thread_rng();
                 let x = rng.gen_range(low.x, high.x);
                 let y = rng.gen_range(low.y, high.y);
-                Point2::new(x, y)
+                Point2 { x, y }
             }
         }
     }
@@ -439,7 +439,7 @@ impl EmissionShape {
                 // let y_min = f32::max(min.y, f32::min(y_bbox_xmin, y_bbox_xmax));
                 // let y_max = f32::min(max.y, f32::max(y_bbox_xmin, y_bbox_xmax));
 
-                Point2::new(x, y)
+                Point2 { x, y }
             }
             EmissionShape::Circle(center, radius) => {
                 let mut rng = rand::thread_rng();
@@ -447,7 +447,7 @@ impl EmissionShape {
                 let r = rng.gen_range(0.0, radius);
                 let x = theta.cos() * r;
                 let y = theta.sin() * r;
-                center + Vector2::new(x, y)
+                Point2 { x: x + center.x, y: y + center.y }
             }
         }
     }
@@ -489,11 +489,11 @@ impl ParticleSystem {
         ParticleSystem {
             particles: Vec::new(),
             max_particles: 0,
-            acceleration: Vector2::new(0.0, 0.0),
+            acceleration: Vector2 { x: 0.0, y: 0.0 },
             start_color: ValueGenerator::Fixed((255, 255, 255).into()),
-            start_position: ValueGenerator::Fixed(Point2::new(0.0, 0.0)),
-            start_shape: EmissionShape::Point(Point2::new(0.0, 0.0)),
-            start_velocity: ValueGenerator::Fixed(Vector2::new(1.0, 1.0)),
+            start_position: ValueGenerator::Fixed(Point2 { x: 0.0, y: 0.0 }),
+            start_shape: EmissionShape::Point(Point2 { x: 0.0, y: 0.0 }),
+            start_velocity: ValueGenerator::Fixed(Vector2 { x: 1.0, y: 1.0 }),
             start_angle: ValueGenerator::Fixed(0.0),
             start_ang_vel: ValueGenerator::Fixed(0.0),
             start_size: ValueGenerator::Fixed(1.0),
@@ -547,8 +547,10 @@ impl ParticleSystem {
         }
         for mut p in self.particles.iter_mut() {
             let life_fraction = p.age / p.max_age;
-            p.vel += self.acceleration * dt;
-            p.pos += p.vel * dt;
+            p.vel.x += self.acceleration.x * dt;
+            p.vel.y += self.acceleration.y * dt;
+            p.pos.x += p.vel.x * dt;
+            p.pos.y += p.vel.y * dt;
             p.age += dt;
             p.angle += p.ang_vel;
 
@@ -573,8 +575,11 @@ impl graphics::Drawable for ParticleSystem {
                 let drawparam = graphics::DrawParam {
                     dest: particle.pos,
                     rotation: particle.angle,
-                    scale: Vector2::new(particle.size, particle.size),
-                    offset: Point2::new(0.5, 0.5),
+                    scale: Vector2 {
+                        x: particle.size,
+                        y: particle.size,
+                    },
+                    offset: Point2 { x: 0.5, y: 0.5 },
                     color: particle.color,
                     ..Default::default()
                 };
@@ -604,11 +609,11 @@ impl graphics::Drawable for ParticleSystem {
             let mut size = f32::MIN;
 
             for particle in &self.particles {
-                if particle.pos.coords.x < x {
-                    x = particle.pos.coords.x;
+                if particle.pos.x < x {
+                    x = particle.pos.x;
                 }
-                if particle.pos.coords.y < y {
-                    y = particle.pos.coords.y;
+                if particle.pos.y < y {
+                    y = particle.pos.y;
                 }
                 if particle.size > size {
                     size = particle.size;

@@ -17,9 +17,9 @@
 // TODO: Debug functions to draw world and camera grid!
 
 use ggez;
-use ggez::GameResult;
 use ggez::graphics;
-use ggez::nalgebra::{Point2, Vector2};
+use ggez::mint::{Point2, Vector2};
+use ggez::GameResult;
 
 // Hmm.  Could, instead, use a 2d transformation
 // matrix, or create one of such.
@@ -31,17 +31,24 @@ pub struct Camera {
 
 impl Camera {
     pub fn new(screen_width: u32, screen_height: u32, view_width: f32, view_height: f32) -> Self {
-        let screen_size = Vector2::new(screen_width as f32, screen_height as f32);
-        let view_size = Vector2::new(view_width as f32, view_height as f32);
+        let screen_size = Vector2 {
+            x: screen_width as f32,
+            y: screen_height as f32,
+        };
+        let view_size = Vector2 {
+            x: view_width as f32,
+            y: view_height as f32,
+        };
         Camera {
             screen_size: screen_size,
             view_size: view_size,
-            view_center: Point2::new(0.0, 0.0),
+            view_center: Point2 { x: 0.0, y: 0.0 },
         }
     }
 
     pub fn move_by(&mut self, by: Vector2<f32>) {
-        self.view_center += by;
+        self.view_center.x += by.x;
+        self.view_center.y += by.y;
     }
 
     pub fn move_to(&mut self, to: Point2<f32>) {
@@ -55,12 +62,21 @@ impl Camera {
     /// not know how large the thing that might be drawn is;
     /// that's not its job.
     pub fn world_to_screen_coords(&self, from: Point2<f32>) -> (i32, i32) {
-        let pixels_per_unit = self.screen_size.component_div(&self.view_size);
-        let view_offset = from - self.view_center;
-        let view_scale = view_offset.component_mul(&pixels_per_unit);
+        let pixels_per_unit = Vector2 {
+            x: self.screen_size.x / self.view_size.x,
+            y: self.screen_size.y / self.view_size.y,
+        };
+        let view_offset = Vector2 {
+            x: from.x - self.view_center.x,
+            y: from.y - self.view_center.y,
+        };
+        let view_scale = Vector2 {
+            x: view_offset.x * pixels_per_unit.x,
+            y: view_offset.y * pixels_per_unit.y,
+        };
 
-        let x = (*view_scale).x + (*self.screen_size).x / 2.0;
-        let y = (*self.screen_size).y - ((*view_scale).y + (*self.screen_size).y / 2.0);
+        let x = view_scale.x + self.screen_size.x / 2.0;
+        let y = self.screen_size.y - view_scale.y + self.screen_size.y / 2.0;
         (x as i32, y as i32)
     }
 
@@ -72,12 +88,24 @@ impl Camera {
         let (sx, sy) = from;
         let sx = sx as f32;
         let sy = sy as f32;
-        let flipped_x = sx - ((*self.screen_size).x / 2.0);
-        let flipped_y = -sy + (*self.screen_size).y / 2.0;
-        let screen_coords = Vector2::new(flipped_x, flipped_y);
-        let units_per_pixel = self.view_size.component_div(&self.screen_size);
-        let view_scale = screen_coords.component_mul(&units_per_pixel);
-        let view_offset = self.view_center + view_scale;
+        let flipped_x = sx - self.screen_size.x / 2.0;
+        let flipped_y = -sy + self.screen_size.y / 2.0;
+        let screen_coords = Vector2 {
+            x: flipped_x,
+            y: flipped_y,
+        };
+        let units_per_pixel = Vector2 {
+            x: self.view_size.x / self.screen_size.x,
+            y: self.view_size.y / self.screen_size.y,
+        };
+        let view_scale = Vector2 {
+            x: screen_coords.x * units_per_pixel.x,
+            y: screen_coords.y * units_per_pixel.y,
+        };
+        let view_offset = Point2 {
+            x: self.view_center.x + view_scale.y,
+            y: self.view_center.y + view_scale.y,
+        };
 
         view_offset
     }
@@ -88,7 +116,10 @@ impl Camera {
 
     fn calculate_dest_point(&self, location: Point2<f32>) -> Point2<f32> {
         let (sx, sy) = self.world_to_screen_coords(location);
-        Point2::new(sx as f32, sy as f32)
+        Point2 {
+            x: sx as f32,
+            y: sy as f32,
+        }
     }
 }
 
@@ -123,16 +154,12 @@ where
     }
 }
 
-impl<T> CameraDraw for T
-where
-    T: graphics::Drawable,
-{
-}
+impl<T> CameraDraw for T where T: graphics::Drawable {}
 
 #[cfg(test)]
 mod tests {
-    use ggez::nalgebra::{Point2, Vector2};
     use super::*;
+    use ggez::nalgebra::{Point2, Vector2};
 
     #[test]
     fn test_coord_round_trip() {

@@ -16,9 +16,9 @@
 
 // TODO: Handle mice, game pads, joysticks
 
-use std::hash::Hash;
-use std::collections::HashMap;
 use ggez::event::KeyCode;
+use std::collections::HashMap;
+use std::hash::Hash;
 
 // Okay, but how does it actually work?
 // Basically we have to bind input events to buttons and axes.
@@ -173,11 +173,12 @@ where
                 // Accelerate the axis towards the
                 // input'ed direction.
                 let vel = axis_status.acceleration * dt;
-                let pending_position = axis_status.position + if axis_status.direction > 0.0 {
-                    vel
-                } else {
-                    -vel
-                };
+                let pending_position = axis_status.position
+                    + if axis_status.direction > 0.0 {
+                        vel
+                    } else {
+                        -vel
+                    };
                 axis_status.position = if pending_position > 1.0 {
                     1.0
                 } else if pending_position < -1.0 {
@@ -319,8 +320,8 @@ where
 
 #[cfg(test)]
 mod tests {
-    use ggez::event::*;
     use super::*;
+    use ggez::event::*;
 
     #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
     enum Buttons {

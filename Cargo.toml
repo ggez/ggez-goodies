@@ -1,7 +1,7 @@
 [package]
 name = "ggez-goodies"
 description = "Various small useful add-ons for the ggez game framework"
-version = "0.5.0-rc.0"
+version = "0.5.0-rc.1"
 repository = "https://github.com/ggez/ggez-goodies"
 documentation = "https://docs.rs/ggez-goodies"
 authors = ["Simon Heath <icefoxen@gmail.com>"]
@@ -11,7 +11,7 @@ readme = "README.md"
 
 
 [dependencies]
-ggez = { git = "https://github.com/ggez/ggez" }
+ggez = "0.5.0-rc.1"
 rand = "0.4"
 
 [dev-dependencies]

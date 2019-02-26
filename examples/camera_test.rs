@@ -7,9 +7,9 @@ extern crate rand;
 
 use ggez::conf;
 use ggez::event;
-use ggez::{Context, GameResult};
 use ggez::graphics;
 use ggez::nalgebra::{Point2, Vector2};
+use ggez::{Context, GameResult};
 
 extern crate ggez_goodies;
 use ggez_goodies::camera::*;
@@ -65,7 +65,7 @@ impl event::EventHandler for MainState {
                     ctx,
                     graphics::DrawMode::fill(),
                     rectangle,
-                    graphics::Color::from((255, 0, 0))
+                    graphics::Color::from((255, 0, 0)),
                 )?;
                 graphics::draw(ctx, &rectangle, (ggez::mint::Point2 { x: 0.0, y: 0.0 },))?;
             }
