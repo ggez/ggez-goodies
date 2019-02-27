@@ -18,12 +18,13 @@ use std::marker::Sized;
 
 use std::f32;
 
+use ggez::graphics;
+use ggez::graphics::spritebatch::SpriteBatch;
+use ggez::graphics::BlendMode;
+use ggez::mint::{Point2, Vector2};
+use ggez::{Context, GameResult};
 use rand;
 use rand::Rng;
-use ggez::{Context, GameResult};
-use ggez::graphics;
-use ggez::graphics::{BlendMode, Point2, Vector2};
-use ggez::graphics::spritebatch::SpriteBatch;
 
 enum ValueGenerator<T> {
     Fixed(T),
@@ -46,29 +47,29 @@ impl ValueGenerator<f32> {
 
 // Apparently implementing SampleRange for our own type
 // isn't something we should do, so we just define this by hand...
-impl ValueGenerator<Vector2> {
-    fn get_value(&self) -> Vector2 {
+impl ValueGenerator<Vector2<f32>> {
+    fn get_value(&self) -> Vector2<f32> {
         match *self {
             ValueGenerator::Fixed(x) => x,
             ValueGenerator::UniformRange(low, high) => {
                 let mut rng = rand::thread_rng();
                 let x = rng.gen_range(low.x, high.x);
                 let y = rng.gen_range(low.y, high.y);
-                Vector2::new(x, y)
+                Vector2 { x, y }
             }
         }
     }
 }
 
-impl ValueGenerator<Point2> {
-    fn get_value(&self) -> Point2 {
+impl ValueGenerator<Point2<f32>> {
+    fn get_value(&self) -> Point2<f32> {
         match *self {
             ValueGenerator::Fixed(x) => x,
             ValueGenerator::UniformRange(low, high) => {
                 let mut rng = rand::thread_rng();
                 let x = rng.gen_range(low.x, high.x);
                 let y = rng.gen_range(low.y, high.y);
-                Point2::new(x, y)
+                Point2 { x, y }
             }
         }
     }
@@ -245,8 +246,8 @@ impl<T: Interpolate + Copy> Transition<T> {
 // that could get a bit sticky.  :/
 
 struct Particle {
-    pos: Point2,
-    vel: Vector2,
+    pos: Point2<f32>,
+    vel: Vector2<f32>,
     color: graphics::Color,
     size: f32,
     angle: f32,
@@ -287,8 +288,8 @@ struct Particle {
 
 impl Particle {
     fn new(
-        pos: Point2,
-        vel: Vector2,
+        pos: Point2<f32>,
+        vel: Vector2<f32>,
         color: graphics::Color,
         size: f32,
         angle: f32,
@@ -350,11 +351,11 @@ impl ParticleSystemBuilder {
     prop!(start_size, start_size_range, f32);
     prop!(start_ang_vel, start_ang_vel_range, f32);
     // These two need some work, 'cause, shapes.
-    prop!(start_position, start_position_range, Point2);
-    prop!(start_velocity, start_velocity_range, Vector2);
+    prop!(start_position, start_position_range, Point2<f32>);
+    prop!(start_velocity, start_velocity_range, Vector2<f32>);
     prop!(start_max_age, start_max_age_range, f32);
 
-    pub fn acceleration(mut self, accel: Vector2) -> Self {
+    pub fn acceleration(mut self, accel: Vector2<f32>) -> Self {
         self.system.acceleration = accel;
         self
     }
@@ -386,18 +387,18 @@ impl ParticleSystemBuilder {
 /// and initial velocity...  Uniform, direction, cone, line...
 pub enum EmissionShape {
     // Source point
-    Point(Point2),
+    Point(Point2<f32>),
     // min and max bounds of the line segment.
-    Line(Point2, Point2),
+    Line(Point2<f32>, Point2<f32>),
     // Center point and radius
-    Circle(Point2, f32),
+    Circle(Point2<f32>, f32),
 }
 
 impl EmissionShape {
     /// Gets a random point that complies
     /// with the given shape.
     /// TODO: This is an ideal case for unit tests.
-    fn get_random(&self) -> Point2 {
+    fn get_random(&self) -> Point2<f32> {
         match *self {
             EmissionShape::Point(v) => v,
             EmissionShape::Line(p1, p2) => {
@@ -438,7 +439,7 @@ impl EmissionShape {
                 // let y_min = f32::max(min.y, f32::min(y_bbox_xmin, y_bbox_xmax));
                 // let y_max = f32::min(max.y, f32::max(y_bbox_xmin, y_bbox_xmax));
 
-                Point2::new(x, y)
+                Point2 { x, y }
             }
             EmissionShape::Circle(center, radius) => {
                 let mut rng = rand::thread_rng();
@@ -446,7 +447,10 @@ impl EmissionShape {
                 let r = rng.gen_range(0.0, radius);
                 let x = theta.cos() * r;
                 let y = theta.sin() * r;
-                center + Vector2::new(x, y)
+                Point2 {
+                    x: x + center.x,
+                    y: y + center.y,
+                }
             }
         }
     }
@@ -464,15 +468,15 @@ pub struct ParticleSystem {
     // Emission parameters
     emission_rate: f32,
     start_color: ValueGenerator<graphics::Color>,
-    start_position: ValueGenerator<Point2>,
+    start_position: ValueGenerator<Point2<f32>>,
     start_shape: EmissionShape,
-    start_velocity: ValueGenerator<Vector2>,
+    start_velocity: ValueGenerator<Vector2<f32>>,
     start_angle: ValueGenerator<f32>,
     start_ang_vel: ValueGenerator<f32>,
     start_size: ValueGenerator<f32>,
     start_max_age: ValueGenerator<f32>,
     // Global state/update parameters
-    acceleration: Vector2,
+    acceleration: Vector2<f32>,
 
     delta_size: Transition<f32>,
     delta_color: Transition<graphics::Color>,
@@ -488,11 +492,11 @@ impl ParticleSystem {
         ParticleSystem {
             particles: Vec::new(),
             max_particles: 0,
-            acceleration: Vector2::new(0.0, 0.0),
+            acceleration: Vector2 { x: 0.0, y: 0.0 },
             start_color: ValueGenerator::Fixed((255, 255, 255).into()),
-            start_position: ValueGenerator::Fixed(Point2::new(0.0, 0.0)),
-            start_shape: EmissionShape::Point(Point2::new(0.0, 0.0)),
-            start_velocity: ValueGenerator::Fixed(Vector2::new(1.0, 1.0)),
+            start_position: ValueGenerator::Fixed(Point2 { x: 0.0, y: 0.0 }),
+            start_shape: EmissionShape::Point(Point2 { x: 0.0, y: 0.0 }),
+            start_velocity: ValueGenerator::Fixed(Vector2 { x: 1.0, y: 1.0 }),
             start_angle: ValueGenerator::Fixed(0.0),
             start_ang_vel: ValueGenerator::Fixed(0.0),
             start_size: ValueGenerator::Fixed(1.0),
@@ -546,8 +550,10 @@ impl ParticleSystem {
         }
         for mut p in self.particles.iter_mut() {
             let life_fraction = p.age / p.max_age;
-            p.vel += self.acceleration * dt;
-            p.pos += p.vel * dt;
+            p.vel.x += self.acceleration.x * dt;
+            p.vel.y += self.acceleration.y * dt;
+            p.pos.x += p.vel.x * dt;
+            p.pos.y += p.vel.y * dt;
             p.age += dt;
             p.angle += p.ang_vel;
 
@@ -561,7 +567,7 @@ impl ParticleSystem {
 }
 
 impl graphics::Drawable for ParticleSystem {
-    fn draw_ex(&self, context: &mut Context, param: graphics::DrawParam) -> GameResult<()> {
+    fn draw(&self, context: &mut Context, param: graphics::DrawParam) -> GameResult<()> {
         // Check whether an update has been processed since our last draw call.
         if self.sprite_batch_dirty.get() {
             use std::ops::DerefMut;
@@ -572,9 +578,12 @@ impl graphics::Drawable for ParticleSystem {
                 let drawparam = graphics::DrawParam {
                     dest: particle.pos,
                     rotation: particle.angle,
-                    scale: Point2::new(particle.size, particle.size),
-                    offset: Point2::new(0.5, 0.5),
-                    color: Some(particle.color),
+                    scale: Vector2 {
+                        x: particle.size,
+                        y: particle.size,
+                    },
+                    offset: Point2 { x: 0.5, y: 0.5 },
+                    color: particle.color,
                     ..Default::default()
                 };
                 sb.add(drawparam);
@@ -582,14 +591,39 @@ impl graphics::Drawable for ParticleSystem {
             self.sprite_batch_dirty.set(false);
         }
 
-        self.sprite_batch.borrow().draw_ex(context, param)?;
+        self.sprite_batch.borrow().draw(context, param)?;
         Ok(())
+    }
+
+    fn blend_mode(&self) -> Option<BlendMode> {
+        self.sprite_batch.borrow().blend_mode()
     }
 
     fn set_blend_mode(&mut self, mode: Option<BlendMode>) {
         self.sprite_batch.borrow_mut().set_blend_mode(mode)
     }
-    fn get_blend_mode(&self) -> Option<BlendMode> {
-        self.sprite_batch.borrow().get_blend_mode()
+
+    fn dimensions(&self, _ctx: &mut Context) -> Option<graphics::Rect> {
+        if self.particles.is_empty() {
+            None
+        } else {
+            let mut x = f32::MAX;
+            let mut y = f32::MAX;
+            let mut size = f32::MIN;
+
+            for particle in &self.particles {
+                if particle.pos.x < x {
+                    x = particle.pos.x;
+                }
+                if particle.pos.y < y {
+                    y = particle.pos.y;
+                }
+                if particle.size > size {
+                    size = particle.size;
+                }
+            }
+
+            Some(graphics::Rect::new(x, y, size, size))
+        }
     }
 }

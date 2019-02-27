@@ -1,12 +1,12 @@
-extern crate ggez;
 extern crate ezing;
+extern crate ggez;
 
 use ggez::conf;
 use ggez::event;
-use ggez::{Context, GameResult};
 use ggez::graphics;
-use ggez::graphics::{Point2};
+use ggez::nalgebra::Point2;
 use ggez::timer;
+use ggez::{Context, GameResult};
 
 use ezing::cubic_inout;
 
@@ -19,22 +19,27 @@ struct Tween {
 }
 
 fn interpolate(tween: &Tween) -> f32 {
-    cubic_inout((tween.t - tween.start) / tween.end).min(1.0).max(0.0)
+    cubic_inout((tween.t - tween.start) / tween.end)
+        .min(1.0)
+        .max(0.0)
 }
 
 struct MainState {
     tween: Tween,
-    image: graphics::Image
+    image: graphics::Image,
 }
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
         let image = graphics::Image::solid(ctx, 50, graphics::Color::new(1.0, 0.0, 0.0, 1.0))?;
-        let state = MainState { 
+        let state = MainState {
             image,
-            tween: Tween {t: 0.0, start: 1.0, end: 3.0}
+            tween: Tween {
+                t: 0.0,
+                start: 1.0,
+                end: 3.0,
+            },
         };
-        graphics::set_background_color(ctx, ggez::graphics::Color::from((0, 0, 0, 0)));
         Ok(state)
     }
 }
@@ -53,27 +58,30 @@ impl event::EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        graphics::clear(ctx);
+        graphics::clear(ctx, [0.0, 0.0, 0.0, 1.0].into());
         graphics::draw(
             ctx,
             &mut self.image,
-            Point2::new(WINDOW_WIDTH * interpolate(&self.tween) / 2.0, WINDOW_HEIGHT / 2.0),
-            0.0,
+            (Point2::new(
+                WINDOW_WIDTH * interpolate(&self.tween) / 2.0,
+                WINDOW_HEIGHT / 2.0,
+            ),),
         )?;
-        graphics::present(ctx);
+        graphics::present(ctx)?;
         Ok(())
     }
 }
 
 pub fn main() {
-    let mut c = conf::Conf::new();
-    c.window_setup.title = "Smooth as Butter".to_string();
-    c.window_mode.width = WINDOW_WIDTH as u32;
-    c.window_mode.height = WINDOW_HEIGHT as u32;
-    let ctx = &mut Context::load_from_conf("smooth_interpolates", "test", c).unwrap();
+    let (ctx, event_loop) = &mut ggez::ContextBuilder::new("smooth_interpolates", "test")
+        .window_setup(conf::WindowSetup::default().title("Smooth as Butter"))
+        .window_mode(conf::WindowMode::default().dimensions(WINDOW_WIDTH, WINDOW_HEIGHT))
+        .build()
+        .unwrap();
+
     let game = &mut MainState::new(ctx).unwrap();
 
-    if let Err(e) = event::run(ctx, game) {
+    if let Err(e) = event::run(ctx, event_loop, game) {
         println!("Error encountered: {}", e);
     } else {
         println!("Game exited cleanly.");

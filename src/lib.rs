@@ -1,4 +1,5 @@
 extern crate ggez;
+pub extern crate nalgebra_glm;
 extern crate rand;
 
 pub mod camera;
