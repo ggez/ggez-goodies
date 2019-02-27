@@ -12,6 +12,7 @@ readme = "README.md"
 
 [dependencies]
 ggez = "0.5.0-rc.1"
+nalgebra-glm = "0.3.0"
 rand = "0.4"
 
 [dev-dependencies]
