@@ -16,7 +16,7 @@
 
 use ggez;
 
-/// A command to change to a new scene, either by pushign a new one,
+/// A command to change to a new scene, either by pushing a new one,
 /// popping one or replacing the current scene (pop and then push).
 pub enum SceneSwitch<C, Ev> {
     None,
@@ -61,12 +61,20 @@ impl<C, Ev> SceneSwitch<C, Ev> {
     {
         SceneSwitch::Push(Box::new(scene))
     }
+
+    /// Shortcut for `SceneSwitch::Pop`.
+    /// 
+    /// Currently a little redundant but multiple pops might be nice.
+    pub fn pop() -> Self
+    {
+        SceneSwitch::Pop
+    }
 }
 
 /// A stack of `Scene`'s, together with a context object.
 pub struct SceneStack<C, Ev> {
     pub world: C,
-    scenes: Vec<Box<Scene<C, Ev>>>,
+    scenes: Vec<Box<dyn Scene<C, Ev>>>,
 }
 
 impl<C, Ev> SceneStack<C, Ev> {
@@ -78,20 +86,20 @@ impl<C, Ev> SceneStack<C, Ev> {
     }
 
     /// Add a new scene to the top of the stack.
-    pub fn push(&mut self, scene: Box<Scene<C, Ev>>) {
+    pub fn push(&mut self, scene: Box<dyn Scene<C, Ev>>) {
         self.scenes.push(scene)
     }
 
     /// Remove the top scene from the stack and returns it;
     /// panics if there is none.
-    pub fn pop(&mut self) -> Box<Scene<C, Ev>> {
+    pub fn pop(&mut self) -> Box<dyn Scene<C, Ev>> {
         self.scenes
             .pop()
             .expect("ERROR: Popped an empty scene stack.")
     }
 
     /// Returns the current scene; panics if there is none.
-    pub fn current(&self) -> &Scene<C, Ev> {
+    pub fn current(&self) -> &dyn Scene<C, Ev> {
         &**self
             .scenes
             .last()
@@ -100,7 +108,7 @@ impl<C, Ev> SceneStack<C, Ev> {
 
     /// Executes the given SceneSwitch command; if it is a pop or replace
     /// it returns `Some(old_scene)`, otherwise `None`
-    pub fn switch(&mut self, next_scene: SceneSwitch<C, Ev>) -> Option<Box<Scene<C, Ev>>> {
+    pub fn switch(&mut self, next_scene: SceneSwitch<C, Ev>) -> Option<Box<dyn Scene<C, Ev>>> {
         match next_scene {
             SceneSwitch::None => None,
             SceneSwitch::Pop => {
@@ -119,9 +127,9 @@ impl<C, Ev> SceneStack<C, Ev> {
         }
     }
 
-    // These functions must be on the SceneStack because otherwise
-    // if you try to get the current scene and the world to call
-    // update() on the current scene it causes a double-borrow.  :/
+    /// The update function must be on the SceneStack because otherwise
+    /// if you try to get the current scene and the world to call
+    /// update() on the current scene it causes a double-borrow.  :/
     pub fn update(&mut self, ctx: &mut ggez::Context) {
         let next_scene = {
             let current_scene = &mut **self
@@ -137,7 +145,7 @@ impl<C, Ev> SceneStack<C, Ev> {
     /// supposed to draw the previous one, then draw them from the bottom up.
     ///
     /// This allows for layering GUI's and such.
-    fn draw_scenes(scenes: &mut [Box<Scene<C, Ev>>], world: &mut C, ctx: &mut ggez::Context) {
+    fn draw_scenes(scenes: &mut [Box<dyn Scene<C, Ev>>], world: &mut C, ctx: &mut ggez::Context) {
         assert!(scenes.len() > 0);
         if let Some((current, rest)) = scenes.split_last_mut() {
             if current.draw_previous() {
