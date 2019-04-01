@@ -172,8 +172,8 @@ impl Map {
                     if let Some(tile_idx) = layer.get_tile(x, y, self.width) {
                         let tile = self.tile_map.get(&tile_idx).expect("Invalid tile ID!");
                         let src_rect = tile.rect;
-                        // TODO: nalgebra_glm doesn't have a Point type.  Siiiiigh.
-                        let dest_pt = [src_rect.w * (x as f32), src_rect.h * (y as f32)];
+                        let dest_pt: crate::Point2 =
+                            euclid::point2(src_rect.w * (x as f32), src_rect.h * (y as f32));
                         let _ = self
                             .batch
                             .add(graphics::DrawParam::default().src(src_rect).dest(dest_pt));
