@@ -63,10 +63,9 @@ impl<C, Ev> SceneSwitch<C, Ev> {
     }
 
     /// Shortcut for `SceneSwitch::Pop`.
-    /// 
+    ///
     /// Currently a little redundant but multiple pops might be nice.
-    pub fn pop() -> Self
-    {
+    pub fn pop() -> Self {
         SceneSwitch::Pop
     }
 }

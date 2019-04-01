@@ -41,7 +41,7 @@ use std::hash::Hash;
 // Easy way?  Hash map of event -> axis/button bindings.
 
 /// The raw ggez input types; the "from" part of an input mapping.
-/// 
+///
 /// TODO: Desperately needs better name.
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 enum InputType {
@@ -49,13 +49,13 @@ enum InputType {
 }
 
 /// Abstract input values; the "to" part of an input mapping.
-/// 
+///
 /// This is generic over `Axes` and `Buttons` types; these are
 /// types that YOU define.  For instance, for your particular
 /// game you may have a "camera" axis, a "movement" axis, and
 /// "select", "menu" and "exit" buttons.  You would do something
 /// like this:
-/// 
+///
 /// ```rust
 /// use ggez_goodies::input::InputEffect;
 /// #[derive(PartialEq, Eq, Hash, Clone)]
@@ -69,10 +69,10 @@ enum InputType {
 ///     Menu,
 ///     Exit
 /// }
-/// 
+///
 /// type MyInputEffect = InputEffect<MyAxes, MyButtons>;
 /// ```
-/// 
+///
 /// TODO: Desperately needs better name.
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]
 pub enum InputEffect<Axes, Buttons>
@@ -85,7 +85,7 @@ where
 }
 
 /// The stored state of an `Axis`.
-/// 
+///
 /// An axis is not JUST an exact position, this does
 /// some simple linear smoothing of the axis value that
 /// is usually quite nice.  This also contains the state
@@ -195,7 +195,6 @@ where
     Axes: Eq + Hash + Clone,
     Buttons: Eq + Hash + Clone,
 {
-
     pub fn new() -> Self {
         Self {
             axes: HashMap::default(),
