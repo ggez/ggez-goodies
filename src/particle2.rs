@@ -1,12 +1,15 @@
+//! Basic particle system.
+//!
+//! It'd be cool to use Rayon for it someday!
+
 use euclid;
 use ggez;
 use ggez::graphics;
-use std::time::{Duration, Instant};
 
 pub trait Particle {
     fn new() -> Self;
     fn to_draw_param(&self) -> graphics::DrawParam;
-    fn update(&mut self, dt: Duration);
+    fn update(&mut self, dt: f32);
     fn alive(&self) -> bool;
 }
 
@@ -15,35 +18,35 @@ pub trait Particle {
 /// Need to think about how to make it better.
 pub struct Emitter {
     /// Delay between emitting particles.
-    delay: Duration,
+    /// We use f32 instead of Duration because speed is
+    /// more important than precision.
+    /// A u32 of nanoseconds or such might be faster, idk.
+    delay: f32,
 
-    last_emitted: Instant,
+    /// Time since we last emitted a particle.
+    last_emitted: f32,
 }
 
 impl Emitter {
-    pub fn new(rate: f64) -> Self {
+    pub fn new(rate: f32) -> Self {
         // https://github.com/rust-lang/rust/issues/54361
         // :|
-        let delay_seconds = 1.0 / rate;
-        let delay = Duration::from_nanos((delay_seconds * 10e9) as u64);
+        let delay = 1.0 / rate;
         Self {
             delay,
-            last_emitted: Instant::now(),
+            last_emitted: 0.0,
         }
     }
 
     /// This is a sorta weird/lame way of doing it, but it works for now.
     /// Just call this in a loop until it returns `None`.
-    ///
-    /// TODO: It should probably take a dt instead of using `Instant::now()`
-    fn update<P>(&mut self) -> Option<P>
+    fn update<P>(&mut self, dt: f32) -> Option<P>
     where
         P: Particle,
     {
-        let now = Instant::now();
-        let diff = now - self.last_emitted;
-        if diff > self.delay {
-            self.last_emitted -= self.delay;
+        self.last_emitted -= dt;
+        if self.last_emitted < 0.0 {
+            self.last_emitted += self.delay;
             Some(P::new())
         } else {
             None
@@ -74,7 +77,7 @@ where
         }
     }
 
-    pub fn update(&mut self, dt: Duration) {
+    pub fn update(&mut self, dt: f32) {
         // Remove old particles
         let mut i = 0;
         while i < self.particles.len() {
@@ -90,7 +93,7 @@ where
 
         // Add new particles, up to the limit
         while self.particles.len() < self.max_particles {
-            if let Some(p) = self.emitter.update() {
+            if let Some(p) = self.emitter.update(dt) {
                 self.particles.push(p);
             } else {
                 break;
@@ -103,6 +106,11 @@ where
             p.update(dt);
             self.batch.add(p.to_draw_param());
         }
+    }
+
+    /// Returns number of living particles.
+    pub fn count(&self) -> usize {
+        self.particles.len()
     }
 }
 
@@ -166,14 +174,10 @@ impl Particle for DefaultParticle {
                 self.size / 2.0,
             ))
     }
-    fn update(&mut self, _dt: Duration) {
-        self.pos += self.vel;
-        self.angle += self.ang_vel;
-        // TODO: Age and such.
-        // Do we really want it to be a Duration, or just f32/f64?
-        // The fewer conversions we do the better.
-        // These are used for visual fx though so we want to use real time,
-        // not just tick it once per frame or such.
+    fn update(&mut self, dt: f32) {
+        self.pos += self.vel * dt;
+        self.angle += self.ang_vel * dt;
+        self.age += dt;
     }
     fn alive(&self) -> bool {
         self.age < self.max_age

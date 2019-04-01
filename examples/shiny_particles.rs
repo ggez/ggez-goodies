@@ -1,23 +1,13 @@
-/*
-extern crate ggez;
-extern crate rand;
-
-use ggez::conf;
-use ggez::event;
-use ggez::graphics;
-use ggez::mint::{Point2, Vector2};
-use ggez::timer;
-use ggez::{Context, GameResult};
-
-extern crate ggez_goodies;
-use ggez_goodies::particle::*;
+use ggez::{self, conf, event, graphics, timer, Context, GameResult};
+use ggez_goodies::{self, euclid as eu, particle2 as p};
 
 struct MainState {
-    particles: ParticleSystem,
+    particles: p::ParticleSystem<p::DefaultParticle>,
 }
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
+        /*
         let system = ParticleSystemBuilder::new(ctx)
             .count(10000)
             .emission_rate(2000.0)
@@ -44,7 +34,11 @@ impl MainState {
             .emission_shape(EmissionShape::Circle(Point2 { x: 0.0, y: 0.0 }, 150.0))
             //.emission_shape(EmissionShape::Line(Point2::new(-100.0, -100.0), Point2::new(100.0, 100.0)))
             .build();
-        let state = MainState { particles: system };
+         */
+        let image = graphics::Image::new(ctx, "/player.png")?;
+        let emitter = p::Emitter::new(10.0);
+        let particles = p::ParticleSystem::new(1000, emitter, image);
+        let state = MainState { particles };
         Ok(state)
     }
 }
@@ -71,13 +65,11 @@ impl event::EventHandler for MainState {
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx, [0.0, 0.0, 0.0, 1.0].into());
+        let dest: ggez_goodies::Point2 = eu::point2(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
         graphics::draw(
             ctx,
             &mut self.particles,
-            (Point2 {
-                x: WINDOW_WIDTH / 2.0,
-                y: WINDOW_HEIGHT / 2.0,
-            },),
+            graphics::DrawParam::default().dest(dest),
         )?;
         graphics::present(ctx)?;
         Ok(())
@@ -99,6 +91,3 @@ pub fn main() {
         println!("Game exited cleanly.");
     }
 }
-*/
-
-fn main() {}
