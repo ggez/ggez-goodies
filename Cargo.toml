@@ -1,15 +1,19 @@
 [package]
 name = "ggez-goodies"
 description = "Various small useful add-ons for the ggez game framework"
-version = "0.1.0"
-repository = "https://github.com/icefoxen/ggez-goodies"
+version = "0.5.0-rc.1"
+repository = "https://github.com/ggez/ggez-goodies"
 documentation = "https://docs.rs/ggez-goodies"
 authors = ["Simon Heath <icefoxen@gmail.com>"]
+edition = "2018"
 license = "MIT"
 readme = "README.md"
 
 
 [dependencies]
-#ggez = "0.4"
-ggez = {git = "https://github.com/ggez/ggez.git", branch="devel"}
-rand = "0.4"
+ggez = "0.5.0-rc.1"
+nalgebra-glm = "0.4.0"
+rand = "0.6"
+
+[dev-dependencies]
+ezing = "0.2"
