@@ -77,9 +77,20 @@ impl event::EventHandler for MainState {
 }
 
 pub fn main() {
+    use std::path;
+    use std::env;
+    let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
+        let mut path = path::PathBuf::from(manifest_dir);
+        path.push("resources");
+        path
+    } else {
+        path::PathBuf::from("./resources")
+    };
+
     let (ctx, event_loop) = &mut ggez::ContextBuilder::new("shiny_particles", "test")
         .window_setup(conf::WindowSetup::default().title("Shiny particles"))
         .window_mode(conf::WindowMode::default().dimensions(WINDOW_WIDTH, WINDOW_HEIGHT))
+        .add_resource_path(resource_dir)
         .build()
         .unwrap();
 
