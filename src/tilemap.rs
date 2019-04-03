@@ -117,7 +117,11 @@ impl Map {
         image: graphics::Image,
         tile_map: HashMap<TileId, Tile>,
     ) -> Self {
-        let layers: Vec<Layer> = layers.into_iter().map(|l| Layer { tiles: l }).collect();
+        let layers: Vec<Layer> = layers.into_iter().map(|l| {
+            // Ensure all layers are the right size.
+            assert_eq!(width*height, l.len());
+            Layer { tiles: l }
+        }).collect();
         let mut s = Self {
             layers,
             width,
