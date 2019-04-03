@@ -16,7 +16,7 @@ use std::collections::HashMap;
 
 use ggez;
 use ggez::graphics::{self, spritebatch::SpriteBatch};
-use tiled;
+pub use tiled;
 
 /// Newtype struct for a tile ID.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
