@@ -63,7 +63,7 @@ impl TileMap {
     }
 }
  */
-
+#[derive(Clone, Debug, PartialEq)]
 pub struct Tileset {
     pub tileset: HashMap<TileId, Tile>,
 }
@@ -143,6 +143,7 @@ impl Tileset {
 /// which makes life a lot simpler when drawing layered maps.
 ///
 /// Tiles are stored in row-major order.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Layer {
     pub tiles: Vec<Option<TileId>>,
 }
@@ -167,6 +168,7 @@ impl Layer {
 /// Currently there's no way to animate this, though it should be
 /// added in the future.  An easy and efficient option would be making
 /// multiple entire Image's and having this able to flip between them.
+#[derive(Clone, Debug, PartialEq)]
 pub struct Map {
     pub layers: Vec<Layer>,
     /// Width, in tiles
