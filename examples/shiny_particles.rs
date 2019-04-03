@@ -77,8 +77,8 @@ impl event::EventHandler for MainState {
 }
 
 pub fn main() {
-    use std::path;
     use std::env;
+    use std::path;
     let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
         let mut path = path::PathBuf::from(manifest_dir);
         path.push("resources");

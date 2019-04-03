@@ -45,6 +45,9 @@ it's sorta dubiously useful but you have to have something
 like it eventually...
 For now we'll just keep things as low-level as possible.
 
+...the `tiled` crate has support to load a Tileset directly.
+That does everything we want here, huzzah!
+
 /// A lookup table from `TileId` to `Tile`.
 /// ...kinda don't like the overloaded use of the term `Map` here,
 /// but it is just a `HashMap` internally, so.
@@ -59,7 +62,80 @@ impl TileMap {
         }
     }
 }
-*/
+ */
+
+pub struct Tileset {
+    pub tileset: HashMap<TileId, Tile>,
+}
+
+impl Tileset {
+    /// Turn a `tiled::Tileset` into a hashmap of our own `Tile` types.
+    /// Having our own types for all the `Tiled` types is necessary for
+    /// coordinate translation and such, annoyingly.
+    pub fn from_tiled(tset: &tiled::Tileset, image_width: f32, image_height: f32) -> Self {
+        //let mut gid_to_tileid = HashMap::new();
+        let mut tileset = HashMap::new();
+
+        let image_widthi = image_width as u32;
+        let image_heighti = image_height as u32;
+        let tile_width = tset.tile_width as f32 / image_width;
+        let tile_height = tset.tile_height as f32 / image_height;
+
+        // Calculate number of tiles.
+        // Any fractions just get truncated off; Tiled 1.2 does the same thing.
+        let tiles_per_row = image_widthi / tset.tile_width;
+        let rows = image_heighti / tset.tile_height;
+        let tile_count = tiles_per_row * rows;
+
+        // Iterate over the tiles that actually have properties and such, and save them.
+        // TODO:
+        // Figure out gid translations; I think it's tile.id - tset.first_gid ?
+        // Decide what to do with tile properties.
+        /*
+                for (i, t) in tset.tiles.iter().enumerate() {
+                    //let id = TileId();
+                    //gid_to_tileid.insert(t.id, id);
+                }
+        */
+        for i in 0..tile_count {
+            let id = TileId(i as usize);
+            let x = i % tiles_per_row;
+            let y = i / tiles_per_row;
+            // TODO: Spacing and margin
+
+            // Actually translate the X's and Y's, it's not clear how
+            // to do that just from the `tiled` docs.  Though Looking
+            // at the file, it looks like it just counts from the
+            // top-left corner, it knows the dimensions of the image
+            // and so just uses the dimensions of the tiles to
+            // calculate offsets.  It actually omits tiles that don't
+            // have anything EXCEPT an offset, it appears.
+            let tile_rect = graphics::Rect {
+                x: x as f32 * tile_width,
+                y: y as f32 * tile_height,
+                w: tile_width,
+                h: tile_height,
+            };
+            let tile = Tile {
+                rect: tile_rect,
+                /// TODO: Pull from an attr or something?
+                opaque: true,
+            };
+            tileset.insert(id, tile);
+        }
+
+        Self { tileset }
+    }
+
+    /// TODO
+    fn translate_gid(&self, gid: u32) -> TileId {
+        TileId(gid as usize)
+    }
+
+    fn get(&self, id: TileId) -> Option<&Tile> {
+        self.tileset.get(&id)
+    }
+}
 
 /// A single layer in the map.
 /// Each item is a source rect, or None
@@ -102,7 +178,7 @@ pub struct Map {
     ///
     /// Having this separate makes life a lot easier 'cause
     /// we only have to do math once.
-    pub tile_map: HashMap<TileId, Tile>,
+    pub tileset: Tileset,
 
     batch: SpriteBatch,
 }
@@ -115,19 +191,22 @@ impl Map {
         height: usize,
         layers: Vec<Vec<Option<TileId>>>,
         image: graphics::Image,
-        tile_map: HashMap<TileId, Tile>,
+        tileset: Tileset,
     ) -> Self {
-        let layers: Vec<Layer> = layers.into_iter().map(|l| {
-            // Ensure all layers are the right size.
-            assert_eq!(width*height, l.len());
-            Layer { tiles: l }
-        }).collect();
+        let layers: Vec<Layer> = layers
+            .into_iter()
+            .map(|l| {
+                // Ensure all layers are the right size.
+                assert_eq!(width * height, l.len());
+                Layer { tiles: l }
+            })
+            .collect();
         let mut s = Self {
             layers,
             width,
             height,
 
-            tile_map,
+            tileset,
             batch: SpriteBatch::new(image),
         };
         s.batch_layers();
@@ -150,39 +229,11 @@ impl Map {
                 tileset.images.len()
             );
         }
+
         let image_str = &tileset.images[0].source;
         let image = image_callback(image_str);
         let image_rect = image.dimensions();
-
-        // Translation table from the file's global id's to our TileId's.
-        // Probably technically unnecessary but...
-        let mut gid_to_tileid = HashMap::new();
-        let mut tile_map = HashMap::new();
-
-        // Turn a `tiled::TileSet` into a hashmap of our own `Tile` types.
-        for (i, t) in tileset.tiles.iter().enumerate() {
-            let id = TileId(i);
-            let tile_width = tileset.tile_width as f32 / image_rect.w;
-            let tile_height = tileset.tile_height as f32 / image_rect.h;
-            // TODO: Spacing and margin
-
-            // TODO: Actually resolve the X and Y's, it's not clear how
-            // to do that just from the `tiled` docs.  I recall it needing
-            // some experimentation.
-            let tile_rect = graphics::Rect {
-                x: 0.,
-                y: 0.,
-                w: tile_width,
-                h: tile_height,
-            };
-            let tile = Tile {
-                rect: tile_rect,
-                /// TODO: Pull from an attr or something?
-                opaque: true,
-            };
-            tile_map.insert(id, tile);
-            gid_to_tileid.insert(t.id, id);
-        }
+        let tileset = Tileset::from_tiled(&t.tilesets[0], image_rect.w, image_rect.h);
 
         // Great, now we have a tile set, we can translate
         // the layers.
@@ -197,7 +248,7 @@ impl Map {
                     .tiles
                     .iter()
                     .flatten()
-                    .map(|gid| Some(*gid_to_tileid.get(gid).expect("GID not found?!")))
+                    .map(|gid| Some(tileset.translate_gid(*gid)))
                     .collect();
                 Layer { tiles }
             })
@@ -206,7 +257,7 @@ impl Map {
         let batch = SpriteBatch::new(image);
         let mut s = Self {
             layers,
-            tile_map,
+            tileset,
             width,
             height,
             batch,
@@ -224,7 +275,7 @@ impl Map {
                 let first_opaque_layer = self.first_opaque_layer_at(x, y);
                 for layer in &self.layers[first_opaque_layer..] {
                     if let Some(tile_idx) = layer.get_tile(x, y, self.width) {
-                        let tile = self.tile_map.get(&tile_idx).expect("Invalid tile ID!");
+                        let tile = self.tileset.get(tile_idx).expect("Invalid tile ID!");
                         let src_rect = tile.rect;
                         let dest_pt: crate::Point2 =
                             euclid::point2(src_rect.w * (x as f32), src_rect.h * (y as f32));
@@ -250,7 +301,7 @@ impl Map {
         assert!(self.layers.len() > 0);
         for i in (0..self.layers.len()).rev() {
             if let Some(tile_idx) = self.layers[i].get_tile(x, y, self.width) {
-                let tile = self.tile_map.get(&tile_idx).expect("Invalid tile ID!");
+                let tile = self.tileset.get(tile_idx).expect("Invalid tile ID!");
                 if tile.opaque {
                     return i;
                 }
