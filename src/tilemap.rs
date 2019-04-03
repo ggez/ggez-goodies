@@ -20,7 +20,7 @@ use tiled;
 
 /// Newtype struct for a tile ID.
 #[derive(Copy, Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord)]
-pub struct TileId(usize);
+pub struct TileId(pub usize);
 
 /// A struct containing info on how to draw a tile.
 /// Having this does make life easier, honest.
@@ -33,18 +33,46 @@ pub struct Tile {
     opaque: bool,
 }
 
+impl Tile {
+    pub fn new(rect: graphics::Rect, opaque: bool) -> Self {
+        Self { rect, opaque }
+    }
+}
+
+/*
+Really not sure if we want this to be its own public type;
+it's sorta dubiously useful but you have to have something
+like it eventually...
+For now we'll just keep things as low-level as possible.
+
+/// A lookup table from `TileId` to `Tile`.
+/// ...kinda don't like the overloaded use of the term `Map` here,
+/// but it is just a `HashMap` internally, so.
+pub struct TileMap {
+    tiles: HashMap<TileId, Tile>,
+}
+
+impl TileMap {
+    fn new() -> Self {
+        TileMap {
+            tiles: HashMap::new(),
+        }
+    }
+}
+*/
+
 /// A single layer in the map.
 /// Each item is a source rect, or None
 /// if there is nothing to be drawn for that location,
-/// which makes life a lot faster when drawing layered maps.
+/// which makes life a lot simpler when drawing layered maps.
+///
+/// Tiles are stored in row-major order.
 pub struct Layer {
     pub tiles: Vec<Option<TileId>>,
 }
 
 impl Layer {
     /// Returns the tile ID at the given coordinate.
-    ///
-    /// Tiles are stored in row-major order.
     fn get_tile(&self, x: usize, y: usize, width: usize) -> Option<TileId> {
         let offset = (y * width) + x;
         self.tiles[offset]
@@ -80,6 +108,28 @@ pub struct Map {
 }
 
 impl Map {
+    /// Low-level constructor for creating a `Map`.  You give it a set
+    /// of layers and a `TileMap` you have already created.
+    pub fn new(
+        width: usize,
+        height: usize,
+        layers: Vec<Vec<Option<TileId>>>,
+        image: graphics::Image,
+        tile_map: HashMap<TileId, Tile>,
+    ) -> Self {
+        let layers: Vec<Layer> = layers.into_iter().map(|l| Layer { tiles: l }).collect();
+        let mut s = Self {
+            layers,
+            width,
+            height,
+
+            tile_map,
+            batch: SpriteBatch::new(image),
+        };
+        s.batch_layers();
+        s
+    }
+
     /// Construct a map from a `tiled::Map`.
     /// Needs a function that will take an image source path and create/fetch
     /// a `ggez::graphics::Image` from it.
