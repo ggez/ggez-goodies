@@ -176,6 +176,11 @@ pub struct Map {
     /// Height, in tiles
     pub height: usize,
 
+    /// Tile width, in screen units
+    pub tile_width: f32,
+    /// Tile height, in screen units
+    pub tile_height: f32,
+
     /// A map from arbitrary ID's to `Tile`'s.
     ///
     /// Having this separate makes life a lot easier 'cause
@@ -191,6 +196,8 @@ impl Map {
     pub fn new(
         width: usize,
         height: usize,
+        tile_width: f32,
+        tile_height: f32,
         layers: Vec<Vec<Option<TileId>>>,
         image: graphics::Image,
         tileset: Tileset,
@@ -208,6 +215,8 @@ impl Map {
             width,
             height,
 
+            tile_width,
+            tile_height,
             tileset,
             batch: SpriteBatch::new(image),
         };
@@ -232,6 +241,8 @@ impl Map {
             );
         }
 
+        let tile_width = tileset.tile_width as f32;
+        let tile_height = tileset.tile_height as f32;
         let image_str = &tileset.images[0].source;
         let image = image_callback(image_str);
         let image_rect = image.dimensions();
@@ -262,6 +273,8 @@ impl Map {
             tileset,
             width,
             height,
+            tile_width,
+            tile_height,
             batch,
         };
         s.batch_layers();
@@ -280,7 +293,8 @@ impl Map {
                         let tile = self.tileset.get(tile_idx).expect("Invalid tile ID!");
                         let src_rect = tile.rect;
                         let dest_pt: crate::Point2 =
-                            euclid::point2(src_rect.w * (x as f32), src_rect.h * (y as f32));
+                            euclid::point2((x as f32) * self.tile_width, (y as f32) * self.tile_height);
+                            println!("Adding point {:?} {:?}", src_rect, dest_pt);
                         let _ = self
                             .batch
                             .add(graphics::DrawParam::default().src(src_rect).dest(dest_pt));
