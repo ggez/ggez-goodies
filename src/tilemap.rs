@@ -188,6 +188,7 @@ pub struct Map {
     pub tileset: Tileset,
 
     image: graphics::Image,
+    mesh: graphics::Mesh,
     batch: SpriteBatch,
 }
 
@@ -195,6 +196,7 @@ impl Map {
     /// Low-level constructor for creating a `Map`.  You give it a set
     /// of layers and a `TileMap` you have already created.
     pub fn new(
+        ctx: &mut ggez::Context,
         width: usize,
         height: usize,
         tile_width: f32,
@@ -212,6 +214,14 @@ impl Map {
             })
             .collect();
         let batch = SpriteBatch::new(image.clone());
+        // Dummy mesh
+        let mesh = graphics::Mesh::new_rectangle(
+            ctx,
+            graphics::DrawMode::fill(),
+            graphics::Rect::new(0.0, 0.0, 100.0, 100.0),
+            graphics::WHITE,
+        )
+        .unwrap();
         let mut s = Self {
             layers,
             width,
@@ -221,16 +231,21 @@ impl Map {
             tile_height,
             tileset,
             image,
+            mesh,
             batch,
         };
-        s.batch_layers();
+        s.batch_layers(ctx);
         s
     }
 
     /// Construct a map from a `tiled::Map`.
     /// Needs a function that will take an image source path and create/fetch
     /// a `ggez::graphics::Image` from it.
-    pub fn from_tiled(t: tiled::Map, image_callback: &dyn Fn(&str) -> graphics::Image) -> Self {
+    pub fn from_tiled(
+        ctx: &mut ggez::Context,
+        t: tiled::Map,
+        image_callback: &dyn Fn(&str) -> graphics::Image,
+    ) -> Self {
         let width = t.width as usize;
         let height = t.height as usize;
         if t.tilesets.len() != 1 {
@@ -270,6 +285,15 @@ impl Map {
             })
             .collect();
 
+        // Dummy mesh
+        let mesh = graphics::Mesh::new_rectangle(
+            ctx,
+            graphics::DrawMode::fill(),
+            graphics::Rect::new(0.0, 0.0, 100.0, 100.0),
+            graphics::WHITE,
+        )
+        .unwrap();
+
         let batch = SpriteBatch::new(image.clone());
         let mut s = Self {
             layers,
@@ -279,17 +303,19 @@ impl Map {
             tile_width,
             tile_height,
             image,
+            mesh,
             batch,
         };
-        s.batch_layers();
+        s.batch_layers(ctx);
         s
     }
 
     /// Goes through all the `Layer`'s in this image and enters them
     /// into the SpriteBatch, replacing whatever's already there.
-    fn batch_layers(&mut self) {
+    fn batch_layers(&mut self, ctx: &mut ggez::Context) {
         let mut verts: Vec<graphics::Vertex> = vec![];
         let mut indices = vec![];
+        let mut idx = 0;
 
         for x in 0..self.width {
             for y in 0..self.height {
@@ -298,40 +324,71 @@ impl Map {
                     if let Some(tile_idx) = layer.get_tile(x, y, self.width) {
                         let tile = self.tileset.get(tile_idx).expect("Invalid tile ID!");
                         let src_rect = tile.rect;
-                        let dest_pt: crate::Point2 =
-                            euclid::point2((x as f32) * self.tile_width, (y as f32) * self.tile_height);
-                            println!("Adding point {:?} {:?}", src_rect, dest_pt);
-                        let vert = graphics::Vertex {
-                            pos: [dest_pt.x, dest_pt.y],
-                            uv: [src_rect.x, src_rect.y],
-                            color: graphics::WHITE.into(),
-                        };
-                        verts.push(vert);
+                        let dest_pt: crate::Point2 = euclid::point2(
+                            (x as f32) * self.tile_width,
+                            (y as f32) * self.tile_height,
+                        );
+                        println!("Adding point {:?} {:?}", src_rect, dest_pt);
+                        let v = [
+                            graphics::Vertex {
+                                pos: [dest_pt.x, dest_pt.y],
+                                uv: [src_rect.x, src_rect.y],
+                                color: graphics::WHITE.into(),
+                            },
+                            graphics::Vertex {
+                                pos: [dest_pt.x + self.tile_width, dest_pt.y],
+                                uv: [src_rect.x + src_rect.w, src_rect.y],
+                                color: graphics::WHITE.into(),
+                            },
+                            graphics::Vertex {
+                                pos: [dest_pt.x + self.tile_width, dest_pt.y + self.tile_height],
+                                uv: [src_rect.x + src_rect.w, src_rect.y + src_rect.h],
+                                color: graphics::WHITE.into(),
+                            },
+                            graphics::Vertex {
+                                pos: [dest_pt.x, dest_pt.y + self.tile_height],
+                                uv: [src_rect.x, src_rect.y + src_rect.h],
+                                color: graphics::WHITE.into(),
+                            },
+                        ];
+                        verts.extend(&v);
+                        // Index a quad
+                        indices.extend(&[idx, idx + 1, idx + 2, idx + 2, idx + 3, idx]);
+                        idx += 6;
                     }
                 }
             }
         }
         let mut mb = graphics::MeshBuilder::default();
-        mb.from_raw(verts.as_slice(), indices.as_slice(), Some(self.image.clone()));
+        mb.from_raw(
+            verts.as_slice(),
+            indices.as_slice(),
+            Some(self.image.clone()),
+        );
+        self.mesh = mb.build(ctx).unwrap();
 
-        self.batch.clear();
-        for x in 0..self.width {
-            for y in 0..self.height {
-                let first_opaque_layer = self.first_opaque_layer_at(x, y);
-                for layer in &self.layers[first_opaque_layer..] {
-                    if let Some(tile_idx) = layer.get_tile(x, y, self.width) {
-                        let tile = self.tileset.get(tile_idx).expect("Invalid tile ID!");
-                        let src_rect = tile.rect;
-                        let dest_pt: crate::Point2 =
-                            euclid::point2((x as f32) * self.tile_width, (y as f32) * self.tile_height);
-                            println!("Adding point {:?} {:?}", src_rect, dest_pt);
-                        let _ = self
-                            .batch
-                            .add(graphics::DrawParam::default().src(src_rect).dest(dest_pt));
+        /*
+                self.batch.clear();
+                for x in 0..self.width {
+                    for y in 0..self.height {
+                        let first_opaque_layer = self.first_opaque_layer_at(x, y);
+                        for layer in &self.layers[first_opaque_layer..] {
+                            if let Some(tile_idx) = layer.get_tile(x, y, self.width) {
+                                let tile = self.tileset.get(tile_idx).expect("Invalid tile ID!");
+                                let src_rect = tile.rect;
+                                let dest_pt: crate::Point2 = euclid::point2(
+                                    (x as f32) * self.tile_width,
+                                    (y as f32) * self.tile_height,
+                                );
+                                println!("Adding point {:?} {:?}", src_rect, dest_pt);
+                                let _ = self
+                                    .batch
+                                    .add(graphics::DrawParam::default().src(src_rect).dest(dest_pt));
+                            }
+                        }
                     }
                 }
-            }
-        }
+        */
     }
 
     /// Walk down the stack of `Layer`'s at a coordinate,
