@@ -187,6 +187,7 @@ pub struct Map {
     /// we only have to do math once.
     pub tileset: Tileset,
 
+    image: graphics::Image,
     batch: SpriteBatch,
 }
 
@@ -210,6 +211,7 @@ impl Map {
                 Layer { tiles: l }
             })
             .collect();
+        let batch = SpriteBatch::new(image.clone());
         let mut s = Self {
             layers,
             width,
@@ -218,7 +220,8 @@ impl Map {
             tile_width,
             tile_height,
             tileset,
-            batch: SpriteBatch::new(image),
+            image,
+            batch,
         };
         s.batch_layers();
         s
@@ -267,7 +270,7 @@ impl Map {
             })
             .collect();
 
-        let batch = SpriteBatch::new(image);
+        let batch = SpriteBatch::new(image.clone());
         let mut s = Self {
             layers,
             tileset,
@@ -275,6 +278,7 @@ impl Map {
             height,
             tile_width,
             tile_height,
+            image,
             batch,
         };
         s.batch_layers();
@@ -284,6 +288,32 @@ impl Map {
     /// Goes through all the `Layer`'s in this image and enters them
     /// into the SpriteBatch, replacing whatever's already there.
     fn batch_layers(&mut self) {
+        let mut verts: Vec<graphics::Vertex> = vec![];
+        let mut indices = vec![];
+
+        for x in 0..self.width {
+            for y in 0..self.height {
+                let first_opaque_layer = self.first_opaque_layer_at(x, y);
+                for layer in &self.layers[first_opaque_layer..] {
+                    if let Some(tile_idx) = layer.get_tile(x, y, self.width) {
+                        let tile = self.tileset.get(tile_idx).expect("Invalid tile ID!");
+                        let src_rect = tile.rect;
+                        let dest_pt: crate::Point2 =
+                            euclid::point2((x as f32) * self.tile_width, (y as f32) * self.tile_height);
+                            println!("Adding point {:?} {:?}", src_rect, dest_pt);
+                        let vert = graphics::Vertex {
+                            pos: [dest_pt.x, dest_pt.y],
+                            uv: [src_rect.x, src_rect.y],
+                            color: graphics::WHITE.into(),
+                        };
+                        verts.push(vert);
+                    }
+                }
+            }
+        }
+        let mut mb = graphics::MeshBuilder::default();
+        mb.from_raw(verts.as_slice(), indices.as_slice(), Some(self.image.clone()));
+
         self.batch.clear();
         for x in 0..self.width {
             for y in 0..self.height {
