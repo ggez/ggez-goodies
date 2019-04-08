@@ -58,8 +58,8 @@ pub fn main() {
         path::PathBuf::from("./resources")
     };
 
-    let (ctx, event_loop) = &mut ggez::ContextBuilder::new("shiny_particles", "test")
-        .window_setup(conf::WindowSetup::default().title("Shiny particles"))
+    let (ctx, event_loop) = &mut ggez::ContextBuilder::new("tile_map", "test")
+        .window_setup(conf::WindowSetup::default().title("Tile it like it's 1988 again!"))
         .window_mode(conf::WindowMode::default().dimensions(WINDOW_WIDTH, WINDOW_HEIGHT))
         .add_resource_path(resource_dir)
         .build()

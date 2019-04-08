@@ -418,7 +418,8 @@ impl Map {
 
 impl graphics::Drawable for Map {
     fn draw(&self, ctx: &mut ggez::Context, param: graphics::DrawParam) -> ggez::GameResult {
-        self.batch.draw(ctx, param)
+        // self.batch.draw(ctx, param)
+        self.mesh.draw(ctx, param)
     }
 
     /// This is kinda odd 'cause tiles don't *strictly* all need to be the same size...
