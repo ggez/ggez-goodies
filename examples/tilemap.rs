@@ -7,7 +7,7 @@ struct MainState {
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
-        let image = graphics::Image::new(ctx, "/player.png")?;
+        let image = graphics::Image::new(ctx, "/terrain.png")?;
         let tiled_map = {
             use std::io::Read;
             let mut f = ggez::filesystem::open(ctx, "/test-map.tmx")?;
