@@ -1,4 +1,5 @@
 use ggez::{self, conf, event, graphics, timer, Context, GameResult};
+use ggez::graphics::Drawable;
 use ggez_goodies::{self, euclid as eu, tilemap as t};
 
 struct MainState {
@@ -7,7 +8,8 @@ struct MainState {
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
-        let image = graphics::Image::new(ctx, "/terrain.png")?;
+        let mut image = graphics::Image::new(ctx, "/terrain.png")?;
+        image.set_filter(graphics::FilterMode::Nearest);
         let tiled_map = {
             use std::io::Read;
             let mut f = ggez::filesystem::open(ctx, "/test-map.tmx")?;

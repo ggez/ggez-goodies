@@ -15,7 +15,7 @@
 use std::collections::HashMap;
 
 use ggez;
-use ggez::graphics::{self, spritebatch::SpriteBatch};
+use ggez::graphics;
 pub use tiled;
 
 /// Newtype struct for a tile ID.
@@ -98,7 +98,8 @@ impl Tileset {
                 }
         */
         for i in 0..tile_count {
-            let id = TileId(i as usize);
+            // tiled tile ID's start at 1.
+            let id = TileId(i as usize+1);
             let x = i % tiles_per_row;
             let y = i / tiles_per_row;
             // TODO: Spacing and margin
@@ -189,7 +190,6 @@ pub struct Map {
 
     image: graphics::Image,
     mesh: graphics::Mesh,
-    batch: SpriteBatch,
 }
 
 impl Map {
@@ -213,7 +213,6 @@ impl Map {
                 Layer { tiles: l }
             })
             .collect();
-        let batch = SpriteBatch::new(image.clone());
         // Dummy mesh
         let mesh = graphics::Mesh::new_rectangle(
             ctx,
@@ -232,7 +231,6 @@ impl Map {
             tileset,
             image,
             mesh,
-            batch,
         };
         s.batch_layers(ctx);
         s
@@ -294,7 +292,6 @@ impl Map {
         )
         .unwrap();
 
-        let batch = SpriteBatch::new(image.clone());
         let mut s = Self {
             layers,
             tileset,
@@ -304,7 +301,6 @@ impl Map {
             tile_height,
             image,
             mesh,
-            batch,
         };
         s.batch_layers(ctx);
         s
@@ -328,7 +324,6 @@ impl Map {
                             (x as f32) * self.tile_width,
                             (y as f32) * self.tile_height,
                         );
-                        println!("Adding point {:?} {:?}", src_rect, dest_pt);
                         let v = [
                             graphics::Vertex {
                                 pos: [dest_pt.x, dest_pt.y],
@@ -354,7 +349,8 @@ impl Map {
                         verts.extend(&v);
                         // Index a quad
                         indices.extend(&[idx, idx + 1, idx + 2, idx + 2, idx + 3, idx]);
-                        idx += 6;
+                        // indices.extend(&[idx, idx + 1, idx + 2, idx, idx + 3, idx]);
+                        idx += 4;
                     }
                 }
             }
@@ -367,28 +363,6 @@ impl Map {
         );
         self.mesh = mb.build(ctx).unwrap();
 
-        /*
-                self.batch.clear();
-                for x in 0..self.width {
-                    for y in 0..self.height {
-                        let first_opaque_layer = self.first_opaque_layer_at(x, y);
-                        for layer in &self.layers[first_opaque_layer..] {
-                            if let Some(tile_idx) = layer.get_tile(x, y, self.width) {
-                                let tile = self.tileset.get(tile_idx).expect("Invalid tile ID!");
-                                let src_rect = tile.rect;
-                                let dest_pt: crate::Point2 = euclid::point2(
-                                    (x as f32) * self.tile_width,
-                                    (y as f32) * self.tile_height,
-                                );
-                                println!("Adding point {:?} {:?}", src_rect, dest_pt);
-                                let _ = self
-                                    .batch
-                                    .add(graphics::DrawParam::default().src(src_rect).dest(dest_pt));
-                            }
-                        }
-                    }
-                }
-        */
     }
 
     /// Walk down the stack of `Layer`'s at a coordinate,
@@ -418,21 +392,20 @@ impl Map {
 
 impl graphics::Drawable for Map {
     fn draw(&self, ctx: &mut ggez::Context, param: graphics::DrawParam) -> ggez::GameResult {
-        // self.batch.draw(ctx, param)
         self.mesh.draw(ctx, param)
     }
 
     /// This is kinda odd 'cause tiles don't *strictly* all need to be the same size...
     /// TODO: Find out if Tiled can ever create ones that aren't.
     fn dimensions(&self, ctx: &mut ggez::Context) -> Option<graphics::Rect> {
-        self.batch.dimensions(ctx)
+        self.mesh.dimensions(ctx)
     }
 
     fn set_blend_mode(&mut self, mode: Option<graphics::BlendMode>) {
-        self.batch.set_blend_mode(mode);
+        self.mesh.set_blend_mode(mode);
     }
     fn blend_mode(&self) -> Option<graphics::BlendMode> {
-        self.batch.blend_mode()
+        self.mesh.blend_mode()
     }
 }
 
