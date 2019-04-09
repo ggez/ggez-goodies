@@ -23,7 +23,8 @@ pub use tiled;
 pub struct TileId(pub usize);
 
 /// A struct containing info on how to draw a tile.
-/// Having this does make life easier, honest.
+/// Having this rather than just a bare `Rect` or something
+/// does make life easier, honest.
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Tile {
     /// The source rect of the tile in the image.
@@ -39,47 +40,25 @@ impl Tile {
     }
 }
 
-/*
-Really not sure if we want this to be its own public type;
-it's sorta dubiously useful but you have to have something
-like it eventually...
-For now we'll just keep things as low-level as possible.
-
-...the `tiled` crate has support to load a Tileset directly.
-That does everything we want here, huzzah!
-
-/// A lookup table from `TileId` to `Tile`.
-/// ...kinda don't like the overloaded use of the term `Map` here,
-/// but it is just a `HashMap` internally, so.
-pub struct TileMap {
-    tiles: HashMap<TileId, Tile>,
-}
-
-impl TileMap {
-    fn new() -> Self {
-        TileMap {
-            tiles: HashMap::new(),
-        }
-    }
-}
- */
+/// A collection of `Tile` definitions and the `Image` they refer to.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Tileset {
     pub tileset: HashMap<TileId, Tile>,
+    image: graphics::Image,
 }
 
 impl Tileset {
     /// Turn a `tiled::Tileset` into a hashmap of our own `Tile` types.
     /// Having our own types for all the `Tiled` types is necessary for
     /// coordinate translation and such, annoyingly.
-    pub fn from_tiled(tset: &tiled::Tileset, image_width: f32, image_height: f32) -> Self {
-        //let mut gid_to_tileid = HashMap::new();
+    pub fn from_tiled(tset: &tiled::Tileset, image: graphics::Image) -> Self {
         let mut tileset = HashMap::new();
 
-        let image_widthi = image_width as u32;
-        let image_heighti = image_height as u32;
-        let tile_width = tset.tile_width as f32 / image_width;
-        let tile_height = tset.tile_height as f32 / image_height;
+        let image_rect = image.dimensions();
+        let image_widthi = image_rect.w as u32;
+        let image_heighti = image_rect.h as u32;
+        let tile_width = tset.tile_width as f32 / image_rect.w;
+        let tile_height = tset.tile_height as f32 / image_rect.h;
 
         // Calculate number of tiles.
         // Any fractions just get truncated off; Tiled 1.2 does the same thing.
@@ -89,7 +68,8 @@ impl Tileset {
 
         // Iterate over the tiles that actually have properties and such, and save them.
         // TODO:
-        // Figure out gid translations; I think it's tile.id - tset.first_gid ?
+        // Figure out gid translations better; I think it's tile.id - tset.first_gid ?
+        // Right now we just assume that gid's start from 1.
         // Decide what to do with tile properties.
         /*
                 for (i, t) in tset.tiles.iter().enumerate() {
@@ -98,17 +78,17 @@ impl Tileset {
                 }
         */
         for i in 0..tile_count {
-            // tiled tile ID's start at 1.
-            let id = TileId(i as usize+1);
+            // tiled tile ID's seem to start at 1.
+            let id = TileId(i as usize + 1);
             let x = i % tiles_per_row;
             let y = i / tiles_per_row;
             // TODO: Spacing and margin
 
-            // Actually translate the X's and Y's, it's not clear how
-            // to do that just from the `tiled` docs.  Though Looking
-            // at the file, it looks like it just counts from the
-            // top-left corner, it knows the dimensions of the image
-            // and so just uses the dimensions of the tiles to
+            // Actually translate the X's and Y's to offsets, it's not
+            // clear how to do that just from the `tiled` docs.
+            // Looking at the file, it looks like it just counts from
+            // the top-left corner, it knows the dimensions of the
+            // image and so just uses the dimensions of the tiles to
             // calculate offsets.  It actually omits tiles that don't
             // have anything EXCEPT an offset, it appears.
             let tile_rect = graphics::Rect {
@@ -125,7 +105,7 @@ impl Tileset {
             tileset.insert(id, tile);
         }
 
-        Self { tileset }
+        Self { tileset, image }
     }
 
     /// TODO
@@ -158,7 +138,7 @@ impl Layer {
 }
 
 /// A collection of layers, all the same size
-/// and all using the same `Image`.
+/// and all using the same `Tileset`.
 ///
 /// This is intended to be a graphical artifact, not
 /// a gameplay one.  If you need collision detection or such,
@@ -168,7 +148,8 @@ impl Layer {
 ///
 /// Currently there's no way to animate this, though it should be
 /// added in the future.  An easy and efficient option would be making
-/// multiple entire Image's and having this able to flip between them.
+/// multiple entire `Tileset`'s and having this able to flip between them.
+/// Right now though it only contains a single `Tileset`.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Map {
     pub layers: Vec<Layer>,
@@ -183,12 +164,9 @@ pub struct Map {
     pub tile_height: f32,
 
     /// A map from arbitrary ID's to `Tile`'s.
-    ///
-    /// Having this separate makes life a lot easier 'cause
-    /// we only have to do math once.
     pub tileset: Tileset,
 
-    image: graphics::Image,
+    /// The constructed mesh of tiles.
     mesh: graphics::Mesh,
 }
 
@@ -202,7 +180,6 @@ impl Map {
         tile_width: f32,
         tile_height: f32,
         layers: Vec<Vec<Option<TileId>>>,
-        image: graphics::Image,
         tileset: Tileset,
     ) -> Self {
         let layers: Vec<Layer> = layers
@@ -213,7 +190,7 @@ impl Map {
                 Layer { tiles: l }
             })
             .collect();
-        // Dummy mesh
+        // Dummy mesh, replaced by the `batch_layers()` call.
         let mesh = graphics::Mesh::new_rectangle(
             ctx,
             graphics::DrawMode::fill(),
@@ -229,7 +206,6 @@ impl Map {
             tile_width,
             tile_height,
             tileset,
-            image,
             mesh,
         };
         s.batch_layers(ctx);
@@ -242,7 +218,7 @@ impl Map {
     pub fn from_tiled(
         ctx: &mut ggez::Context,
         t: tiled::Map,
-        image_callback: &dyn Fn(&str) -> graphics::Image,
+        image_callback: &dyn Fn(&mut ggez::Context, &str) -> graphics::Image,
     ) -> Self {
         let width = t.width as usize;
         let height = t.height as usize;
@@ -260,9 +236,8 @@ impl Map {
         let tile_width = tileset.tile_width as f32;
         let tile_height = tileset.tile_height as f32;
         let image_str = &tileset.images[0].source;
-        let image = image_callback(image_str);
-        let image_rect = image.dimensions();
-        let tileset = Tileset::from_tiled(&t.tilesets[0], image_rect.w, image_rect.h);
+        let image = image_callback(ctx, image_str);
+        let tileset = Tileset::from_tiled(&t.tilesets[0], image);
 
         // Great, now we have a tile set, we can translate
         // the layers.
@@ -299,7 +274,6 @@ impl Map {
             height,
             tile_width,
             tile_height,
-            image,
             mesh,
         };
         s.batch_layers(ctx);
@@ -309,6 +283,12 @@ impl Map {
     /// Goes through all the `Layer`'s in this image and enters them
     /// into the SpriteBatch, replacing whatever's already there.
     fn batch_layers(&mut self, ctx: &mut ggez::Context) {
+        // TODO: Now that I think of it, this probably doesn't handle
+        // layers properly.  If we try to make two quads at the same spot
+        // they won't draw "in order" as `SpriteBatch`'s would, they'll
+        // just z-fight.
+        //
+        // What we currently call a `Map` should become a `Layer`.
         let mut verts: Vec<graphics::Vertex> = vec![];
         let mut indices = vec![];
         let mut idx = 0;
@@ -356,14 +336,9 @@ impl Map {
             }
         }
         let mut mb = graphics::MeshBuilder::default();
-        let img = self.image.clone();
-        mb.from_raw(
-            verts.as_slice(),
-            indices.as_slice(),
-            Some(img),
-        );
+        let img = self.tileset.image.clone();
+        mb.from_raw(verts.as_slice(), indices.as_slice(), Some(img));
         self.mesh = mb.build(ctx).unwrap();
-
     }
 
     /// Walk down the stack of `Layer`'s at a coordinate,
@@ -410,4 +385,4 @@ impl graphics::Drawable for Map {
     }
 }
 
-// TODO: Unit tests.  We need a simple Tiled map to test with.
+// TODO: Unit tests.

@@ -8,6 +8,7 @@ struct MainState {
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
         let mut image = graphics::Image::new(ctx, "/terrain.png")?;
+        // Drawing gets blurry and flawed without this.
         image.set_filter(graphics::FilterMode::Nearest);
         let tiled_map = {
             use std::io::Read;
@@ -16,7 +17,7 @@ impl MainState {
             f.read_to_end(buf)?;
             t::tiled::parse(buf.as_slice()).unwrap()
         };
-        let tilemap = t::Map::from_tiled(ctx, tiled_map, &|_| image.clone());
+        let tilemap = t::Map::from_tiled(ctx, tiled_map, &|_ctx, _path| image.clone());
         let state = MainState { tilemap };
         Ok(state)
     }
