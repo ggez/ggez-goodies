@@ -356,10 +356,11 @@ impl Map {
             }
         }
         let mut mb = graphics::MeshBuilder::default();
+        let img = self.image.clone();
         mb.from_raw(
             verts.as_slice(),
             indices.as_slice(),
-            Some(self.image.clone()),
+            Some(img),
         );
         self.mesh = mb.build(ctx).unwrap();
 

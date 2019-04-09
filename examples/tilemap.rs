@@ -1,5 +1,4 @@
 use ggez::{self, conf, event, graphics, timer, Context, GameResult};
-use ggez::graphics::Drawable;
 use ggez_goodies::{self, euclid as eu, tilemap as t};
 
 struct MainState {
