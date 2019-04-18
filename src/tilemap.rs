@@ -218,7 +218,7 @@ impl Map {
     pub fn from_tiled(
         ctx: &mut ggez::Context,
         t: tiled::Map,
-        image_callback: &dyn Fn(&mut ggez::Context, &str) -> graphics::Image,
+        image_callback: &mut dyn FnMut(&mut ggez::Context, &str) -> graphics::Image,
     ) -> Self {
         let width = t.width as usize;
         let height = t.height as usize;
