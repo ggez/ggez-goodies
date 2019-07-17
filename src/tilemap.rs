@@ -380,7 +380,7 @@ impl Map {
     /// Panics if no layers exist.
     fn first_opaque_layer_at(&self, x: usize, y: usize) -> usize {
         assert!(self.layers.len() > 0);
-        'layers: for i in (0..self.layers.len()).rev() {
+        for i in (0..self.layers.len()).rev() {
             if let Some(tile_idx) = self.layers[i].get_tile(x, y, self.width) {
                 if tile_idx.0 != 0 {
                     let tile = self.tileset.get(tile_idx).0.expect("Invalid tile ID!");
