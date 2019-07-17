@@ -43,6 +43,7 @@ impl Tile {
 /// A collection of `Tile` definitions and the `Image` they refer to.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Tileset {
+    pub first_gid: usize,
     pub tileset: HashMap<TileId, Tile>,
     image: graphics::Image,
 }
@@ -59,6 +60,7 @@ impl Tileset {
         let image_heighti = image_rect.h as u32;
         let tile_width = tset.tile_width as f32 / image_rect.w;
         let tile_height = tset.tile_height as f32 / image_rect.h;
+        let first_gid = tset.first_gid as usize;
 
         // Calculate number of tiles.
         // Any fractions just get truncated off; Tiled 1.2 does the same thing.
@@ -105,7 +107,7 @@ impl Tileset {
             tileset.insert(id, tile);
         }
 
-        Self { tileset, image }
+        Self { tileset, image, first_gid }
     }
 
     /// TODO
@@ -113,8 +115,11 @@ impl Tileset {
         TileId(gid as usize)
     }
 
-    fn get(&self, id: TileId) -> Option<&Tile> {
-        self.tileset.get(&id)
+    fn get(&self, id: TileId) -> (Option<&Tile>, bool, bool, bool) {
+        let id = id.0;
+        let (hflip, vflip, dflip) = (id & 1 << 31 != 0, id & 1 << 30 != 0, id & 1 << 29 != 0); //Get orientation flags from id.
+        let id = TileId(id & !(7 << 29)); //Discard flag bits
+        (self.tileset.get(&id), hflip, vflip, dflip)
     }
 }
 
@@ -298,39 +303,62 @@ impl Map {
                 let first_opaque_layer = self.first_opaque_layer_at(x, y);
                 for layer in &self.layers[first_opaque_layer..] {
                     if let Some(tile_idx) = layer.get_tile(x, y, self.width) {
-                        let tile = self.tileset.get(tile_idx).expect("Invalid tile ID!");
-                        let src_rect = tile.rect;
-                        let dest_pt: crate::Point2 = euclid::point2(
-                            (x as f32) * self.tile_width,
-                            (y as f32) * self.tile_height,
-                        );
-                        let v = [
-                            graphics::Vertex {
-                                pos: [dest_pt.x, dest_pt.y],
-                                uv: [src_rect.x, src_rect.y],
-                                color: graphics::WHITE.into(),
-                            },
-                            graphics::Vertex {
-                                pos: [dest_pt.x + self.tile_width, dest_pt.y],
-                                uv: [src_rect.x + src_rect.w, src_rect.y],
-                                color: graphics::WHITE.into(),
-                            },
-                            graphics::Vertex {
-                                pos: [dest_pt.x + self.tile_width, dest_pt.y + self.tile_height],
-                                uv: [src_rect.x + src_rect.w, src_rect.y + src_rect.h],
-                                color: graphics::WHITE.into(),
-                            },
-                            graphics::Vertex {
-                                pos: [dest_pt.x, dest_pt.y + self.tile_height],
-                                uv: [src_rect.x, src_rect.y + src_rect.h],
-                                color: graphics::WHITE.into(),
-                            },
-                        ];
-                        verts.extend(&v);
-                        // Index a quad
-                        indices.extend(&[idx, idx + 1, idx + 2, idx + 2, idx + 3, idx]);
-                        // indices.extend(&[idx, idx + 1, idx + 2, idx, idx + 3, idx]);
-                        idx += 4;
+                        if tile_idx.0 != 0 { //Continue if tile is empty.
+                            let (tile, hflip, vflip, dflip) = self.tileset.get(tile_idx);
+                            let tile = tile.expect("Invalid tile ID!");
+                            let src_rect = tile.rect;
+                            let dest_pt: crate::Point2 = euclid::point2(
+                                (x as f32) * self.tile_width,
+                                (y as f32) * self.tile_height,
+                            );
+                            let mut v = [
+                                graphics::Vertex {
+                                    pos: [dest_pt.x, dest_pt.y],
+                                    uv: [src_rect.x, src_rect.y],
+                                    color: graphics::WHITE.into(),
+                                },
+                                graphics::Vertex {
+                                    pos: [dest_pt.x + self.tile_width, dest_pt.y],
+                                    uv: [src_rect.x + src_rect.w, src_rect.y],
+                                    color: graphics::WHITE.into(),
+                                },
+                                graphics::Vertex {
+                                    pos: [dest_pt.x + self.tile_width, dest_pt.y + self.tile_height],
+                                    uv: [src_rect.x + src_rect.w, src_rect.y + src_rect.h],
+                                    color: graphics::WHITE.into(),
+                                },
+                                graphics::Vertex {
+                                    pos: [dest_pt.x, dest_pt.y + self.tile_height],
+                                    uv: [src_rect.x, src_rect.y + src_rect.h],
+                                    color: graphics::WHITE.into(),
+                                },
+                            ];
+                            if dflip { //Swap uv coordinates of diagonally opposite corners to rotate texture.
+                                let (v1uv, v3uv) = (v[1].uv, v[3].uv);
+                                v[1].uv = v3uv;
+                                v[3].uv = v1uv;
+                            };
+                            if hflip { //Swap uv coordinates of horizontally opposite corners to flip texture horizontally.
+                                let (v0uv, v1uv, v2uv, v3uv) = (v[0].uv, v[1].uv, v[2].uv, v[3].uv);
+                                v[0].uv = v1uv;
+                                v[1].uv = v0uv;
+                                v[2].uv = v3uv;
+                                v[3].uv = v2uv;
+                            };
+                            if vflip { //Swap uv coordinates of vertically opposite corners to flip texture vertically.
+                                let (v0uv, v1uv, v2uv, v3uv) = (v[0].uv, v[1].uv, v[2].uv, v[3].uv);
+                                v[0].uv = v3uv;
+                                v[1].uv = v2uv;
+                                v[2].uv = v1uv;
+                                v[3].uv = v0uv;
+                            };
+
+                            verts.extend(&v);
+                            // Index a quad
+                            indices.extend(&[idx, idx + 1, idx + 2, idx + 2, idx + 3, idx]);
+                            // indices.extend(&[idx, idx + 1, idx + 2, idx, idx + 3, idx]);
+                            idx += 4;
+                        }
                     }
                 }
             }
@@ -352,13 +380,16 @@ impl Map {
     /// Panics if no layers exist.
     fn first_opaque_layer_at(&self, x: usize, y: usize) -> usize {
         assert!(self.layers.len() > 0);
-        for i in (0..self.layers.len()).rev() {
+        'layers: for i in (0..self.layers.len()).rev() {
             if let Some(tile_idx) = self.layers[i].get_tile(x, y, self.width) {
-                let tile = self.tileset.get(tile_idx).expect("Invalid tile ID!");
-                if tile.opaque {
-                    return i;
+                if tile_idx.0 != 0 {
+                    let tile = self.tileset.get(tile_idx).0.expect("Invalid tile ID!");
+                    if tile.opaque {
+                        return i;
+                    }
+                    // Tile is transparent, continue
                 }
-                // Tile is transparent, continue
+                //Tile is empty, continue
             }
             // No tile at that coordinate, continue
         }
