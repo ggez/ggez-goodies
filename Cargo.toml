@@ -1,7 +1,7 @@
 [package]
 name = "ggez-goodies"
 description = "Various small useful add-ons for the ggez game framework"
-version = "0.5.0-rc.2"
+version = "0.5.0"
 repository = "https://github.com/ggez/ggez-goodies"
 documentation = "https://docs.rs/ggez-goodies"
 authors = ["Simon Heath <icefoxen@gmail.com>"]
@@ -13,8 +13,7 @@ readme = "README.md"
 opt-level = 1
 
 [dependencies]
-ggez = "0.5.0-rc.2"
-# ggez = {path = "/home/icefox/my.src/ggez/ggez"}
+ggez = "0.5"
 nalgebra-glm = "0.4.0"
 tiled = "0.8"
 euclid = {version = "0.19", features = ["mint"]}

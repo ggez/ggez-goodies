@@ -17,7 +17,7 @@ impl MainState {
             f.read_to_end(buf)?;
             t::tiled::parse(buf.as_slice()).unwrap()
         };
-        let tilemap = t::Map::from_tiled(ctx, tiled_map, &|_ctx, _path| image.clone());
+        let tilemap = t::Map::from_tiled(ctx, tiled_map, &mut move |_ctx, _path| image.clone());
         let state = MainState { tilemap };
         Ok(state)
     }
