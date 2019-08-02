@@ -9,7 +9,8 @@ Useful modules for the ggez Rust game framework.
 Each module is meant to be pretty much self-contained without relying on the others.
 Or if it does rely on others, it will be in a strictly incremental fashion.
 
-CURRENTLY this is massively unstable and is basically changing fluidly as I discover what the API needs to be like.
+Currently this is very incomplete but hopefully semi-useful.  If nothing else it should be a good place to
+start for making your own versions of the same tasks.
 
 # Modules:
 
