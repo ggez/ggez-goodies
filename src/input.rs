@@ -74,7 +74,7 @@ enum InputType {
 /// ```
 ///
 /// TODO: Desperately needs better name.
-#[derive(Debug, Copy, Clone, PartialEq, Hash)]
+#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq)]
 pub enum InputEffect<Axes, Buttons>
 where
     Axes: Eq + Hash + Clone,
@@ -90,7 +90,7 @@ where
 /// some simple linear smoothing of the axis value that
 /// is usually quite nice.  This also contains the state
 /// and constants necessary for that.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 struct AxisState {
     /// Where the axis currently is, in [-1, 1]
     position: f32,
@@ -118,7 +118,7 @@ impl Default for AxisState {
 }
 
 /// All the state necessary for a button press.
-#[derive(Debug, Copy, Clone, Default)]
+#[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
 struct ButtonState {
     pressed: bool,
     pressed_last_frame: bool,
@@ -127,7 +127,7 @@ struct ButtonState {
 /// A struct that contains a mapping from physical input events
 /// (currently just `KeyCode`s) to whatever your logical Axis/Button
 /// types are.
-#[derive(Clone, PartialEq)]
+#[derive(Default, Debug, Eq, PartialEq, Clone)]
 pub struct InputBinding<Axes, Buttons>
 where
     Axes: Hash + Eq + Clone,
@@ -178,15 +178,15 @@ where
 
 /// The object that tracks the current state of the input controls,
 /// such as axes, bindings, etc.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct InputState<Axes, Buttons>
 where
     Axes: Hash + Eq + Clone,
     Buttons: Hash + Eq + Clone,
 {
-    // Input state for axes
+    /// Input state for axes
     axes: HashMap<Axes, AxisState>,
-    // Input states for buttons
+    /// Input states for buttons
     buttons: HashMap<Buttons, ButtonState>,
 }
 
