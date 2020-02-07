@@ -14,9 +14,9 @@
 //! * Take ggez's event-based input API, and present event- or
 //! state-based API so you can do whichever you want.
 
-// TODO: Handle mice, game pads/joysticks
+// TODO: Handle mice, joysticks
 
-use ggez::event::KeyCode;
+use ggez::event::{KeyCode, Button};
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -46,6 +46,7 @@ use std::hash::Hash;
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 enum InputType {
     KeyEvent(KeyCode), // MouseButtonEvent,
+    GamepadEvent(Button), // Gamepad Event
 }
 
 /// Abstract input values; the "to" part of an input mapping.
@@ -144,6 +145,7 @@ where
     Axes: Hash + Eq + Clone,
     Buttons: Hash + Eq + Clone,
 {
+    /// The default constructor for an InputBinding. Same as calling InputBinding::default().
     pub fn new() -> Self {
         InputBinding {
             bindings: HashMap::new(),
@@ -155,7 +157,7 @@ where
     pub fn bind_key_to_axis(mut self, keycode: KeyCode, axis: Axes, positive: bool) -> Self {
         self.bindings.insert(
             InputType::KeyEvent(keycode),
-            InputEffect::Axis(axis.clone(), positive),
+            InputEffect::Axis(axis, positive),
         );
         self
     }
@@ -165,7 +167,27 @@ where
     pub fn bind_key_to_button(mut self, keycode: KeyCode, button: Buttons) -> Self {
         self.bindings.insert(
             InputType::KeyEvent(keycode),
-            InputEffect::Button(button.clone()),
+            InputEffect::Button(button),
+        );
+        self
+    }
+
+    /// Adds a gamepad binding connecting the given Gamepad Button to the given 
+    /// logical axis.
+    pub fn bind_gamepad_button_to_axis(mut self, button: Button, axis: Axes, positive: bool) -> Self {
+        self.bindings.insert(
+            InputType::GamepadEvent(button),
+            InputEffect::Axis(axis, positive)
+        );
+        self
+    }
+    
+    /// Adds a gamepad binding connecting the given Gamepad Button to the given 
+    /// logical button.
+    pub fn bind_gamepad_button_to_button(mut self, ggez_button: Button, button: Buttons) -> Self {
+        self.bindings.insert(
+            InputType::GamepadEvent(ggez_button),
+            InputEffect::Button(button)
         );
         self
     }
@@ -173,6 +195,11 @@ where
     /// Takes an physical input type and turns it into a logical input type (keycode -> axis/button).
     pub fn resolve(&self, keycode: KeyCode) -> Option<InputEffect<Axes, Buttons>> {
         self.bindings.get(&InputType::KeyEvent(keycode)).cloned()
+    }
+
+    /// Takes a physical Gamepad input type and turns it into a logical input type (gamepad::button -> axis/button). 
+    pub fn resolve_gamepad(&self, button: Button) -> Option<InputEffect<Axes, Buttons>> {
+        self.bindings.get(&InputType::GamepadEvent(button)).cloned()
     }
 }
 
@@ -250,12 +277,12 @@ where
         self.update_effect(InputEffect::Button(button), false);
     }
 
-    /// This method should get called by your `key_down_event` handler.
+    /// This method should get called by your axis_event handler.
     pub fn update_axis_start(&mut self, axis: Axes, positive: bool) {
         self.update_effect(InputEffect::Axis(axis, positive), true);
     }
-
-    /// This method should get called by your `key_up_event` handler.
+    
+    /// This method should get called by your axis_event handler.
     pub fn update_axis_stop(&mut self, axis: Axes, positive: bool) {
         self.update_effect(InputEffect::Axis(axis, positive), false);
     }
