@@ -13,17 +13,18 @@
 //! fun.
 //! * Take ggez's event-based input API, and present event- or
 //! state-based API so you can do whichever you want.
-//! 
-//! In this module: 
-//! * "physical" means Hardware button 
-//! * "logical" means User-defined button 
+//!
+//! In this module:
+//! * "physical" means Hardware button
+//! * "logical" means User-defined button
 //! * "raw" means unaffected by tweening on input axes
-//! 
+//!
 //!
 //! TODO: Handle mouse, joysticks
 
 use ggez::event::{Button, KeyCode};
 use std::collections::HashMap;
+use std::fmt::Debug;
 use std::hash::Hash;
 
 // Okay, but how does it actually work?
@@ -244,7 +245,7 @@ where
     Buttons: Hash + Eq + Clone,
 {
     fn default() -> Self {
-        PlayerInputState::new() 
+        PlayerInputState::new()
     }
 }
 
@@ -310,13 +311,13 @@ where
         self.update_effect(InputEffect::Button(button), false);
     }
 
-    /// Used for testing purposes 
+    /// Used for testing purposes
     #[allow(dead_code)]
     pub fn update_axis_start(&mut self, axis: Axes, positive: bool) {
         self.update_effect(InputEffect::Axis(axis, positive), true);
     }
-    
-    /// Used for testing purposes 
+
+    /// Used for testing purposes
     #[allow(dead_code)]
     pub fn update_axis_stop(&mut self, axis: Axes, positive: bool) {
         self.update_effect(InputEffect::Axis(axis, positive), false);
@@ -395,22 +396,22 @@ where
     pub fn mouse_position() {
         unimplemented!()
     }
-    
+
     #[allow(dead_code)]
     pub fn mouse_scroll_delta() {
         unimplemented!()
     }
-    
+
     #[allow(dead_code)]
     pub fn get_mouse_button() {
         unimplemented!()
     }
-    
+
     #[allow(dead_code)]
     pub fn get_mouse_button_down() {
         unimplemented!()
     }
-    
+
     #[allow(dead_code)]
     pub fn get_mouse_button_up() {
         unimplemented!()
@@ -441,8 +442,8 @@ where
 
 impl<Axes, Buttons> Default for InputState<Axes, Buttons>
 where
-    Axes: Hash + Eq + Clone,
-    Buttons: Hash + Eq + Clone,
+    Axes: Hash + Eq + Clone + Debug,
+    Buttons: Hash + Eq + Clone + Debug,
 {
     fn default() -> Self {
         InputState::new()
@@ -454,8 +455,8 @@ const DEFAULT_PLAYER: usize = 0;
 
 impl<Axes, Buttons> InputState<Axes, Buttons>
 where
-    Axes: Hash + Eq + Clone,
-    Buttons: Hash + Eq + Clone,
+    Axes: Hash + Eq + Clone + Debug,
+    Buttons: Hash + Eq + Clone + Debug,
 {
     /// Default constructor for an empty InputState
     fn new() -> Self {
@@ -474,14 +475,14 @@ where
     pub fn update_key_down(&mut self, key: KeyCode) {
         self.update_key(key, true)
     }
-    
+
     /// Signals to all player state that a key was released, updating them accordingly
     pub fn update_key_up(&mut self, key: KeyCode) {
         self.update_key(key, true)
     }
-    
+
     /// Code reuse logic for update_key_down & update_key_up
-    /// Effectively signals the states that a key was pressed or released 
+    /// Effectively signals the states that a key was pressed or released
     fn update_key(&mut self, key: KeyCode, started: bool) {
         for (player_id, binding) in self.input_bindings.iter() {
             if let Some(effect) = binding.resolve(key) {
@@ -490,26 +491,26 @@ where
             }
         }
     }
-    
+
     /// Signals the target player's state that a physical Gamepad Button was pressed
     pub fn update_gamepad_down(&mut self, gp_button: Button, player_id: usize) {
         self.update_gamepad(gp_button, player_id, true)
     }
-    
+
     /// Signals the target player's state that a physical Gamepad Button was released
     pub fn update_gamepad_up(&mut self, gp_button: Button, player_id: usize) {
         self.update_gamepad(gp_button, player_id, false)
     }
-    
+
     /// Code reuse logic for update_gamepad_down & update_gamepad_up
-    /// Effectively signals the target player's state that a gamepad button 
-    /// was pressed or released 
+    /// Effectively signals the target player's state that a gamepad button
+    /// was pressed or released
     fn update_gamepad(&mut self, gp_button: Button, player_id: usize, started: bool) {
-        if let Some(effect) = 
-            self
-                .input_bindings
-                .get_mut(&player_id)
-                .and_then(|ib| ib.resolve_gamepad(gp_button)) {
+        if let Some(effect) = self
+            .input_bindings
+            .get_mut(&player_id)
+            .and_then(|ib| ib.resolve_gamepad(gp_button))
+        {
             let is = self.player_states.entry(player_id).or_default();
             is.update_effect(effect, started);
         }
@@ -517,21 +518,27 @@ where
 
     /// Gets the value of a logical axis for the target player
     pub fn get_player_axis(&self, axis: Axes, player_id: usize) -> f32 {
-        self.player_states.get(&player_id).map(|ps| ps.get_axis(axis)).unwrap_or(0.)
+        self.player_states
+            .get(&player_id)
+            .map(|ps| ps.get_axis(axis))
+            .unwrap_or(0.)
     }
-    
+
     /// Gets the value of a logical axis for the default player
     pub fn get_default_player_axis(&self, axis: Axes) -> f32 {
         self.get_player_axis(axis, DEFAULT_PLAYER)
     }
-    
+
     /// Gets the raw value of a logical axis for the target player.
     /// The raw value is the exact value of an axis at the present moment, not affected
     /// by the easing factor.
     pub fn get_player_axis_raw(&self, axis: Axes, player_id: usize) -> f32 {
-        self.player_states.get(&player_id).map(|ps| ps.get_axis_raw(axis)).unwrap_or(0.)
+        self.player_states
+            .get(&player_id)
+            .map(|ps| ps.get_axis_raw(axis))
+            .unwrap_or(0.)
     }
-    
+
     /// Gets the raw value of a logical axis for the default player.
     /// The raw value is the exact value of an axis at the present moment, not affected
     /// by the easing factor.
@@ -541,9 +548,12 @@ where
 
     /// Gets the state of a logical button for the target player
     pub fn get_player_button(&self, button: Buttons, player_id: usize) -> ButtonState {
-        self.player_states.get(&player_id).map(|ps| ps.get_button(button)).unwrap_or_default()
+        self.player_states
+            .get(&player_id)
+            .map(|ps| ps.get_button(button))
+            .unwrap_or_default()
     }
-    
+
     /// Gets the state of a logical button for the default player
     pub fn get_default_player_button(&self, button: Buttons) -> ButtonState {
         self.get_player_button(button, DEFAULT_PLAYER)
@@ -551,34 +561,43 @@ where
 
     /// Asks if the logical button is held down for the target player
     pub fn get_player_button_down(&self, button: Buttons, player_id: usize) -> bool {
-        self.player_states.get(&player_id).map(|ps| ps.get_button_down(button)).unwrap_or(false)
+        self.player_states
+            .get(&player_id)
+            .map(|ps| ps.get_button_down(button))
+            .unwrap_or(false)
     }
-    
+
     /// Asks if the logical button is held down for the default player
     pub fn get_default_player_button_down(&self, button: Buttons) -> bool {
         self.get_player_button_down(button, DEFAULT_PLAYER)
     }
-    
-    /// Asks if the logical button for the target player has just started 
-    /// being pressed during the last update 
+
+    /// Asks if the logical button for the target player has just started
+    /// being pressed during the last update
     pub fn get_player_button_pressed(&self, button: Buttons, player_id: usize) -> bool {
-        self.player_states.get(&player_id).map(|ps| ps.get_button_pressed(button)).unwrap_or(false)
+        self.player_states
+            .get(&player_id)
+            .map(|ps| ps.get_button_pressed(button))
+            .unwrap_or(false)
     }
-    
-    /// Asks if the logical button for the default player has just started 
-    /// being pressed during the last update 
+
+    /// Asks if the logical button for the default player has just started
+    /// being pressed during the last update
     pub fn get_default_player_button_pressed(&self, button: Buttons) -> bool {
         self.get_player_button_pressed(button, DEFAULT_PLAYER)
     }
 
-    /// Asks if the logical button for the target player has just 
-    /// been released during the last update 
+    /// Asks if the logical button for the target player has just
+    /// been released during the last update
     pub fn get_player_button_released(&self, button: Buttons, player_id: usize) -> bool {
-        self.player_states.get(&player_id).map(|ps| ps.get_button_released(button)).unwrap_or(false)
+        self.player_states
+            .get(&player_id)
+            .map(|ps| ps.get_button_released(button))
+            .unwrap_or(false)
     }
-    
+
     /// Asks if the logical button for the default player has just  
-    /// been released during the last update 
+    /// been released during the last update
     pub fn get_default_player_button_released(&self, button: Buttons) -> bool {
         self.get_player_button_pressed(button, DEFAULT_PLAYER)
     }
@@ -599,7 +618,105 @@ where
 
     /// Resets all players Input State
     pub fn reset_all_player_input_state(&mut self) {
-        self.player_states.values_mut().for_each(|ps| ps.reset_input_state())
+        self.player_states
+            .values_mut()
+            .for_each(|ps| ps.reset_input_state())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+/// Builder pattern wrapping an InputState.
+///
+/// This can be used to create an InputState parametrized with bindings.
+/// For example, building an input state for a platformer game might look like this :
+///
+/// ```rust
+/// use ggez_goodies::input::{InputBinding, InputStateBuilder};
+/// use ggez::event::KeyCode;
+///
+/// #[derive(Debug, Hash, PartialEq, Eq, Clone)]
+/// enum MyAxes { Horizontal, Vertical }
+///
+/// #[derive(Debug, Hash, PartialEq, Eq, Clone)]
+/// enum MyButtons { Jump }
+///
+/// let input_state =
+///     InputStateBuilder::new()
+///     .with_binding(
+///         InputBinding::new()
+///             .bind_key_to_axis(KeyCode::Left, MyAxes::Horizontal, false) // Left is negative X    
+///             .bind_key_to_axis(KeyCode::Right, MyAxes::Horizontal, true) // Right is negative X
+///             .bind_key_to_axis(KeyCode::Up, MyAxes::Vertical, false)     // (in ggez's coordinate system) Up is negative Y
+///             .bind_key_to_axis(KeyCode::Down, MyAxes::Vertical, true)    // (in ggez's coordinate system) Down is positive Y
+///             .bind_key_to_button(KeyCode::Space, MyButtons::Jump)      // Space will make the player jump
+///     )
+///     .build();
+/// ```
+pub struct InputStateBuilder<Axes, Buttons>
+where
+    Axes: Hash + Eq + Clone,
+    Buttons: Hash + Eq + Clone,
+{
+    curr_player_id: usize,
+    bindings: HashMap<usize, InputBinding<Axes, Buttons>>,
+}
+
+impl<Axes, Buttons> Default for InputStateBuilder<Axes, Buttons>
+where
+    Axes: Hash + Eq + Clone,
+    Buttons: Hash + Eq + Clone,
+{
+    fn default() -> Self {
+        InputStateBuilder::new()
+    }
+}
+
+impl<Axes, Buttons> InputStateBuilder<Axes, Buttons>
+where
+    Axes: Hash + Eq + Clone,
+    Buttons: Hash + Eq + Clone,
+{
+    /// Default constructor for the InputStateBuilder.
+    /// Same as calling `default`.
+    pub fn new() -> Self {
+        InputStateBuilder {
+            curr_player_id: 0,
+            bindings: HashMap::default(),
+        }
+    }
+
+    /// Adds a binding to the input state being built
+    /// This binding will be used for the next unused player ID.
+    /// (on the first call, it will be 0)
+    pub fn with_binding(mut self, binding: InputBinding<Axes, Buttons>) -> Self {
+        // Because we allow inserting a binding for player X, we need to find
+        // an unused ID to make sure we do not accidentally override an
+        // existing InputBinding already set up by the user
+        let next_unused_id = (self.curr_player_id..)
+            .find(|id| self.bindings.get(id).is_none())
+            .unwrap();
+        self.curr_player_id = next_unused_id;
+        self.with_player_binding(binding, next_unused_id)
+    }
+
+    /// Adds a binding to the input state being built
+    /// This binding will be used for the specified player
+    pub fn with_player_binding(
+        mut self,
+        binding: InputBinding<Axes, Buttons>,
+        player_id: usize,
+    ) -> Self {
+        self.bindings.insert(player_id, binding);
+        self
+    }
+
+    /// Builds the InputState that has been parametrized
+    /// by this builder
+    pub fn build(self) -> InputState<Axes, Buttons> {
+        InputState {
+            player_states: HashMap::default(),
+            input_bindings: self.bindings,
+        }
     }
 }
 
@@ -633,6 +750,25 @@ mod tests {
             .bind_key_to_axis(KeyCode::Left, Axes::Horz, false)
             .bind_key_to_axis(KeyCode::Right, Axes::Horz, true);
         ib
+    }
+
+    fn make_input_binding_multiple() -> (InputBinding<Axes, Buttons>, InputBinding<Axes, Buttons>) {
+        (
+            InputBinding::<Axes, Buttons>::new()
+                .bind_key_to_axis(KeyCode::Up, Axes::Vert, false)
+                .bind_key_to_axis(KeyCode::Down, Axes::Vert, true)
+                .bind_key_to_axis(KeyCode::Left, Axes::Horz, false)
+                .bind_key_to_axis(KeyCode::Right, Axes::Horz, true)
+                .bind_key_to_button(KeyCode::Q, Buttons::A)
+                .bind_key_to_button(KeyCode::E, Buttons::B),
+            InputBinding::<Axes, Buttons>::new()
+                .bind_gamepad_button_to_axis(Button::DPadUp, Axes::Vert, false)
+                .bind_gamepad_button_to_axis(Button::DPadDown, Axes::Vert, true)
+                .bind_gamepad_button_to_axis(Button::DPadLeft, Axes::Horz, false)
+                .bind_gamepad_button_to_axis(Button::DPadRight, Axes::Horz, true)
+                .bind_gamepad_button_to_button(Button::East, Buttons::A)
+                .bind_gamepad_button_to_button(Button::South, Buttons::B),
+        )
     }
 
     #[test]
@@ -678,6 +814,42 @@ mod tests {
 
         assert_eq!(ib.resolve(KeyCode::Q), None);
         assert_eq!(ib.resolve(KeyCode::W), None);
+    }
+
+    #[test]
+    /// Tests that events are being correctly dispatched
+    /// Inner behaviour of PlayerInputState is verified by other tests
+    fn test_input_bindings_multiple() {
+        let (player_one, player_two) = make_input_binding_multiple();
+        let mut input_state = InputStateBuilder::new()
+            .with_binding(player_one)
+            .with_binding(player_two)
+            .build();
+
+        input_state.update_key_down(KeyCode::Up);
+        assert!(input_state.get_player_axis_raw(Axes::Vert, 0) < 0.);
+
+        input_state.update_key_up(KeyCode::Up);
+        input_state.update_key_down(KeyCode::Down);
+        assert!(input_state.get_player_axis_raw(Axes::Vert, 0) > 0.);
+
+        input_state.update_gamepad_down(Button::DPadLeft, 1);
+        assert!(input_state.get_player_axis_raw(Axes::Horz, 1) < 0.);
+
+        input_state.update_gamepad_up(Button::DPadLeft, 1);
+        input_state.update_gamepad_down(Button::DPadRight, 1);
+        assert!(input_state.get_player_axis_raw(Axes::Horz, 1) > 0.);
+
+        input_state.update_gamepad_down(Button::East, 1);
+        assert!(input_state.get_player_button_pressed(Buttons::A, 1));
+        assert!(input_state.get_player_button_down(Buttons::A, 1));
+        input_state.update(0.1);
+        assert!(!input_state.get_player_button_pressed(Buttons::A, 1));
+        assert!(input_state.get_player_button_down(Buttons::A, 1));
+
+        input_state.update_gamepad_up(Button::East, 1);
+        input_state.update_gamepad_down(Button::South, 1);
+        assert!(input_state.get_player_button_pressed(Buttons::B, 1));
     }
 
     #[test]
