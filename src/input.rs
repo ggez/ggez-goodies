@@ -478,7 +478,7 @@ where
 
     /// Signals to all player state that a key was released, updating them accordingly
     pub fn update_key_up(&mut self, key: KeyCode) {
-        self.update_key(key, true)
+        self.update_key(key, false)
     }
 
     /// Code reuse logic for update_key_down & update_key_up
@@ -833,12 +833,18 @@ mod tests {
         input_state.update_key_down(KeyCode::Down);
         assert!(input_state.get_player_axis_raw(Axes::Vert, 0) > 0.);
 
+        input_state.update_key_up(KeyCode::Down);
+        assert_eq!(input_state.get_player_axis_raw(Axes::Vert, 0), 0.);
+        
         input_state.update_gamepad_down(Button::DPadLeft, 1);
         assert!(input_state.get_player_axis_raw(Axes::Horz, 1) < 0.);
-
+        
         input_state.update_gamepad_up(Button::DPadLeft, 1);
         input_state.update_gamepad_down(Button::DPadRight, 1);
         assert!(input_state.get_player_axis_raw(Axes::Horz, 1) > 0.);
+        
+        input_state.update_gamepad_up(Button::DPadRight, 1);
+        assert_eq!(input_state.get_player_axis_raw(Axes::Horz, 1), 0.);
 
         input_state.update_gamepad_down(Button::East, 1);
         assert!(input_state.get_player_button_pressed(Buttons::A, 1));
