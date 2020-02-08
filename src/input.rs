@@ -13,10 +13,16 @@
 //! fun.
 //! * Take ggez's event-based input API, and present event- or
 //! state-based API so you can do whichever you want.
+//! 
+//! In this module: 
+//! * "physical" means Hardware button 
+//! * "logical" means User-defined button 
+//! * "raw" means unaffected by tweening on input axes
+//! 
+//!
+//! TODO: Handle mouse, joysticks
 
-// TODO: Handle mice, joysticks
-
-use ggez::event::{KeyCode, Button};
+use ggez::event::{Button, KeyCode};
 use std::collections::HashMap;
 use std::hash::Hash;
 
@@ -45,7 +51,7 @@ use std::hash::Hash;
 /// TODO: Desperately needs better name.
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 enum InputType {
-    KeyEvent(KeyCode), // MouseButtonEvent,
+    KeyEvent(KeyCode),    // MouseButtonEvent,
     GamepadEvent(Button), // Gamepad Event
 }
 
@@ -120,9 +126,21 @@ impl Default for AxisState {
 
 /// All the state necessary for a button press.
 #[derive(Debug, Copy, Clone, Default, Eq, PartialEq)]
-struct ButtonState {
+pub struct ButtonState {
     pressed: bool,
     pressed_last_frame: bool,
+}
+
+impl ButtonState {
+    /// Is the button pressed or not
+    pub fn pressed(&self) -> bool {
+        self.pressed
+    }
+
+    /// Trigger detector for the button
+    pub fn pressed_last_frame(&self) -> bool {
+        self.pressed_last_frame
+    }
 }
 
 /// A struct that contains a mapping from physical input events
@@ -165,29 +183,32 @@ where
     /// Adds a key binding connecting the given keycode to the given
     /// logical button.
     pub fn bind_key_to_button(mut self, keycode: KeyCode, button: Buttons) -> Self {
+        self.bindings
+            .insert(InputType::KeyEvent(keycode), InputEffect::Button(button));
+        self
+    }
+
+    /// Adds a gamepad binding connecting the given Gamepad Button to the given
+    /// logical axis.
+    pub fn bind_gamepad_button_to_axis(
+        mut self,
+        button: Button,
+        axis: Axes,
+        positive: bool,
+    ) -> Self {
         self.bindings.insert(
-            InputType::KeyEvent(keycode),
-            InputEffect::Button(button),
+            InputType::GamepadEvent(button),
+            InputEffect::Axis(axis, positive),
         );
         self
     }
 
-    /// Adds a gamepad binding connecting the given Gamepad Button to the given 
-    /// logical axis.
-    pub fn bind_gamepad_button_to_axis(mut self, button: Button, axis: Axes, positive: bool) -> Self {
-        self.bindings.insert(
-            InputType::GamepadEvent(button),
-            InputEffect::Axis(axis, positive)
-        );
-        self
-    }
-    
-    /// Adds a gamepad binding connecting the given Gamepad Button to the given 
+    /// Adds a gamepad binding connecting the given Gamepad Button to the given
     /// logical button.
     pub fn bind_gamepad_button_to_button(mut self, ggez_button: Button, button: Buttons) -> Self {
         self.bindings.insert(
             InputType::GamepadEvent(ggez_button),
-            InputEffect::Button(button)
+            InputEffect::Button(button),
         );
         self
     }
@@ -197,7 +218,7 @@ where
         self.bindings.get(&InputType::KeyEvent(keycode)).cloned()
     }
 
-    /// Takes a physical Gamepad input type and turns it into a logical input type (gamepad::button -> axis/button). 
+    /// Takes a physical Gamepad input type and turns it into a logical input type (gamepad::button -> axis/button).
     pub fn resolve_gamepad(&self, button: Button) -> Option<InputEffect<Axes, Buttons>> {
         self.bindings.get(&InputType::GamepadEvent(button)).cloned()
     }
@@ -205,8 +226,8 @@ where
 
 /// The object that tracks the current state of the input controls,
 /// such as axes, bindings, etc.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub struct InputState<Axes, Buttons>
+#[derive(Clone, Debug, PartialEq)]
+pub(crate) struct PlayerInputState<Axes, Buttons>
 where
     Axes: Hash + Eq + Clone,
     Buttons: Hash + Eq + Clone,
@@ -217,7 +238,17 @@ where
     buttons: HashMap<Buttons, ButtonState>,
 }
 
-impl<Axes, Buttons> InputState<Axes, Buttons>
+impl<Axes, Buttons> Default for PlayerInputState<Axes, Buttons>
+where
+    Axes: Hash + Eq + Clone,
+    Buttons: Hash + Eq + Clone,
+{
+    fn default() -> Self {
+        PlayerInputState::new() 
+    }
+}
+
+impl<Axes, Buttons> PlayerInputState<Axes, Buttons>
 where
     Axes: Eq + Hash + Clone,
     Buttons: Eq + Hash + Clone,
@@ -267,22 +298,26 @@ where
         }
     }
 
-    /// This method should get called by your `key_down_event` handler.
+    /// Used for testing purposes
+    #[allow(dead_code)]
     pub fn update_button_down(&mut self, button: Buttons) {
         self.update_effect(InputEffect::Button(button), true);
     }
 
-    /// This method should get called by your `key_up_event` handler.
+    /// Used for testing purposes
+    #[allow(dead_code)]
     pub fn update_button_up(&mut self, button: Buttons) {
         self.update_effect(InputEffect::Button(button), false);
     }
 
-    /// This method should get called by your axis_event handler.
+    /// Used for testing purposes 
+    #[allow(dead_code)]
     pub fn update_axis_start(&mut self, axis: Axes, positive: bool) {
         self.update_effect(InputEffect::Axis(axis, positive), true);
     }
     
-    /// This method should get called by your axis_event handler.
+    /// Used for testing purposes 
+    #[allow(dead_code)]
     pub fn update_axis_stop(&mut self, axis: Axes, positive: bool) {
         self.update_effect(InputEffect::Axis(axis, positive), false);
     }
@@ -310,18 +345,21 @@ where
         }
     }
 
+    /// Gets the value of a logical Axis
     pub fn get_axis(&self, axis: Axes) -> f32 {
         let d = AxisState::default();
         let axis_status = self.axes.get(&axis).unwrap_or(&d);
         axis_status.position
     }
 
+    /// Gets the raw value of a logical Axis
     pub fn get_axis_raw(&self, axis: Axes) -> f32 {
         let d = AxisState::default();
         let axis_status = self.axes.get(&axis).unwrap_or(&d);
         axis_status.direction
     }
 
+    /// Gets the state of a logical Button
     fn get_button(&self, button: Buttons) -> ButtonState {
         let d = ButtonState::default();
         let button_status = self.buttons.get(&button).unwrap_or(&d);
@@ -332,6 +370,8 @@ where
         self.get_button(axis).pressed
     }
 
+    /// Used for testing purposes
+    #[allow(dead_code)]
     pub fn get_button_up(&self, axis: Buttons) -> bool {
         !self.get_button(axis).pressed
     }
@@ -351,22 +391,27 @@ where
         !b.pressed && b.pressed_last_frame
     }
 
+    #[allow(dead_code)]
     pub fn mouse_position() {
         unimplemented!()
     }
-
+    
+    #[allow(dead_code)]
     pub fn mouse_scroll_delta() {
         unimplemented!()
     }
-
+    
+    #[allow(dead_code)]
     pub fn get_mouse_button() {
         unimplemented!()
     }
-
+    
+    #[allow(dead_code)]
     pub fn get_mouse_button_down() {
         unimplemented!()
     }
-
+    
+    #[allow(dead_code)]
     pub fn get_mouse_button_up() {
         unimplemented!()
     }
@@ -384,10 +429,183 @@ where
     }
 }
 
+#[derive(Debug, PartialEq, Clone)]
+pub struct InputState<Axes, Buttons>
+where
+    Axes: Hash + Eq + Clone,
+    Buttons: Hash + Eq + Clone,
+{
+    input_bindings: HashMap<usize, InputBinding<Axes, Buttons>>,
+    player_states: HashMap<usize, PlayerInputState<Axes, Buttons>>,
+}
+
+impl<Axes, Buttons> Default for InputState<Axes, Buttons>
+where
+    Axes: Hash + Eq + Clone,
+    Buttons: Hash + Eq + Clone,
+{
+    fn default() -> Self {
+        InputState::new()
+    }
+}
+
+/// The ID of the default player
+const DEFAULT_PLAYER: usize = 0;
+
+impl<Axes, Buttons> InputState<Axes, Buttons>
+where
+    Axes: Hash + Eq + Clone,
+    Buttons: Hash + Eq + Clone,
+{
+    /// Default constructor for an empty InputState
+    fn new() -> Self {
+        InputState {
+            input_bindings: HashMap::default(),
+            player_states: HashMap::default(),
+        }
+    }
+
+    /// Updates all players state
+    pub fn update(&mut self, dt: f32) {
+        self.player_states.values_mut().for_each(|ps| ps.update(dt))
+    }
+
+    /// Signals to all player state that a key was pressed, updating them accordingly
+    pub fn update_key_down(&mut self, key: KeyCode) {
+        self.update_key(key, true)
+    }
+    
+    /// Signals to all player state that a key was released, updating them accordingly
+    pub fn update_key_up(&mut self, key: KeyCode) {
+        self.update_key(key, true)
+    }
+    
+    /// Code reuse logic for update_key_down & update_key_up
+    /// Effectively signals the states that a key was pressed or released 
+    fn update_key(&mut self, key: KeyCode, started: bool) {
+        for (player_id, binding) in self.input_bindings.iter() {
+            if let Some(effect) = binding.resolve(key) {
+                let is = self.player_states.entry(*player_id).or_default();
+                is.update_effect(effect, started);
+            }
+        }
+    }
+    
+    /// Signals the target player's state that a physical Gamepad Button was pressed
+    pub fn update_gamepad_down(&mut self, gp_button: Button, player_id: usize) {
+        self.update_gamepad(gp_button, player_id, true)
+    }
+    
+    /// Signals the target player's state that a physical Gamepad Button was released
+    pub fn update_gamepad_up(&mut self, gp_button: Button, player_id: usize) {
+        self.update_gamepad(gp_button, player_id, false)
+    }
+    
+    /// Code reuse logic for update_gamepad_down & update_gamepad_up
+    /// Effectively signals the target player's state that a gamepad button 
+    /// was pressed or released 
+    fn update_gamepad(&mut self, gp_button: Button, player_id: usize, started: bool) {
+        if let Some(effect) = 
+            self
+                .input_bindings
+                .get_mut(&player_id)
+                .and_then(|ib| ib.resolve_gamepad(gp_button)) {
+            let is = self.player_states.entry(player_id).or_default();
+            is.update_effect(effect, started);
+        }
+    }
+
+    /// Gets the value of a logical axis for the target player
+    pub fn get_player_axis(&self, axis: Axes, player_id: usize) -> f32 {
+        self.player_states.get(&player_id).map(|ps| ps.get_axis(axis)).unwrap_or(0.)
+    }
+    
+    /// Gets the value of a logical axis for the default player
+    pub fn get_default_player_axis(&self, axis: Axes) -> f32 {
+        self.get_player_axis(axis, DEFAULT_PLAYER)
+    }
+    
+    /// Gets the raw value of a logical axis for the target player.
+    /// The raw value is the exact value of an axis at the present moment, not affected
+    /// by the easing factor.
+    pub fn get_player_axis_raw(&self, axis: Axes, player_id: usize) -> f32 {
+        self.player_states.get(&player_id).map(|ps| ps.get_axis_raw(axis)).unwrap_or(0.)
+    }
+    
+    /// Gets the raw value of a logical axis for the default player.
+    /// The raw value is the exact value of an axis at the present moment, not affected
+    /// by the easing factor.
+    pub fn get_default_player_axis_raw(&self, axis: Axes) -> f32 {
+        self.get_player_axis_raw(axis, DEFAULT_PLAYER)
+    }
+
+    /// Gets the state of a logical button for the target player
+    pub fn get_player_button(&self, button: Buttons, player_id: usize) -> ButtonState {
+        self.player_states.get(&player_id).map(|ps| ps.get_button(button)).unwrap_or_default()
+    }
+    
+    /// Gets the state of a logical button for the default player
+    pub fn get_default_player_button(&self, button: Buttons) -> ButtonState {
+        self.get_player_button(button, DEFAULT_PLAYER)
+    }
+
+    /// Asks if the logical button is held down for the target player
+    pub fn get_player_button_down(&self, button: Buttons, player_id: usize) -> bool {
+        self.player_states.get(&player_id).map(|ps| ps.get_button_down(button)).unwrap_or(false)
+    }
+    
+    /// Asks if the logical button is held down for the default player
+    pub fn get_default_player_button_down(&self, button: Buttons) -> bool {
+        self.get_player_button_down(button, DEFAULT_PLAYER)
+    }
+    
+    /// Asks if the logical button for the target player has just started 
+    /// being pressed during the last update 
+    pub fn get_player_button_pressed(&self, button: Buttons, player_id: usize) -> bool {
+        self.player_states.get(&player_id).map(|ps| ps.get_button_pressed(button)).unwrap_or(false)
+    }
+    
+    /// Asks if the logical button for the default player has just started 
+    /// being pressed during the last update 
+    pub fn get_default_player_button_pressed(&self, button: Buttons) -> bool {
+        self.get_player_button_pressed(button, DEFAULT_PLAYER)
+    }
+
+    /// Asks if the logical button for the target player has just 
+    /// been released during the last update 
+    pub fn get_player_button_released(&self, button: Buttons, player_id: usize) -> bool {
+        self.player_states.get(&player_id).map(|ps| ps.get_button_released(button)).unwrap_or(false)
+    }
+    
+    /// Asks if the logical button for the default player has just  
+    /// been released during the last update 
+    pub fn get_default_player_button_released(&self, button: Buttons) -> bool {
+        self.get_player_button_pressed(button, DEFAULT_PLAYER)
+    }
+
+    /// Resets the Input State for a given player
+    pub fn reset_player_input_state(&mut self, player_id: usize) {
+        if let Some(input_state) = self.player_states.get_mut(&player_id) {
+            input_state.reset_input_state()
+        }
+    }
+
+    /// Resets the Input State for the default player
+    pub fn reset_default_player_input_state(&mut self) {
+        if let Some(input_state) = self.player_states.get_mut(&DEFAULT_PLAYER) {
+            input_state.reset_input_state()
+        }
+    }
+
+    /// Resets all players Input State
+    pub fn reset_all_player_input_state(&mut self) {
+        self.player_states.values_mut().for_each(|ps| ps.reset_input_state())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ggez::event::*;
 
     #[derive(Hash, Eq, PartialEq, Copy, Clone, Debug)]
     enum Buttons {
@@ -464,7 +682,7 @@ mod tests {
 
     #[test]
     fn test_input_events() {
-        let mut im = InputState::new();
+        let mut im = PlayerInputState::new();
         im.update_button_down(Buttons::A);
         assert!(im.get_button_down(Buttons::A));
         im.update_button_up(Buttons::A);
@@ -511,7 +729,7 @@ mod tests {
 
     #[test]
     fn test_button_edge_transitions() {
-        let mut im: InputState<Axes, Buttons> = InputState::new();
+        let mut im: PlayerInputState<Axes, Buttons> = PlayerInputState::new();
 
         // Push a key, confirm it's transitioned.
         assert!(!im.get_button_down(Buttons::A));
