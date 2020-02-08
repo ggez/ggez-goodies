@@ -21,6 +21,9 @@
 //!
 //!
 //! TODO: Handle mouse, joysticks
+//! Joysticks will probably be a pain because gilrs (and hence ggez)
+//! returns their values as f32, which does not implement Hash or Eq, 
+//! making them unusable as keys for HashMaps.  
 
 use ggez::event::{Button, KeyCode};
 use std::collections::HashMap;
