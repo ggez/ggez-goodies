@@ -25,7 +25,7 @@
 //! returns their values as f32, which does not implement Hash or Eq, 
 //! making them unusable as keys for HashMaps.  
 
-use ggez::event::{Button, KeyCode};
+use ggez::event::{Button, KeyCode, Axis};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -55,8 +55,9 @@ use std::hash::Hash;
 /// TODO: Desperately needs better name.
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 enum InputType {
-    KeyEvent(KeyCode),    // MouseButtonEvent,
+    KeyEvent(KeyCode),    // Keyboard Event,
     GamepadEvent(Button), // Gamepad Event
+    AxisEvent(Axis),      // Axis Event
 }
 
 /// Abstract input values; the "to" part of an input mapping.
@@ -85,13 +86,14 @@ enum InputType {
 /// ```
 ///
 /// TODO: Desperately needs better name.
-#[derive(Debug, Copy, Clone, PartialEq, Hash, Eq)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum InputEffect<Axes, Buttons>
 where
     Axes: Eq + Hash + Clone,
     Buttons: Eq + Hash + Clone,
 {
     Axis(Axes, bool),
+    AxisRaw(Axes, bool, Option<f32>),
     Button(Buttons),
 }
 
@@ -150,7 +152,7 @@ impl ButtonState {
 /// A struct that contains a mapping from physical input events
 /// (currently just `KeyCode`s) to whatever your logical Axis/Button
 /// types are.
-#[derive(Default, Debug, Eq, PartialEq, Clone)]
+#[derive(Default, Debug, PartialEq, Clone)]
 pub struct InputBinding<Axes, Buttons>
 where
     Axes: Hash + Eq + Clone,
@@ -217,6 +219,14 @@ where
         self
     }
 
+    pub fn bind_gamepad_axis_to_axis(mut self, axis: Axis, logical_axis: Axes, invert: bool) -> Self {
+        self.bindings.insert(
+            InputType::AxisEvent(axis),
+            InputEffect::AxisRaw(logical_axis, invert, None),
+        );
+        self
+    }
+
     /// Takes an physical input type and turns it into a logical input type (keycode -> axis/button).
     pub fn resolve(&self, keycode: KeyCode) -> Option<InputEffect<Axes, Buttons>> {
         self.bindings.get(&InputType::KeyEvent(keycode)).cloned()
@@ -225,6 +235,36 @@ where
     /// Takes a physical Gamepad input type and turns it into a logical input type (gamepad::button -> axis/button).
     pub fn resolve_gamepad(&self, button: Button) -> Option<InputEffect<Axes, Buttons>> {
         self.bindings.get(&InputType::GamepadEvent(button)).cloned()
+    }
+
+    /// Takes a physical Gamepad axis type and turns it into a logical input type (gamepad::axis -> axis/button).
+    pub fn resolve_axis(&self, axis: Axis) -> Option<InputEffect<Axes, Buttons>> {
+        self.bindings.get(&InputType::AxisEvent(axis)).cloned()
+    }
+
+    #[allow(dead_code)]
+    pub fn mouse_position() {
+        unimplemented!()
+    }
+
+    #[allow(dead_code)]
+    pub fn mouse_scroll_delta() {
+        unimplemented!()
+    }
+
+    #[allow(dead_code)]
+    pub fn get_mouse_button() {
+        unimplemented!()
+    }
+
+    #[allow(dead_code)]
+    pub fn get_mouse_button_down() {
+        unimplemented!()
+    }
+
+    #[allow(dead_code)]
+    pub fn get_mouse_button_up() {
+        unimplemented!()
     }
 }
 
@@ -340,11 +380,20 @@ where
                 {
                     axis_status.direction = 0.0;
                 }
-            }
+            },
             InputEffect::Button(button) => {
                 let f = || ButtonState::default();
                 let button_status = self.buttons.entry(button).or_insert_with(f);
                 button_status.pressed = started;
+            },
+            InputEffect::AxisRaw(axis, inverted, raw_value) => {
+                let f = || AxisState::default();
+                let axis_status = self.axes.entry(axis).or_insert_with(f);
+                if let Some(raw) = raw_value {
+                    let raw = if inverted { -raw } else { raw };
+                    axis_status.position = raw; 
+                    axis_status.direction = raw; 
+                }
             }
         }
     }
@@ -395,30 +444,7 @@ where
         !b.pressed && b.pressed_last_frame
     }
 
-    #[allow(dead_code)]
-    pub fn mouse_position() {
-        unimplemented!()
-    }
-
-    #[allow(dead_code)]
-    pub fn mouse_scroll_delta() {
-        unimplemented!()
-    }
-
-    #[allow(dead_code)]
-    pub fn get_mouse_button() {
-        unimplemented!()
-    }
-
-    #[allow(dead_code)]
-    pub fn get_mouse_button_down() {
-        unimplemented!()
-    }
-
-    #[allow(dead_code)]
-    pub fn get_mouse_button_up() {
-        unimplemented!()
-    }
+    
 
     pub fn reset_input_state(&mut self) {
         for (_axis, axis_status) in self.axes.iter_mut() {
@@ -482,6 +508,21 @@ where
     /// Signals to all player state that a key was released, updating them accordingly
     pub fn update_key_up(&mut self, key: KeyCode) {
         self.update_key(key, false)
+    }
+
+    /// Signals to the target player's input state that an axis has changed its value.
+    /// Calls the update accordingly  
+    pub fn update_axis(&mut self, axis: Axis, value: f32, player_id: usize) {
+        if let Some(binding) = self.input_bindings.get(&player_id) {
+            if let Some(effect) = binding.resolve_axis(axis) {
+                let is = self.player_states.entry(player_id).or_default();
+                let effect = match effect {
+                    InputEffect::AxisRaw(ax, invert, _) => InputEffect::AxisRaw(ax, invert, Some(value)), 
+                    e => e,
+                };
+                is.update_effect(effect, false); 
+            }
+        }
     }
 
     /// Code reuse logic for update_key_down & update_key_up
@@ -627,7 +668,7 @@ where
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 /// Builder pattern wrapping an InputState.
 ///
 /// This can be used to create an InputState parametrized with bindings.

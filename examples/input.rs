@@ -16,7 +16,7 @@ extern crate ggez;
 
 use ggez::graphics;
 use ggez::{Context, GameResult};
-use ggez::event::{KeyCode, KeyMods, Button};
+use ggez::event::{Axis, KeyCode, KeyMods, Button};
 use ggez::input::gamepad::GamepadId;
 use ggez_goodies::Point2;
 use ggez_goodies::input::{InputState, InputBinding, InputStateBuilder};
@@ -126,6 +126,11 @@ impl ggez::event::EventHandler for MainState {
         let id = ctx.gamepad_context.gamepad(id).id();
         self.input_state.update_gamepad_up(btn, id.into())
     }
+
+    fn gamepad_axis_event(&mut self, ctx: &mut Context, axis: Axis, value: f32, id: GamepadId) {
+        let id = ctx.gamepad_context.gamepad(id).id();
+        self.input_state.update_axis(axis, value, id.into());
+    }
 }
 
 fn main() -> ggez::GameResult<()> {
@@ -142,6 +147,8 @@ fn main() -> ggez::GameResult<()> {
             .bind_gamepad_button_to_axis(Button::DPadRight, GameAxis::Horizontal, true)
             .bind_gamepad_button_to_axis(Button::DPadUp, GameAxis::Vertical, false)
             .bind_gamepad_button_to_axis(Button::DPadDown, GameAxis::Vertical, true)
+            .bind_gamepad_axis_to_axis(Axis::LeftStickX, GameAxis::Horizontal, false)
+            .bind_gamepad_axis_to_axis(Axis::LeftStickY, GameAxis::Vertical, true)
             .bind_gamepad_button_to_button(Button::South, GameButton::ChangeColor)
         )
         .with_binding(
