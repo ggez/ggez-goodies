@@ -19,8 +19,6 @@
 //! * "logical" means User-defined button
 //! * "raw" means unaffected by tweening on input axes
 //!
-//!
-//! TODO: Handle mouse 
 
 use ggez::event::{Button, KeyCode, Axis, MouseButton};
 use ggez::mint::Point2;
@@ -49,8 +47,6 @@ use std::hash::Hash;
 // Easy way?  Hash map of event -> axis/button bindings.
 
 /// The raw ggez input types; the "from" part of an input mapping.
-///
-/// TODO: Desperately needs better name.
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 enum InputType {
     KeyEvent(KeyCode),       // Keyboard Event,
@@ -83,8 +79,6 @@ enum InputType {
 ///
 /// type MyInputEffect = InputEffect<MyAxes, MyButtons>;
 /// ```
-///
-/// TODO: Desperately needs better name.
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum InputEffect<Axes, Buttons>
 where
@@ -159,7 +153,7 @@ where
 {
     // Once EnumSet is stable it should be used for these
     // instead of BTreeMap. ♥?
-    // Binding of keys to input values.
+    /// Binding of keys to input values.
     bindings: HashMap<InputType, InputEffect<Axes, Buttons>>,
 }
 
@@ -295,6 +289,7 @@ where
     Axes: Eq + Hash + Clone,
     Buttons: Eq + Hash + Clone,
 {
+    /// Default constructor for a PlayerInputState
     pub fn new() -> Self {
         Self {
             axes: HashMap::default(),
