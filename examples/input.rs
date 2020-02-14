@@ -1,13 +1,17 @@
 //! Simple two-player input example.
 //! Control two squares, move them around and change their color.
 //!
-//! The left square is controlled by the controller: 
+//! The first square is controlled by the controller: 
 //! * Use DPad on the controller to move around,
 //! * Press South button on the controller to change color,
 //!
-//! The right square is controller by the keyboard : 
+//! The second square is controller by the keyboard : 
 //! * Use Arrow Keys to move around,
 //! * Press Space on the controller to change color,
+//! 
+//! The third square is controlled by the mouse:
+//! * Move the mouse around to move it,
+//! * Click left-button to change color
 //!
 //! Tested with a PS3 controller
 //!
@@ -16,12 +20,13 @@ extern crate ggez;
 
 use ggez::graphics;
 use ggez::{Context, GameResult};
-use ggez::event::{Axis, KeyCode, KeyMods, Button};
+use ggez::event::{Axis, KeyCode, KeyMods, Button, MouseButton};
 use ggez::input::gamepad::GamepadId;
 use ggez_goodies::Point2;
 use ggez_goodies::input::{InputState, InputBinding, InputStateBuilder};
 use graphics::{DrawParam, DrawMode, FillOptions, Mesh, Rect};
 
+const NB_PLAYERS: usize = 3;
 #[derive(Hash, PartialEq, Eq, Clone, Debug)]
 enum GameAxis {
     Horizontal,
@@ -42,7 +47,7 @@ struct MainState {
 
 impl MainState {
     pub fn new(ctx: &mut Context, input_state: InputState<GameAxis, GameButton>) -> Self {
-        let meshes = (0..2).map(|_| {
+        let meshes = (0..NB_PLAYERS).map(|_| {
             Mesh::new_rectangle(
                 ctx,
                 DrawMode::Fill(FillOptions::default()),
@@ -52,15 +57,17 @@ impl MainState {
             .expect("Failed to build mesh")
         }).collect();
 
-        let pos = (0..2).map(|x| {
+        let pos = (0..NB_PLAYERS).map(|x| {
             let x = (x + 1) * 64;
             [x as f32, 32.].into()
         }).collect(); 
 
+        let colors = (0..NB_PLAYERS).map(|_| graphics::WHITE).collect();
+
         MainState {
             meshes,
             pos,
-            colors: vec![graphics::WHITE, graphics::WHITE],
+            colors,
             input_state,
         }
     }
@@ -69,8 +76,8 @@ impl MainState {
 impl ggez::event::EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         // Update all player positions
-        (0..2)
-        .for_each(|x: usize| {
+        (0..NB_PLAYERS)
+        .for_each(|x| {
             let velocity_x = self.input_state.get_player_axis(GameAxis::Horizontal, x);
             let velocity_y = self.input_state.get_player_axis(GameAxis::Vertical, x);
             self.pos[x].x += velocity_x; 
@@ -80,6 +87,10 @@ impl ggez::event::EventHandler for MainState {
                 self.colors[x] = [rand::random::<f32>(), rand::random::<f32>(), rand::random::<f32>(), 1.].into();
             }
         });
+
+        let mouse_pos = self.input_state.get_mouse_position();
+        self.pos[2].x = mouse_pos.x;
+        self.pos[2].y = mouse_pos.y;
         
         // Updates the input state
         // Note: you must handle input *before* calling input.update() 
@@ -93,8 +104,8 @@ impl ggez::event::EventHandler for MainState {
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
         graphics::clear(ctx, graphics::BLACK); 
 
-        (0..2)
-        .map(|x: usize| {
+        (0..NB_PLAYERS)
+        .map(|x| {
             graphics::draw(
                 ctx, 
                 &self.meshes[x], 
@@ -131,6 +142,18 @@ impl ggez::event::EventHandler for MainState {
         let id = ctx.gamepad_context.gamepad(id).id();
         self.input_state.update_axis(axis, value, id.into());
     }
+
+    fn mouse_button_down_event(&mut self, _ctx: &mut Context, button: MouseButton, _x: f32, _y: f32) {
+        self.input_state.update_mouse_button_down(button);
+    }
+
+    fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: MouseButton, _x: f32, _y: f32) {
+        self.input_state.update_mouse_button_up(button);
+    }
+
+    fn mouse_motion_event(&mut self, _ctx: &mut Context, x: f32, y: f32, dx: f32, dy: f32) {
+        self.input_state.update_mouse_motion(x,y,dx,dy);
+    }
 }
 
 fn main() -> ggez::GameResult<()> {
@@ -140,6 +163,7 @@ fn main() -> ggez::GameResult<()> {
 
     // Player 0 is controlled using the gamepad
     // Player 1 is controlled using arrow keys on the keyboard
+    // Player 2 is controlled by the mouse
     let input_state = InputStateBuilder::new()
     .with_binding(
         InputBinding::new()
@@ -158,6 +182,10 @@ fn main() -> ggez::GameResult<()> {
                 .bind_key_to_axis(KeyCode::Up, GameAxis::Vertical, false)
                 .bind_key_to_axis(KeyCode::Down, GameAxis::Vertical, true)
                 .bind_key_to_button(KeyCode::Space, GameButton::ChangeColor)
+        )
+        .with_binding(
+            InputBinding::new()
+                .bind_mouse_button_to_button(MouseButton::Left, GameButton::ChangeColor),
         )
         .build();
     let mut state = MainState::new(&mut ctx, input_state);
