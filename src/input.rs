@@ -709,19 +709,19 @@ where
     }
 
     /// Gets the position of the mouse on the screen
-    pub fn mouse_position(&self) -> Point2<f32> {
+    pub fn get_mouse_position(&self) -> Point2<f32> {
         self.mouse_state.position.clone()
     }
 
     /// Gets the scrolling delta from last frame  
-    pub fn mouse_scroll_delta(&self) -> Point2<f32> {
+    pub fn get_mouse_scroll_delta(&self) -> Point2<f32> {
         self.mouse_state.scrollwheel.clone()
     }
 
     /// Gets the delta position of the mouse 
     /// (how much pixels it moved on the X and Y axis)
     /// during the latest frame
-    pub fn mouse_delta(&self) -> Point2<f32> {
+    pub fn get_mouse_delta(&self) -> Point2<f32> {
         self.mouse_state.delta.clone()
     }
 }
