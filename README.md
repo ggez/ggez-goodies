@@ -32,6 +32,7 @@ start for making your own versions of the same tasks.
  * specs for entity-component system (alternatives: ecs or recs or rustic-ecs crates)
  * cgmath, nalgebra or vecmath for math operations
  * physics/collision???  ncollide.
+ * https://github.com/HannesMann/keyframe
  * https://github.com/rsaarelm/calx
  * https://github.com/Gekkio/imgui-rs
  * https://github.com/BourgondAries/TileNet
