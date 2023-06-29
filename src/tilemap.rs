@@ -13,9 +13,11 @@
 //! obscured by other tiles, etc.
 
 use std::collections::HashMap;
+use std::fmt::Debug;
 
-use ggez;
-use ggez::graphics;
+use ggez::context::Has;
+use ggez::graphics::{self, Drawable, GraphicsContext, Mesh, MeshData};
+use ggez::{self, Context};
 pub use tiled;
 
 /// Newtype struct for a tile ID.
@@ -41,7 +43,7 @@ impl Tile {
 }
 
 /// A collection of `Tile` definitions and the `Image` they refer to.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Tileset {
     pub first_gid: usize,
     pub tileset: HashMap<TileId, Tile>,
@@ -52,10 +54,10 @@ impl Tileset {
     /// Turn a `tiled::Tileset` into a hashmap of our own `Tile` types.
     /// Having our own types for all the `Tiled` types is necessary for
     /// coordinate translation and such, annoyingly.
-    pub fn from_tiled(tset: &tiled::Tileset, image: graphics::Image) -> Self {
+    pub fn from_tiled(tset: &tiled::Tileset, image: graphics::Image, ctx: &Context) -> Self {
         let mut tileset = HashMap::new();
 
-        let image_rect = image.dimensions();
+        let image_rect = image.dimensions(ctx).unwrap_or_default();
         let image_widthi = image_rect.w as u32;
         let image_heighti = image_rect.h as u32;
         let tile_width = tset.tile_width as f32 / image_rect.w;
@@ -107,7 +109,11 @@ impl Tileset {
             tileset.insert(id, tile);
         }
 
-        Self { tileset, image, first_gid }
+        Self {
+            tileset,
+            image,
+            first_gid,
+        }
     }
 
     /// TODO
@@ -155,7 +161,7 @@ impl Layer {
 /// added in the future.  An easy and efficient option would be making
 /// multiple entire `Tileset`'s and having this able to flip between them.
 /// Right now though it only contains a single `Tileset`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug)]
 pub struct Map {
     pub layers: Vec<Layer>,
     /// Width, in tiles
@@ -200,7 +206,7 @@ impl Map {
             ctx,
             graphics::DrawMode::fill(),
             graphics::Rect::new(0.0, 0.0, 100.0, 100.0),
-            graphics::WHITE,
+            graphics::Color::WHITE,
         )
         .unwrap();
         let mut s = Self {
@@ -242,7 +248,7 @@ impl Map {
         let tile_height = tileset.tile_height as f32;
         let image_str = &tileset.images[0].source;
         let image = image_callback(ctx, image_str);
-        let tileset = Tileset::from_tiled(&t.tilesets[0], image);
+        let tileset = Tileset::from_tiled(&t.tilesets[0], image, ctx);
 
         // Great, now we have a tile set, we can translate
         // the layers.
@@ -268,7 +274,7 @@ impl Map {
             ctx,
             graphics::DrawMode::fill(),
             graphics::Rect::new(0.0, 0.0, 100.0, 100.0),
-            graphics::WHITE,
+            graphics::Color::WHITE,
         )
         .unwrap();
 
@@ -303,7 +309,8 @@ impl Map {
                 let first_opaque_layer = self.first_opaque_layer_at(x, y);
                 for layer in &self.layers[first_opaque_layer..] {
                     if let Some(tile_idx) = layer.get_tile(x, y, self.width) {
-                        if tile_idx.0 != 0 { //Continue if tile is empty.
+                        if tile_idx.0 != 0 {
+                            //Continue if tile is empty.
                             let (tile, hflip, vflip, dflip) = self.tileset.get(tile_idx);
                             let tile = tile.expect("Invalid tile ID!");
                             let src_rect = tile.rect;
@@ -313,39 +320,45 @@ impl Map {
                             );
                             let mut v = [
                                 graphics::Vertex {
-                                    pos: [dest_pt.x, dest_pt.y],
+                                    position: [dest_pt.x, dest_pt.y],
                                     uv: [src_rect.x, src_rect.y],
-                                    color: graphics::WHITE.into(),
+                                    color: graphics::Color::WHITE.into(),
                                 },
                                 graphics::Vertex {
-                                    pos: [dest_pt.x + self.tile_width, dest_pt.y],
+                                    position: [dest_pt.x + self.tile_width, dest_pt.y],
                                     uv: [src_rect.x + src_rect.w, src_rect.y],
-                                    color: graphics::WHITE.into(),
+                                    color: graphics::Color::WHITE.into(),
                                 },
                                 graphics::Vertex {
-                                    pos: [dest_pt.x + self.tile_width, dest_pt.y + self.tile_height],
+                                    position: [
+                                        dest_pt.x + self.tile_width,
+                                        dest_pt.y + self.tile_height,
+                                    ],
                                     uv: [src_rect.x + src_rect.w, src_rect.y + src_rect.h],
-                                    color: graphics::WHITE.into(),
+                                    color: graphics::Color::WHITE.into(),
                                 },
                                 graphics::Vertex {
-                                    pos: [dest_pt.x, dest_pt.y + self.tile_height],
+                                    position: [dest_pt.x, dest_pt.y + self.tile_height],
                                     uv: [src_rect.x, src_rect.y + src_rect.h],
-                                    color: graphics::WHITE.into(),
+                                    color: graphics::Color::WHITE.into(),
                                 },
                             ];
-                            if dflip { //Swap uv coordinates of diagonally opposite corners to rotate texture.
+                            if dflip {
+                                //Swap uv coordinates of diagonally opposite corners to rotate texture.
                                 let (v1uv, v3uv) = (v[1].uv, v[3].uv);
                                 v[1].uv = v3uv;
                                 v[3].uv = v1uv;
                             };
-                            if hflip { //Swap uv coordinates of horizontally opposite corners to flip texture horizontally.
+                            if hflip {
+                                //Swap uv coordinates of horizontally opposite corners to flip texture horizontally.
                                 let (v0uv, v1uv, v2uv, v3uv) = (v[0].uv, v[1].uv, v[2].uv, v[3].uv);
                                 v[0].uv = v1uv;
                                 v[1].uv = v0uv;
                                 v[2].uv = v3uv;
                                 v[3].uv = v2uv;
                             };
-                            if vflip { //Swap uv coordinates of vertically opposite corners to flip texture vertically.
+                            if vflip {
+                                //Swap uv coordinates of vertically opposite corners to flip texture vertically.
                                 let (v0uv, v1uv, v2uv, v3uv) = (v[0].uv, v[1].uv, v[2].uv, v[3].uv);
                                 v[0].uv = v3uv;
                                 v[1].uv = v2uv;
@@ -363,10 +376,12 @@ impl Map {
                 }
             }
         }
-        let mut mb = graphics::MeshBuilder::default();
-        let img = self.tileset.image.clone();
-        mb.raw(verts.as_slice(), indices.as_slice(), Some(img));
-        self.mesh = mb.build(ctx).unwrap();
+        // let mut mb = graphics::MeshBuilder::default();
+        let mesh_data = MeshData {
+            vertices: verts.as_slice(),
+            indices: indices.as_slice(),
+        };
+        self.mesh = Mesh::from_data(ctx, mesh_data);
     }
 
     /// Walk down the stack of `Layer`'s at a coordinate,
@@ -379,7 +394,7 @@ impl Map {
     ///
     /// Panics if no layers exist.
     fn first_opaque_layer_at(&self, x: usize, y: usize) -> usize {
-        assert!(self.layers.len() > 0);
+        assert!(!self.layers.is_empty());
         for i in (0..self.layers.len()).rev() {
             if let Some(tile_idx) = self.layers[i].get_tile(x, y, self.width) {
                 if tile_idx.0 != 0 {
@@ -393,26 +408,19 @@ impl Map {
             }
             // No tile at that coordinate, continue
         }
-        return 0;
+        0
     }
 }
 
 impl graphics::Drawable for Map {
-    fn draw(&self, ctx: &mut ggez::Context, param: graphics::DrawParam) -> ggez::GameResult {
-        self.mesh.draw(ctx, param)
+    fn draw(&self, canvas: &mut ggez::graphics::Canvas, param: impl Into<graphics::DrawParam>) {
+        canvas.draw_textured_mesh(self.mesh.clone(), self.tileset.image.clone(), param);
     }
 
     /// This is kinda odd 'cause tiles don't *strictly* all need to be the same size...
     /// TODO: Find out if Tiled can ever create ones that aren't.
-    fn dimensions(&self, ctx: &mut ggez::Context) -> Option<graphics::Rect> {
-        self.mesh.dimensions(ctx)
-    }
-
-    fn set_blend_mode(&mut self, mode: Option<graphics::BlendMode>) {
-        self.mesh.set_blend_mode(mode);
-    }
-    fn blend_mode(&self) -> Option<graphics::BlendMode> {
-        self.mesh.blend_mode()
+    fn dimensions(&self, gfx: &impl Has<GraphicsContext>) -> Option<graphics::Rect> {
+        self.mesh.dimensions(gfx)
     }
 }
 

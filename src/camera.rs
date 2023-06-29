@@ -18,6 +18,7 @@
 
 use ggez;
 use ggez::graphics;
+use ggez::graphics::Transform;
 use ggez::mint;
 use ggez::GameResult;
 use nalgebra_glm::Vec2;
@@ -26,18 +27,18 @@ use nalgebra_glm::Vec2;
 struct Vector2(Vec2);
 struct MintPoint2(mint::Point2<f32>);
 
-impl Into<mint::Point2<f32>> for Vector2 {
-    fn into(self) -> mint::Point2<f32> {
-        mint::Point2 {
-            x: self.0.x,
-            y: self.0.y,
-        }
+impl From<MintPoint2> for Vec2 {
+    fn from(val: MintPoint2) -> Self {
+        Vec2::new(val.0.x, val.0.y)
     }
 }
 
-impl Into<Vec2> for MintPoint2 {
-    fn into(self) -> Vec2 {
-        Vec2::new(self.0.x, self.0.y)
+impl From<Vector2> for mint::Point2<f32> {
+    fn from(val: Vector2) -> Self {
+        mint::Point2 {
+            x: val.0.x,
+            y: val.0.y,
+        }
     }
 }
 
@@ -51,10 +52,10 @@ pub struct Camera {
 impl Camera {
     pub fn new(screen_width: u32, screen_height: u32, view_width: f32, view_height: f32) -> Self {
         let screen_size = Vec2::new(screen_width as f32, screen_height as f32);
-        let view_size = Vec2::new(view_width as f32, view_height as f32);
+        let view_size = Vec2::new(view_width, view_height);
         Camera {
-            screen_size: screen_size,
-            view_size: view_size,
+            screen_size,
+            view_size,
             view_center: Vec2::new(0.0, 0.0),
         }
     }
@@ -97,9 +98,7 @@ impl Camera {
         let screen_coords = Vec2::new(flipped_x, flipped_y);
         let units_per_pixel = self.view_size.component_div(&self.screen_size);
         let view_scale = screen_coords.component_mul(&units_per_pixel);
-        let view_offset = self.view_center + view_scale;
-
-        view_offset
+        self.view_center + view_scale
     }
 
     pub fn location(&self) -> Vec2 {
@@ -119,27 +118,33 @@ where
     fn draw_ex_camera(
         &self,
         camera: &Camera,
-        ctx: &mut ggez::Context,
+        canvas: &mut ggez::graphics::Canvas,
         p: ggez::graphics::DrawParam,
     ) -> GameResult<()> {
-        let dest = camera.calculate_dest_point(MintPoint2(p.dest).into());
-        let mut my_p = p;
-        my_p.dest = Vector2(dest).into();
-        self.draw(ctx, my_p)
+        if let Transform::Values { dest, .. } = p.transform {
+            let my_dest = camera.calculate_dest_point(MintPoint2(dest).into());
+            let my_p = p.dest(Vector2(my_dest));
+            self.draw(canvas, my_p);
+            return Ok(());
+        }
+        Err(ggez::GameError::CustomError(
+            "Failed to draw to camera".to_string(),
+        ))
     }
 
     fn draw_camera(
         &self,
         camera: &Camera,
-        ctx: &mut ggez::Context,
+        canvas: &mut ggez::graphics::Canvas,
         dest: Vec2,
         rotation: f32,
     ) -> GameResult<()> {
         let dest = camera.calculate_dest_point(dest);
-        let mut draw_param = ggez::graphics::DrawParam::default();
-        draw_param.dest = Vector2(dest).into();
-        draw_param.rotation = rotation;
-        self.draw(ctx, draw_param)
+        let draw_param = ggez::graphics::DrawParam::default()
+            .dest(Vector2(dest))
+            .rotation(rotation);
+        self.draw(canvas, draw_param);
+        Ok(())
     }
 }
 

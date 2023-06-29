@@ -2,7 +2,7 @@ pub use euclid;
 pub type Point2 = euclid::Point2D<f32>;
 pub type Vector2 = euclid::Vector2D<f32>;
 
-//pub mod camera;
+pub mod camera;
 pub mod input;
 // pub mod particle;
 pub mod particle2;

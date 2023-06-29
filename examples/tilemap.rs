@@ -1,4 +1,8 @@
-use ggez::{self, conf, event, graphics, timer, Context, GameResult};
+use ggez::{
+    self, conf, event,
+    graphics::{self, Color},
+    timer, Context, GameResult,
+};
 use ggez_goodies::{self, euclid as eu, tilemap as t};
 
 struct MainState {
@@ -7,12 +11,10 @@ struct MainState {
 
 impl MainState {
     fn new(ctx: &mut Context) -> GameResult<Self> {
-        let mut image = graphics::Image::new(ctx, "/terrain.png")?;
-        // Drawing gets blurry and flawed without this.
-        image.set_filter(graphics::FilterMode::Nearest);
+        let mut image = graphics::Image::from_path(ctx, "/terrain.png")?;
         let tiled_map = {
             use std::io::Read;
-            let mut f = ggez::filesystem::open(ctx, "/test-map.tmx")?;
+            let mut f = ctx.fs.open("/test-map.tmx")?;
             let buf = &mut vec![];
             f.read_to_end(buf)?;
             t::tiled::parse(buf.as_slice()).unwrap()
@@ -29,7 +31,7 @@ const WINDOW_HEIGHT: f32 = 480.0;
 impl event::EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         const DESIRED_FPS: u32 = 60;
-        while timer::check_update_time(ctx, DESIRED_FPS) {
+        while ctx.time.check_update_time(DESIRED_FPS) {
             timer::sleep(std::time::Duration::from_secs(0));
         }
 
@@ -37,19 +39,15 @@ impl event::EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        graphics::clear(ctx, [0.0, 0.0, 0.0, 1.0].into());
+        let mut canvas = graphics::Canvas::from_frame(ctx, Color::BLACK);
         let dest: ggez_goodies::Point2 = eu::point2(WINDOW_WIDTH / 4.0, WINDOW_HEIGHT / 4.0);
-        graphics::draw(
-            ctx,
-            &mut self.tilemap,
-            graphics::DrawParam::default().dest(dest),
-        )?;
-        graphics::present(ctx)?;
+        canvas.draw(&self.tilemap, graphics::DrawParam::default().dest(dest));
+        canvas.finish(ctx)?;
         Ok(())
     }
 }
 
-pub fn main() {
+pub fn main() -> GameResult {
     use std::env;
     use std::path;
     let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
@@ -60,18 +58,13 @@ pub fn main() {
         path::PathBuf::from("./resources")
     };
 
-    let (ctx, event_loop) = &mut ggez::ContextBuilder::new("tile_map", "test")
+    let (mut ctx, event_loop) = ggez::ContextBuilder::new("tile_map", "test")
         .window_setup(conf::WindowSetup::default().title("Tile it like it's 1988 again!"))
         .window_mode(conf::WindowMode::default().dimensions(WINDOW_WIDTH, WINDOW_HEIGHT))
         .add_resource_path(resource_dir)
-        .build()
-        .unwrap();
+        .build()?;
 
-    let game = &mut MainState::new(ctx).unwrap();
+    let game = MainState::new(&mut ctx)?;
 
-    if let Err(e) = event::run(ctx, event_loop, game) {
-        println!("Error encountered: {}", e);
-    } else {
-        println!("Game exited cleanly.");
-    }
+    event::run(ctx, event_loop, game)
 }

@@ -1,19 +1,22 @@
 //! An Asteroids-ish example game to show off ggez.
 //! The idea is that this game is simple but still
 //! non-trivial enough to be interesting.
-/*
+// /*
 extern crate ggez;
 extern crate rand;
 
 use ggez::conf;
 use ggez::event;
 use ggez::graphics;
+use ggez::graphics::Color;
+use ggez::graphics::DrawParam;
+use ggez::input::keyboard::KeyCode;
 use ggez::mint;
 use ggez::{Context, GameResult};
-use nalgebra_glm::Vec2;
 
 extern crate ggez_goodies;
 use ggez_goodies::camera::*;
+use nalgebra_glm::Vec2;
 
 struct MainState {
     camera: Camera,
@@ -30,11 +33,12 @@ impl MainState {
             "The red dots are drawn on every integer point in the camera's coordinate \
              system."
         );
-        let image = graphics::Image::solid(ctx, 5, graphics::Color::new(1.0, 0.0, 0.0, 1.0))?;
+        let image =
+            graphics::Image::from_color(ctx, 5, 5, Some(graphics::Color::new(1.0, 0.0, 0.0, 1.0)));
 
         let state = MainState {
-            camera: camera,
-            image: image,
+            camera,
+            image,
             image_location: Vec2::new(0.0, 0.0),
         };
         Ok(state)
@@ -48,12 +52,44 @@ const CAMERA_WIDTH: f32 = 40.0;
 const CAMERA_HEIGHT: f32 = 30.0;
 
 impl event::EventHandler for MainState {
-    fn update(&mut self, _ctx: &mut Context) -> GameResult<()> {
+    fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
+        let k_ctx = &ctx.keyboard.clone();
+        if k_ctx.is_key_pressed(KeyCode::W) {
+            self.image_location.y += 0.1;
+        }
+        if k_ctx.is_key_pressed(KeyCode::S) {
+            self.image_location.y -= 0.1;
+        }
+        if k_ctx.is_key_pressed(KeyCode::D) {
+            self.image_location.x += 0.1;
+        }
+        if k_ctx.is_key_pressed(KeyCode::A) {
+            self.image_location.x -= 0.1;
+        }
+        if k_ctx.is_key_pressed(KeyCode::Up) {
+            self.camera.move_by(Vec2::new(0.0, 0.1));
+        }
+        if k_ctx.is_key_pressed(KeyCode::Down) {
+            self.camera.move_by(Vec2::new(0.0, -0.1));
+        }
+        if k_ctx.is_key_pressed(KeyCode::Right) {
+            self.camera.move_by(Vec2::new(0.1, 0.0));
+        }
+        if k_ctx.is_key_pressed(KeyCode::Left) {
+            self.camera.move_by(Vec2::new(-0.1, 0.0));
+        }
+        // println!(
+        //     "Camera position is now ({}, {}), object position is ({}, {})",
+        //     self.camera.location().x,
+        //     self.camera.location().y,
+        //     self.image_location.x,
+        //     self.image_location.y,
+        // );
         Ok(())
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        graphics::clear(ctx, [0.0, 0.0, 0.0, 1.0].into());
+        let mut canvas = graphics::Canvas::from_frame(ctx, Color::BLACK);
 
         let half_width = (CAMERA_WIDTH / 2.0) as i32;
         let half_height = (CAMERA_HEIGHT / 2.0) as i32;
@@ -68,64 +104,22 @@ impl event::EventHandler for MainState {
                     rectangle,
                     graphics::Color::from((255, 0, 0)),
                 )?;
-                graphics::draw(ctx, &rectangle, (mint::Point2 { x: 0.0, y: 0.0 },))?;
+                let dest = DrawParam::new().dest(mint::Point2 { x: 0.0, y: 0.0 });
+                canvas.draw(&rectangle, dest);
             }
         }
         self.image
-            .draw_camera(&self.camera, ctx, self.image_location, 0.0)?;
-        graphics::present(ctx)?;
+            .draw_camera(&self.camera, &mut canvas, self.image_location, 0.0)?;
+        canvas.finish(ctx)?;
         Ok(())
     }
-
-    fn key_down_event(
-        &mut self,
-        _ctx: &mut Context,
-        keycode: event::KeyCode,
-        _keymod: event::KeyMods,
-        _repeat: bool,
-    ) {
-        match keycode {
-            event::KeyCode::W => {
-                self.image_location.y += 0.1;
-            }
-            event::KeyCode::A => {
-                self.image_location.x -= 0.1;
-            }
-            event::KeyCode::S => {
-                self.image_location.y -= 0.1;
-            }
-            event::KeyCode::D => {
-                self.image_location.x += 0.1;
-            }
-            event::KeyCode::Up => self.camera.move_by(Vec2::new(0.0, 0.1)),
-            event::KeyCode::Left => self.camera.move_by(Vec2::new(-0.1, 0.0)),
-            event::KeyCode::Down => self.camera.move_by(Vec2::new(0.0, -0.1)),
-            event::KeyCode::Right => self.camera.move_by(Vec2::new(0.1, 0.0)),
-            _ => (),
-        };
-        println!(
-            "Camera position is now ({}, {}), object position is ({}, {})",
-            self.camera.location().x,
-            self.camera.location().y,
-            self.image_location.x,
-            self.image_location.y,
-        );
-    }
 }
 
-pub fn main() {
-    let (ctx, event_loop) = &mut ggez::ContextBuilder::new("camera_test", "test")
+pub fn main() -> GameResult {
+    let (mut ctx, event_loop) = ggez::ContextBuilder::new("camera_test", "test")
         .window_setup(conf::WindowSetup::default().title("Camera test"))
-        .build()
-        .unwrap();
-    let game = &mut MainState::new(ctx).unwrap();
+        .build()?;
+    let game = MainState::new(&mut ctx).unwrap();
 
-    if let Err(e) = event::run(ctx, event_loop, game) {
-        println!("Error encountered: {}", e);
-    } else {
-        println!("Game exited cleanly.");
-    }
+    event::run(ctx, event_loop, game)
 }
-*/
-
-fn main() {}

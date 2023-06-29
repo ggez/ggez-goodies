@@ -20,8 +20,11 @@
 //! * "raw" means unaffected by tweening on input axes
 //!
 
-use ggez::event::{Button, KeyCode, Axis, MouseButton};
-use ggez::mint::Point2;
+use ggez::{
+    event::{Axis, Button},
+    input::{keyboard::KeyCode, mouse::MouseButton},
+    mint::Point2,
+};
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -49,10 +52,10 @@ use std::hash::Hash;
 /// The raw ggez input types; the "from" part of an input mapping.
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]
 enum InputType {
-    KeyEvent(KeyCode),       // Keyboard Event,
-    GamepadEvent(Button),    // Gamepad Event
-    AxisEvent(Axis),         // Axis Event
-    MouseEvent(MouseButton), // Mouse Button Click
+    Key(KeyCode),       // Keyboard Event,
+    Gamepad(Button),    // Gamepad Event
+    Axis(Axis),         // Axis Event
+    Mouse(MouseButton), // Mouse Button Click
 }
 
 /// Abstract input values; the "to" part of an input mapping.
@@ -172,10 +175,8 @@ where
     /// Adds a key binding connecting the given keycode to the given
     /// logical axis.
     pub fn bind_key_to_axis(mut self, keycode: KeyCode, axis: Axes, positive: bool) -> Self {
-        self.bindings.insert(
-            InputType::KeyEvent(keycode),
-            InputEffect::Axis(axis, positive),
-        );
+        self.bindings
+            .insert(InputType::Key(keycode), InputEffect::Axis(axis, positive));
         self
     }
 
@@ -183,7 +184,7 @@ where
     /// logical button.
     pub fn bind_key_to_button(mut self, keycode: KeyCode, button: Buttons) -> Self {
         self.bindings
-            .insert(InputType::KeyEvent(keycode), InputEffect::Button(button));
+            .insert(InputType::Key(keycode), InputEffect::Button(button));
         self
     }
 
@@ -196,7 +197,7 @@ where
         positive: bool,
     ) -> Self {
         self.bindings.insert(
-            InputType::GamepadEvent(button),
+            InputType::Gamepad(button),
             InputEffect::Axis(axis, positive),
         );
         self
@@ -205,35 +206,45 @@ where
     /// Adds a gamepad binding connecting the given Gamepad Button to the given
     /// logical button.
     pub fn bind_gamepad_button_to_button(mut self, ggez_button: Button, button: Buttons) -> Self {
-        self.bindings.insert(
-            InputType::GamepadEvent(ggez_button),
-            InputEffect::Button(button),
-        );
+        self.bindings
+            .insert(InputType::Gamepad(ggez_button), InputEffect::Button(button));
         self
     }
 
     /// Adds a gamepad binding connecting the given Gamepad Axis to the given logical axis
-    pub fn bind_gamepad_axis_to_axis(mut self, axis: Axis, logical_axis: Axes, invert: bool) -> Self {
+    pub fn bind_gamepad_axis_to_axis(
+        mut self,
+        axis: Axis,
+        logical_axis: Axes,
+        invert: bool,
+    ) -> Self {
         self.bindings.insert(
-            InputType::AxisEvent(axis),
+            InputType::Axis(axis),
             InputEffect::AxisRaw(logical_axis, invert, None),
         );
         self
     }
 
     /// Adds a gamepad binding connecting the given Mouse Button to the given local button
-    pub fn bind_mouse_button_to_button(mut self, mouse_button: MouseButton, button: Buttons) -> Self {
-        self.bindings.insert(
-            InputType::MouseEvent(mouse_button),
-            InputEffect::Button(button),
-        );
+    pub fn bind_mouse_button_to_button(
+        mut self,
+        mouse_button: MouseButton,
+        button: Buttons,
+    ) -> Self {
+        self.bindings
+            .insert(InputType::Mouse(mouse_button), InputEffect::Button(button));
         self
     }
 
     /// Adds a gamepad binding connecting the given Mouse Button to the given local button
-    pub fn bind_mouse_button_to_axis(mut self, mouse_button: MouseButton, axis: Axes, positive: bool) -> Self {
+    pub fn bind_mouse_button_to_axis(
+        mut self,
+        mouse_button: MouseButton,
+        axis: Axes,
+        positive: bool,
+    ) -> Self {
         self.bindings.insert(
-            InputType::MouseEvent(mouse_button),
+            InputType::Mouse(mouse_button),
             InputEffect::Axis(axis, positive),
         );
         self
@@ -241,22 +252,25 @@ where
 
     /// Takes an physical input type and turns it into a logical input type (keycode -> axis/button).
     pub fn resolve(&self, keycode: KeyCode) -> Option<InputEffect<Axes, Buttons>> {
-        self.bindings.get(&InputType::KeyEvent(keycode)).cloned()
+        self.bindings.get(&InputType::Key(keycode)).cloned()
     }
 
     /// Takes a physical Gamepad input type and turns it into a logical input type (gamepad::button -> axis/button).
     pub fn resolve_gamepad(&self, button: Button) -> Option<InputEffect<Axes, Buttons>> {
-        self.bindings.get(&InputType::GamepadEvent(button)).cloned()
+        self.bindings.get(&InputType::Gamepad(button)).cloned()
     }
 
     /// Takes a physical Gamepad axis type and turns it into a logical input type (gamepad::axis -> axis/button).
     pub fn resolve_axis(&self, axis: Axis) -> Option<InputEffect<Axes, Buttons>> {
-        self.bindings.get(&InputType::AxisEvent(axis)).cloned()
+        self.bindings.get(&InputType::Axis(axis)).cloned()
     }
 
     /// Takes a physical MouseButton click and turns it into a logical input type (MouseButton -> axis/button)
-    pub fn resolve_mouse_button(&self, mouse_button: MouseButton) -> Option<InputEffect<Axes, Buttons>> {
-        self.bindings.get(&InputType::MouseEvent(mouse_button)).cloned()
+    pub fn resolve_mouse_button(
+        &self,
+        mouse_button: MouseButton,
+    ) -> Option<InputEffect<Axes, Buttons>> {
+        self.bindings.get(&InputType::Mouse(mouse_button)).cloned()
     }
 }
 
@@ -363,7 +377,7 @@ where
     pub fn update_effect(&mut self, effect: InputEffect<Axes, Buttons>, started: bool) {
         match effect {
             InputEffect::Axis(axis, positive) => {
-                let f = || AxisState::default();
+                let f = AxisState::default;
                 let axis_status = self.axes.entry(axis).or_insert_with(f);
                 if started {
                     let direction_float = if positive { 1.0 } else { -1.0 };
@@ -373,19 +387,19 @@ where
                 {
                     axis_status.direction = 0.0;
                 }
-            },
+            }
             InputEffect::Button(button) => {
-                let f = || ButtonState::default();
+                let f = ButtonState::default;
                 let button_status = self.buttons.entry(button).or_insert_with(f);
                 button_status.pressed = started;
-            },
+            }
             InputEffect::AxisRaw(axis, inverted, raw_value) => {
-                let f = || AxisState::default();
+                let f = AxisState::default;
                 let axis_status = self.axes.entry(axis).or_insert_with(f);
                 if let Some(raw) = raw_value {
                     let raw = if inverted { -raw } else { raw };
-                    axis_status.position = raw; 
-                    axis_status.direction = raw; 
+                    axis_status.position = raw;
+                    axis_status.direction = raw;
                 }
             }
         }
@@ -522,10 +536,12 @@ where
             if let Some(effect) = binding.resolve_axis(axis) {
                 let is = self.player_states.entry(player_id).or_default();
                 let effect = match effect {
-                    InputEffect::AxisRaw(ax, invert, _) => InputEffect::AxisRaw(ax, invert, Some(value)), 
+                    InputEffect::AxisRaw(ax, invert, _) => {
+                        InputEffect::AxisRaw(ax, invert, Some(value))
+                    }
                     e => e,
                 };
-                is.update_effect(effect, false); 
+                is.update_effect(effect, false);
             }
         }
     }
@@ -537,8 +553,8 @@ where
         self.mouse_state.scrollwheel.x = dx;
         self.mouse_state.scrollwheel.y = dy;
     }
-    
-    /// Signals the MouseState that the mouse has moved, storing: 
+
+    /// Signals the MouseState that the mouse has moved, storing:
     /// * the new screen position
     /// * the delta in position
     ///
@@ -550,13 +566,13 @@ where
         self.mouse_state.delta.y = dy;
     }
 
-    /// Signals all Player Input State that a mouse button has been pressed, triggering 
+    /// Signals all Player Input State that a mouse button has been pressed, triggering
     /// the correct update on state with the logical button
     pub fn update_mouse_button_down(&mut self, mouse_button: MouseButton) {
         self.update_mouse_button(mouse_button, true)
     }
 
-    /// Signals all Player Input State that a mouse button has been released, triggering 
+    /// Signals all Player Input State that a mouse button has been released, triggering
     /// the correct update on state with the logical button
     pub fn update_mouse_button_up(&mut self, mouse_button: MouseButton) {
         self.update_mouse_button(mouse_button, false)
@@ -705,19 +721,19 @@ where
 
     /// Gets the position of the mouse on the screen
     pub fn get_mouse_position(&self) -> Point2<f32> {
-        self.mouse_state.position.clone()
+        self.mouse_state.position
     }
 
     /// Gets the scrolling delta from last frame  
     pub fn get_mouse_scroll_delta(&self) -> Point2<f32> {
-        self.mouse_state.scrollwheel.clone()
+        self.mouse_state.scrollwheel
     }
 
-    /// Gets the delta position of the mouse 
+    /// Gets the delta position of the mouse
     /// (how much pixels it moved on the X and Y axis)
     /// during the latest frame
     pub fn get_mouse_delta(&self) -> Point2<f32> {
-        self.mouse_state.delta.clone()
+        self.mouse_state.delta
     }
 }
 
@@ -829,19 +845,19 @@ struct MouseState {
 impl Default for MouseState {
     fn default() -> Self {
         MouseState {
-            position: [0.,0.].into(),
-            delta: [0.,0.].into(),
-            scrollwheel: [0.,0.].into(),
+            position: [0., 0.].into(),
+            delta: [0., 0.].into(),
+            scrollwheel: [0., 0.].into(),
         }
     }
 }
 
 impl MouseState {
-    /// Resets "delta" values such as ScrollWheel 
+    /// Resets "delta" values such as ScrollWheel
     /// and position delta
     pub fn update(&mut self) {
-        self.scrollwheel = [0.,0.].into();
-        self.delta = [0.,0.].into();
+        self.scrollwheel = [0., 0.].into();
+        self.delta = [0., 0.].into();
     }
 }
 
@@ -864,7 +880,7 @@ mod tests {
     }
 
     fn make_input_binding() -> InputBinding<Axes, Buttons> {
-        let ib = InputBinding::<Axes, Buttons>::new()
+        InputBinding::<Axes, Buttons>::new()
             .bind_key_to_button(KeyCode::Z, Buttons::A)
             .bind_key_to_button(KeyCode::X, Buttons::B)
             .bind_key_to_button(KeyCode::Return, Buttons::Start)
@@ -873,8 +889,7 @@ mod tests {
             .bind_key_to_axis(KeyCode::Up, Axes::Vert, true)
             .bind_key_to_axis(KeyCode::Down, Axes::Vert, false)
             .bind_key_to_axis(KeyCode::Left, Axes::Horz, false)
-            .bind_key_to_axis(KeyCode::Right, Axes::Horz, true);
-        ib
+            .bind_key_to_axis(KeyCode::Right, Axes::Horz, true)
     }
 
     fn make_input_binding_multiple() -> (InputBinding<Axes, Buttons>, InputBinding<Axes, Buttons>) {
@@ -960,14 +975,14 @@ mod tests {
 
         input_state.update_key_up(KeyCode::Down);
         assert_eq!(input_state.get_player_axis_raw(Axes::Vert, 0), 0.);
-        
+
         input_state.update_gamepad_down(Button::DPadLeft, 1);
         assert!(input_state.get_player_axis_raw(Axes::Horz, 1) < 0.);
-        
+
         input_state.update_gamepad_up(Button::DPadLeft, 1);
         input_state.update_gamepad_down(Button::DPadRight, 1);
         assert!(input_state.get_player_axis_raw(Axes::Horz, 1) > 0.);
-        
+
         input_state.update_gamepad_up(Button::DPadRight, 1);
         assert_eq!(input_state.get_player_axis_raw(Axes::Horz, 1), 0.);
 

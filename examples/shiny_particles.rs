@@ -1,4 +1,8 @@
-use ggez::{self, conf, event, graphics, timer, Context, GameResult};
+use ggez::{
+    self, conf, event,
+    graphics::{self, Color},
+    Context, GameResult,
+};
 use ggez_goodies::{self, euclid as eu, particle2 as p};
 
 struct MainState {
@@ -35,9 +39,9 @@ impl MainState {
             //.emission_shape(EmissionShape::Line(Point2::new(-100.0, -100.0), Point2::new(100.0, 100.0)))
             .build();
          */
-        let image = graphics::Image::new(ctx, "/player.png")?;
+        let image = graphics::Image::from_path(ctx, "/player.png")?;
         let emitter = p::Emitter::new(10.0);
-        let particles = p::ParticleSystem::new(1000, emitter, image);
+        let particles = p::ParticleSystem::new(1000, emitter, image, ctx);
         let state = MainState { particles };
         Ok(state)
     }
@@ -49,14 +53,14 @@ const WINDOW_HEIGHT: f32 = 480.0;
 impl event::EventHandler for MainState {
     fn update(&mut self, ctx: &mut Context) -> GameResult<()> {
         const DESIRED_FPS: u32 = 60;
-        while timer::check_update_time(ctx, DESIRED_FPS) {
+        while ctx.time.check_update_time(DESIRED_FPS) {
             let seconds = 1.0 / (DESIRED_FPS as f32);
             self.particles.update(seconds);
-            if timer::ticks(ctx) % 10 == 0 {
+            if ctx.time.ticks() % 10 == 0 {
                 println!(
                     "Particles: {}, FPS: {}",
                     self.particles.count(),
-                    timer::fps(ctx)
+                    ctx.time.fps()
                 );
             }
         }
@@ -64,19 +68,15 @@ impl event::EventHandler for MainState {
     }
 
     fn draw(&mut self, ctx: &mut Context) -> GameResult<()> {
-        graphics::clear(ctx, [0.0, 0.0, 0.0, 1.0].into());
+        let mut canvas = graphics::Canvas::from_frame(ctx, Color::BLACK);
         let dest: ggez_goodies::Point2 = eu::point2(WINDOW_WIDTH / 2.0, WINDOW_HEIGHT / 2.0);
-        graphics::draw(
-            ctx,
-            &mut self.particles,
-            graphics::DrawParam::default().dest(dest),
-        )?;
-        graphics::present(ctx)?;
+        canvas.draw(&self.particles, graphics::DrawParam::new().dest(dest));
+        canvas.finish(ctx)?;
         Ok(())
     }
 }
 
-pub fn main() {
+pub fn main() -> GameResult {
     use std::env;
     use std::path;
     let resource_dir = if let Ok(manifest_dir) = env::var("CARGO_MANIFEST_DIR") {
@@ -87,18 +87,13 @@ pub fn main() {
         path::PathBuf::from("./resources")
     };
 
-    let (ctx, event_loop) = &mut ggez::ContextBuilder::new("shiny_particles", "test")
+    let (mut ctx, event_loop) = ggez::ContextBuilder::new("shiny_particles", "test")
         .window_setup(conf::WindowSetup::default().title("Shiny particles"))
         .window_mode(conf::WindowMode::default().dimensions(WINDOW_WIDTH, WINDOW_HEIGHT))
         .add_resource_path(resource_dir)
-        .build()
-        .unwrap();
+        .build()?;
 
-    let game = &mut MainState::new(ctx).unwrap();
+    let game = MainState::new(&mut ctx).unwrap();
 
-    if let Err(e) = event::run(ctx, event_loop, game) {
-        println!("Error encountered: {}", e);
-    } else {
-        println!("Game exited cleanly.");
-    }
+    event::run(ctx, event_loop, game)
 }
