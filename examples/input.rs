@@ -20,8 +20,8 @@ extern crate ggez;
 
 use ggez::event::{Axis, Button, MouseButton};
 use ggez::graphics::{self, Color};
-use ggez::input::keyboard::KeyCode;
-use ggez::{Context, GameResult};
+use ggez::input::keyboard::{KeyCode, KeyInput};
+use ggez::{Context, GameError, GameResult};
 use ggez_goodies::input::{InputBinding, InputState, InputStateBuilder};
 use ggez_goodies::Point2;
 use graphics::{DrawMode, DrawParam, FillOptions, Mesh, Rect};
@@ -126,55 +126,99 @@ impl ggez::event::EventHandler for MainState {
         canvas.finish(ctx)
     }
 
-    // fn key_down_event(
-    //     &mut self,
-    //     _ctx: &mut Context,
-    //     keycode: KeyCode,
-    //     _keymods: KeyMods,
-    //     repeat: bool,
-    // ) {
-    //     if repeat {
-    //         return;
-    //     }
-    //     self.input_state.update_key_down(keycode);
-    // }
+    fn key_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        keyinput: KeyInput,
+        repeat: bool,
+    ) -> GameResult {
+        if repeat {
+            return Ok(());
+        }
+        if let Some(keycode) = keyinput.keycode {
+            self.input_state.update_key_down(keycode);
+            Ok(())
+        } else {
+            Err(GameError::CustomError("Keycode doesn't exist".to_string()))
+        }
+    }
 
-    // fn key_up_event(&mut self, _ctx: &mut Context, keycode: KeyCode, _keymods: KeyMods) {
-    //     self.input_state.update_key_up(keycode);
-    // }
+    fn key_up_event(&mut self, _ctx: &mut Context, keyinput: KeyInput) -> GameResult {
+        if let Some(keycode) = keyinput.keycode {
+            self.input_state.update_key_up(keycode);
+            Ok(())
+        } else {
+            Err(GameError::CustomError("Keycode doesn't exist".to_string()))
+        }
+    }
 
-    // fn gamepad_button_down_event(&mut self, ctx: &mut Context, btn: Button, id: GamepadId) {
-    //     let id = ctx.gamepad_context.gamepad(id).id();
-    //     self.input_state.update_gamepad_down(btn, id.into())
-    // }
+    fn gamepad_button_down_event(
+        &mut self,
+        ctx: &mut Context,
+        btn: Button,
+        id: ggez::event::GamepadId,
+    ) -> GameResult {
+        let id = ctx.gamepad.gamepad(id).id();
+        self.input_state.update_gamepad_down(btn, id.into());
+        Ok(())
+    }
 
-    // fn gamepad_button_up_event(&mut self, ctx: &mut Context, btn: Button, id: GamepadId) {
-    //     let id = ctx.gamepad_context.gamepad(id).id();
-    //     self.input_state.update_gamepad_up(btn, id.into())
-    // }
+    fn gamepad_button_up_event(
+        &mut self,
+        ctx: &mut Context,
+        btn: Button,
+        id: ggez::event::GamepadId,
+    ) -> GameResult {
+        let id = ctx.gamepad.gamepad(id).id();
+        self.input_state.update_gamepad_up(btn, id.into());
+        Ok(())
+    }
 
-    // fn gamepad_axis_event(&mut self, ctx: &mut Context, axis: Axis, value: f32, id: GamepadId) {
-    //     let id = ctx.gamepad_context.gamepad(id).id();
-    //     self.input_state.update_axis(axis, value, id.into());
-    // }
+    fn gamepad_axis_event(
+        &mut self,
+        ctx: &mut Context,
+        axis: Axis,
+        value: f32,
+        id: ggez::event::GamepadId,
+    ) -> GameResult {
+        let id = ctx.gamepad.gamepad(id).id();
+        self.input_state.update_axis(axis, value, id.into());
+        Ok(())
+    }
 
-    // fn mouse_button_down_event(
-    //     &mut self,
-    //     _ctx: &mut Context,
-    //     button: MouseButton,
-    //     _x: f32,
-    //     _y: f32,
-    // ) {
-    //     self.input_state.update_mouse_button_down(button);
-    // }
+    fn mouse_button_down_event(
+        &mut self,
+        _ctx: &mut Context,
+        button: MouseButton,
+        _x: f32,
+        _y: f32,
+    ) -> GameResult {
+        self.input_state.update_mouse_button_down(button);
+        Ok(())
+    }
 
-    // fn mouse_button_up_event(&mut self, _ctx: &mut Context, button: MouseButton, _x: f32, _y: f32) {
-    //     self.input_state.update_mouse_button_up(button);
-    // }
+    fn mouse_button_up_event(
+        &mut self,
+        _ctx: &mut Context,
+        button: MouseButton,
+        _x: f32,
+        _y: f32,
+    ) -> GameResult {
+        self.input_state.update_mouse_button_up(button);
+        Ok(())
+    }
 
-    // fn mouse_motion_event(&mut self, _ctx: &mut Context, x: f32, y: f32, dx: f32, dy: f32) {
-    //     self.input_state.update_mouse_motion(x, y, dx, dy);
-    // }
+    fn mouse_motion_event(
+        &mut self,
+        _ctx: &mut Context,
+        x: f32,
+        y: f32,
+        dx: f32,
+        dy: f32,
+    ) -> GameResult {
+        self.input_state.update_mouse_motion(x, y, dx, dy);
+        Ok(())
+    }
 }
 
 fn main() -> ggez::GameResult<()> {
