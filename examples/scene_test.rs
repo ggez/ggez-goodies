@@ -42,13 +42,8 @@ struct StartScene {
 }
 
 impl Scene<SharedState> for StartScene {
-    fn update(
-        &mut self,
-        _: &mut SharedState,
-        ctx: &mut ggez::Context,
-    ) -> SceneSwitch<SharedState, SceneEvents, ggez::Context> {
+    fn update(&mut self, _: &mut SharedState, ctx: &mut ggez::Context) -> SceneSwitch<SharedState> {
         if ctx.keyboard.is_key_just_pressed(VirtualKeyCode::K) {
-            println!("Hello");
             self.switch = true;
         }
         if self.switch {
@@ -83,11 +78,7 @@ struct Scene1 {
 }
 
 impl Scene<SharedState> for Scene1 {
-    fn update(
-        &mut self,
-        _: &mut SharedState,
-        ctx: &mut ggez::Context,
-    ) -> SceneSwitch<SharedState, SceneEvents, ggez::Context> {
+    fn update(&mut self, _: &mut SharedState, ctx: &mut ggez::Context) -> SceneSwitch<SharedState> {
         if ctx.keyboard.is_key_just_pressed(VirtualKeyCode::K) {
             self.switch = true;
         }

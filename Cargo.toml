@@ -13,7 +13,7 @@ readme = "README.md"
 opt-level = 1
 
 [dependencies]
-ggez = "0.9"
+ggez = {path = "../ggez"}
 nalgebra-glm = "0.4.0"
 tiled = "0.8"
 euclid = {version = "0.19", features = ["mint"]}
