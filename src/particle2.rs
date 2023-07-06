@@ -4,7 +4,8 @@
 
 use euclid;
 use ggez;
-use ggez::graphics;
+use ggez::context::Has;
+use ggez::graphics::{self, GraphicsContext};
 
 pub trait Particle {
     fn new() -> Self;
@@ -60,7 +61,7 @@ where
 {
     particles: Vec<P>,
     max_particles: usize,
-    batch: graphics::spritebatch::SpriteBatch,
+    instance_array: graphics::InstanceArray,
     emitter: Emitter,
 }
 
@@ -68,11 +69,16 @@ impl<P> ParticleSystem<P>
 where
     P: Particle,
 {
-    pub fn new(limit: usize, emitter: Emitter, image: graphics::Image) -> Self {
+    pub fn new(
+        limit: usize,
+        emitter: Emitter,
+        image: graphics::Image,
+        gfx: &impl Has<GraphicsContext>,
+    ) -> Self {
         Self {
             particles: Vec::with_capacity(limit),
             max_particles: limit,
-            batch: graphics::spritebatch::SpriteBatch::new(image),
+            instance_array: graphics::InstanceArray::new(gfx, image),
             emitter,
         }
     }
@@ -101,10 +107,10 @@ where
         }
 
         // Update draw info
-        self.batch.clear();
+        self.instance_array.clear();
         for p in &mut self.particles {
             p.update(dt);
-            self.batch.add(p.to_draw_param());
+            self.instance_array.push(p.to_draw_param());
         }
     }
 
@@ -118,21 +124,14 @@ impl<P> graphics::Drawable for ParticleSystem<P>
 where
     P: Particle,
 {
-    fn draw(&self, ctx: &mut ggez::Context, param: graphics::DrawParam) -> ggez::GameResult {
-        self.batch.draw(ctx, param)
+    fn draw(&self, canvas: &mut ggez::graphics::Canvas, param: impl Into<graphics::DrawParam>) {
+        self.instance_array.draw(canvas, param)
     }
 
     /// This is kinda odd 'cause tiles don't *strictly* all need to be the same size...
     /// TODO: Find out if Tiled can ever create ones that aren't.
-    fn dimensions(&self, ctx: &mut ggez::Context) -> Option<graphics::Rect> {
-        self.batch.dimensions(ctx)
-    }
-
-    fn set_blend_mode(&mut self, mode: Option<graphics::BlendMode>) {
-        self.batch.set_blend_mode(mode);
-    }
-    fn blend_mode(&self) -> Option<graphics::BlendMode> {
-        self.batch.blend_mode()
+    fn dimensions(&self, gfx: &impl Has<GraphicsContext>) -> Option<graphics::Rect> {
+        self.instance_array.dimensions(gfx)
     }
 }
 
@@ -153,7 +152,7 @@ impl Particle for DefaultParticle {
         Self {
             pos: euclid::point2(0.0, 0.0),
             vel: euclid::vec2(10.0, 10.0),
-            color: graphics::WHITE,
+            color: graphics::Color::WHITE,
             size: 1.0,
             angle: 0.0,
             ang_vel: 0.0,

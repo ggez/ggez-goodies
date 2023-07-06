@@ -1,182 +1,116 @@
 extern crate ggez;
 extern crate ggez_goodies;
-use ggez::conf;
-/*
 use ggez::event;
 use ggez::graphics;
-use ggez::timer;
+use ggez::graphics::DrawParam;
+use ggez::graphics::Text;
+use ggez::winit::event::VirtualKeyCode;
+use ggez::Context;
 use ggez::GameResult;
-use std::time::Duration;
 
 use ggez_goodies::scene::*;
 
+struct SharedState {}
+
 struct MainState {
-    font: graphics::Font,
-    message_text: graphics::Text,
+    scenes: SceneStack<SharedState>,
 }
 
-/// A bootstrap scene whose only purpose is to
-/// load all the other bits necessary...
-struct StartScene;
-impl SavedScene<MainState> for StartScene {
-    fn load(&self) -> Box<Scene<MainState>> {
-        Box::new(StartScene)
-    }
-    fn name(&self) -> &str {
-        "Starting Scene"
+impl MainState {
+    fn new(ctx: &mut Context) -> GameResult<MainState> {
+        let mut scenes = SceneStack::new(ctx, SharedState {});
+        scenes.switch(SceneSwitch::push(StartScene { switch: false }));
+        Ok(MainState { scenes })
     }
 }
 
-impl Scene<MainState> for StartScene {
-    fn unload(&mut self) -> Box<SavedScene<MainState>> {
-        Box::new(StartScene)
+impl event::EventHandler for MainState {
+    fn update(&mut self, ctx: &mut Context) -> GameResult {
+        self.scenes.update(ctx);
+        self.scenes.input(SceneEvents::None, ctx, true);
+        Ok(())
     }
 
-
-    fn update(&mut self,
-              _ctx: &mut ggez::Context,
-              _dt: Duration,
-              state: &mut SceneStore<MainState>)
-              -> GameResult<Option<String>> {
-        let s1 = SavedScene1::new("Scene 1", "Scene 2");
-        let s2 = SavedScene1::new("Scene 2", "Scene 1");
-        state.add(s1);
-        state.add(s2);
-        Ok(Some("Scene 1".to_string()))
-    }
-
-    fn draw(&mut self,
-            _ctx: &mut ggez::Context,
-            _store: &mut SceneStore<MainState>)
-            -> GameResult<()> {
+    fn draw(&mut self, ctx: &mut Context) -> GameResult {
+        self.scenes.draw(ctx);
         Ok(())
     }
 }
 
-impl GameData<MainState> for MainState {
-    fn load(ctx: &mut ggez::Context, _conf: &conf::Conf) -> GameResult<Self> {
-        let font = graphics::Font::new(ctx, "DejaVuSerif.ttf", 16)?;
-
-        let text = graphics::Text::new(ctx, "Press space to switch to the next scene.", &font)?;
-        Ok(MainState {
-            font: font,
-            message_text: text,
-        })
-    }
-    fn starting_scene() -> Box<SavedScene<MainState>> {
-        Box::new(StartScene)
-    }
+struct StartScene {
+    switch: bool,
 }
 
-#[derive(Clone, Debug)]
-struct SavedScene1 {
-    time_unloaded: f64,
-    name: String,
-    next_scene: String,
-}
-
-impl SavedScene1 {
-    fn new(name: &str, next_scene: &str) -> Self {
-        SavedScene1 {
-            time_unloaded: 0.0,
-            name: name.to_string(),
-            next_scene: next_scene.to_string(),
+impl Scene<SharedState> for StartScene {
+    fn update(&mut self, _: &mut SharedState, ctx: &mut ggez::Context) -> SceneSwitch<SharedState> {
+        if ctx.keyboard.is_key_just_pressed(VirtualKeyCode::K) {
+            self.switch = true;
         }
+        if self.switch {
+            self.switch = false;
+            SceneSwitch::replace(Scene1 { switch: false })
+        } else {
+            SceneSwitch::None
+        }
+    }
+
+    fn draw(&mut self, _: &mut SharedState, ctx: &mut ggez::Context) -> ggez::GameResult<()> {
+        let mut canvas =
+            graphics::Canvas::from_frame(ctx, graphics::Color::from([0.1, 0.2, 0.3, 1.0]));
+
+        canvas.draw(&Text::new(self.name()), DrawParam::default());
+
+        canvas.finish(ctx)?;
+
+        Ok(())
+    }
+
+    fn input(&mut self, _: &mut SharedState, _: SceneEvents, _: &mut ggez::Context, _: bool) {}
+
+    fn name(&self) -> &str {
+        "StartScene"
     }
 }
 
 #[derive(Clone, Debug)]
 struct Scene1 {
-    current_time: f64,
-    name: String,
-    next_scene: String,
-    switch_to_next: bool,
+    switch: bool,
 }
 
-
-impl SavedScene<MainState> for SavedScene1 {
-    fn load(&self) -> Box<Scene<MainState>> {
-        Box::new(Scene1 {
-            current_time: self.time_unloaded,
-            name: self.name.clone(),
-            next_scene: self.next_scene.clone(),
-            switch_to_next: false,
-        })
-    }
-    fn name(&self) -> &str {
-        &self.name
-    }
-}
-
-impl Scene<MainState> for Scene1 {
-    fn unload(&mut self) -> Box<SavedScene<MainState>> {
-        Box::new(SavedScene1 {
-            time_unloaded: self.current_time,
-            name: self.name.clone(),
-            next_scene: self.next_scene.clone(),
-        })
-    }
-
-
-    fn update(&mut self,
-              _ctx: &mut ggez::Context,
-              dt: Duration,
-              _state: &mut SceneStore<MainState>)
-              -> GameResult<Option<String>> {
-        let seconds = timer::duration_to_f64(dt);
-        self.current_time += seconds;
-        if self.switch_to_next {
-            Ok(Some(self.next_scene.clone()))
+impl Scene<SharedState> for Scene1 {
+    fn update(&mut self, _: &mut SharedState, ctx: &mut ggez::Context) -> SceneSwitch<SharedState> {
+        if ctx.keyboard.is_key_just_pressed(VirtualKeyCode::K) {
+            self.switch = true;
+        }
+        if self.switch {
+            self.switch = false;
+            SceneSwitch::replace(StartScene { switch: false })
         } else {
-            Ok(None)
+            SceneSwitch::None
         }
     }
 
-    fn draw(&mut self,
-            ctx: &mut ggez::Context,
-            store: &mut SceneStore<MainState>)
-            -> GameResult<()> {
-        ctx.renderer.clear();
-        let message = format!("Scene '{}' has been running for {:0.2} seconds",
-                              self.name,
-                              self.current_time);
-        let state = &mut store.game_data;
-        let text = &mut graphics::Text::new(ctx, &message, &state.font)?;
-        let text_rect = graphics::Rect::new(10, 240, text.width(), text.height());
+    fn draw(&mut self, _: &mut SharedState, ctx: &mut ggez::Context) -> ggez::GameResult<()> {
+        let mut canvas =
+            graphics::Canvas::from_frame(ctx, graphics::Color::from([0.1, 0.2, 0.3, 1.0]));
 
-        try!(graphics::draw(ctx, text, None, Some(text_rect)));
+        canvas.draw(&Text::new(self.name()), DrawParam::default());
 
+        canvas.finish(ctx)?;
 
-        let text_rect2 = graphics::Rect::new(10,
-                                             270,
-                                             state.message_text.width(),
-                                             state.message_text.height());
-
-        try!(graphics::draw(ctx, &mut state.message_text, None, Some(text_rect2)));
-
-        ctx.renderer.present();
-        timer::sleep_until_next_frame(ctx, 60);
         Ok(())
     }
 
-    fn key_down_event(&mut self,
-                      keycode: Option<event::Keycode>,
-                      _keymod: event::Mod,
-                      _repeat: bool) {
-        if let Some(event::Keycode::Space) = keycode {
-            self.switch_to_next = true;
+    fn input(&mut self, _: &mut SharedState, _: SceneEvents, _: &mut ggez::Context, _: bool) {}
 
-        }
+    fn name(&self) -> &str {
+        "Scene 1"
     }
 }
-*/
-pub fn main() {
-    let _c = conf::Conf::new();
-    /*let mut game: Game<SceneManager<MainState>> = Game::new("scenetest", c).unwrap();
-        if let Err(e) = game.run() {
-            println!("Error encountered: {:?}", e);
-        } else {
-            println!("Game exited cleanly.");
-        }
-    */
+
+pub fn main() -> GameResult {
+    let cb = ggez::ContextBuilder::new("scene_test", "ggez");
+    let (mut ctx, event_loop) = cb.build()?;
+    let state = MainState::new(&mut ctx)?;
+    event::run(ctx, event_loop, state)
 }
