@@ -43,7 +43,7 @@ struct StartScene {
 
 impl Scene<SharedState> for StartScene {
     fn update(&mut self, _: &mut SharedState, ctx: &mut ggez::Context) -> SceneSwitch<SharedState> {
-        if ctx.keyboard.is_key_just_pressed(VirtualKeyCode::K) {
+        if ctx.keyboard.is_key_just_pressed(VirtualKeyCode::Space) {
             self.switch = true;
         }
         if self.switch {
@@ -58,7 +58,10 @@ impl Scene<SharedState> for StartScene {
         let mut canvas =
             graphics::Canvas::from_frame(ctx, graphics::Color::from([0.1, 0.2, 0.3, 1.0]));
 
-        canvas.draw(&Text::new(self.name()), DrawParam::default());
+        canvas.draw(
+            &Text::new("Press space to switch! Current Scene: ".to_owned() + self.name()),
+            DrawParam::default(),
+        );
 
         canvas.finish(ctx)?;
 
@@ -79,7 +82,7 @@ struct Scene1 {
 
 impl Scene<SharedState> for Scene1 {
     fn update(&mut self, _: &mut SharedState, ctx: &mut ggez::Context) -> SceneSwitch<SharedState> {
-        if ctx.keyboard.is_key_just_pressed(VirtualKeyCode::K) {
+        if ctx.keyboard.is_key_just_pressed(VirtualKeyCode::Space) {
             self.switch = true;
         }
         if self.switch {
@@ -94,7 +97,10 @@ impl Scene<SharedState> for Scene1 {
         let mut canvas =
             graphics::Canvas::from_frame(ctx, graphics::Color::from([0.1, 0.2, 0.3, 1.0]));
 
-        canvas.draw(&Text::new(self.name()), DrawParam::default());
+        canvas.draw(
+            &Text::new("Press space to switch! Current Scene: ".to_owned() + self.name()),
+            DrawParam::default(),
+        );
 
         canvas.finish(ctx)?;
 
